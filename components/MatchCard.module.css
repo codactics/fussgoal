@@ -1,0 +1,77 @@
+.card {
+  display: block;
+  padding: 1.25rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 34px rgba(16, 34, 27, 0.08);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 44px rgba(16, 34, 27, 0.14);
+  border-color: rgba(15, 106, 76, 0.2);
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.topRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.75rem;
+  border-radius: 999px;
+  background: #edf2ef;
+  color: #41524b;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.liveBadge {
+  background: rgba(219, 47, 62, 0.1);
+  color: #b51f31;
+}
+
+.liveDot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #db2f3e;
+  box-shadow: 0 0 0 5px rgba(219, 47, 62, 0.16);
+}
+
+.teams {
+  display: grid;
+  gap: 0.9rem;
+  margin: 1.2rem 0 1rem;
+}
+
+.teamRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.teamName {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #13201b;
+}
+
+.score {
+  font-size: clamp(1.8rem, 4vw, 2.3rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #0b4f39;
+}

@@ -1,0 +1,1030 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Backend - Dynamites Cup 2026</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 2rem;
+        background: #f5f1ea;
+        color: #1c1c1c;
+      }
+      main {
+        max-width: 900px;
+        margin: 0 auto;
+        background: #ffffff;
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: 0 12px 28px rgba(44, 35, 27, 0.12);
+      }
+      h1 {
+        margin-top: 0;
+      }
+      form {
+        margin-top: 1.5rem;
+        display: grid;
+        gap: 0.75rem;
+      }
+      .team-info {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #eadfce;
+      }
+      .team-info h2 {
+        margin: 0 0 0.75rem;
+      }
+      .team-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .team-table th,
+      .team-table td {
+        border: 1px solid #eadfce;
+        padding: 0.75rem;
+        text-align: left;
+        vertical-align: middle;
+      }
+      .team-table th {
+        background: #f7f2ea;
+        font-weight: 600;
+      }
+      .team-table input[type="text"] {
+        width: 100%;
+        padding: 0.5rem 0.6rem;
+        border: 1px solid #d7cabb;
+        border-radius: 6px;
+      }
+      .team-table input[type="file"] {
+        width: 100%;
+      }
+      .team-table select {
+        width: 100%;
+        padding: 0.45rem 0.6rem;
+        border: 1px solid #d7cabb;
+        border-radius: 6px;
+        background: #fff;
+      }
+      .group-section {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #eadfce;
+      }
+      .formula-section {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #eadfce;
+      }
+      .formula-section h2 {
+        margin: 0 0 0.75rem;
+      }
+      .formula-section h3 {
+        margin: 1.25rem 0 0.5rem;
+        font-size: 1rem;
+      }
+      .formula-section pre {
+        background: #f7f2ea;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 0.95rem;
+      }
+      .formula-section ul {
+        margin: 0.5rem 0 0 1.25rem;
+      }
+      .sim-section {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #eadfce;
+      }
+      .options {
+        display: grid;
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+      }
+      .options fieldset {
+        border: 1px solid #eadfce;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+      }
+      .options legend {
+        font-weight: 600;
+        padding: 0 0.35rem;
+      }
+      .options label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-right: 1rem;
+      }
+      .primary-btn {
+        margin-top: 1rem;
+        padding: 0.7rem 1.2rem;
+        border: none;
+        border-radius: 8px;
+        background: #c44d3b;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .primary-btn[hidden] {
+        display: none;
+      }
+      .secondary-btn {
+        margin-top: 1rem;
+        padding: 0.65rem 1.1rem;
+        border: 1px solid #c44d3b;
+        border-radius: 8px;
+        background: transparent;
+        color: #c44d3b;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .group-output {
+        margin-top: 1.5rem;
+        display: grid;
+        gap: 1rem;
+      }
+      .group-card {
+        border: 1px solid #eadfce;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        background: #fffaf4;
+      }
+      .group-card h4 {
+        margin: 0 0 0.5rem;
+      }
+      .group-card ul {
+        margin: 0;
+        padding-left: 1.1rem;
+      }
+      .fixtures-output {
+        margin-top: 1.5rem;
+        display: grid;
+        gap: 1rem;
+      }
+      .league-section {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #eadfce;
+      }
+      .fixture-card {
+        border: 1px solid #eadfce;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        background: #ffffff;
+      }
+      .fixture-card h4 {
+        margin: 0 0 0.5rem;
+      }
+      .fixture-card ul {
+        margin: 0;
+        padding-left: 1.1rem;
+      }
+      label {
+        font-weight: 600;
+      }
+      input[type="number"] {
+        width: min(240px, 100%);
+        padding: 0.6rem 0.75rem;
+        border: 1px solid #d7cabb;
+        border-radius: 8px;
+        font-size: 1rem;
+      }
+      .hint {
+        font-size: 0.9rem;
+        color: #6b645a;
+      }
+      a {
+        color: #c44d3b;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Backend Page</h1>
+      <p>This page will connect to the frontend when you provide the logic.</p>
+      <form>
+        <label for="team-count">How many teams</label>
+        <input
+          id="team-count"
+          name="teamCount"
+          type="number"
+          min="2"
+          max="120"
+          step="1"
+          inputmode="numeric"
+          required
+        />
+        <div class="hint">Enter a whole number between 2 and 120.</div>
+      </form>
+      <section class="team-info" id="team-info">
+        <h2>Team Info:</h2>
+        <table class="team-table">
+          <thead>
+            <tr>
+              <th style="width: 55%;">Team Name</th>
+              <th>Team Logo</th>
+              <th style="width: 20%;">Group (manual)</th>
+            </tr>
+          </thead>
+          <tbody id="team-rows"></tbody>
+        </table>
+      </section>
+      <section class="group-section" id="group-section">
+        <h2>How many group will be</h2>
+        <input
+          id="group-count"
+          name="groupCount"
+          type="number"
+          min="2"
+          max="20"
+          step="1"
+          inputmode="numeric"
+          required
+        />
+        <div class="hint">Enter a whole number between 2 and 20.</div>
+      </section>
+      <section class="sim-section" id="group-simulation">
+        <h2>Group Simulation</h2>
+        <div class="hint">Generate groups from the team list.</div>
+
+        <div class="options">
+          <fieldset>
+            <legend>Assignment Mode</legend>
+            <label>
+              <input type="radio" name="assignMode" value="auto" checked />
+              Auto (random)
+            </label>
+            <label>
+              <input type="radio" name="assignMode" value="manual" />
+              Manual
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Round-Robin Type (future)</legend>
+            <label>
+              <input type="radio" name="roundRobin" value="single" checked />
+              Single
+            </label>
+            <label>
+              <input type="radio" name="roundRobin" value="double" />
+              Double
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Uneven Teams Handling</legend>
+            <label>
+              <input type="radio" name="unevenMode" value="balanced" checked />
+              Distribute evenly from Group A, B, C...
+            </label>
+            <label>
+              <input type="radio" name="unevenMode" value="fill-first" />
+              Fill earlier groups first
+            </label>
+          </fieldset>
+          <fieldset>
+            <legend>Fixture Options</legend>
+            <label>
+              <input
+                type="radio"
+                name="fixtureScope"
+                id="fixture-same-group"
+                value="same"
+                checked
+              />
+              Same group matches
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="fixtureScope"
+                id="fixture-cross-group"
+                value="cross"
+              />
+              Cross group matches
+            </label>
+            <label>
+              <input type="checkbox" id="fixture-home-away" />
+              Home/Away
+            </label>
+            <label>
+              <input type="checkbox" id="fixture-back-to-back" />
+              Back-to-back
+            </label>
+          </fieldset>
+        </div>
+
+        <button class="primary-btn" type="button" id="generate-groups">
+          Generate Groups
+        </button>
+        <button class="primary-btn" type="button" id="generate-fixtures" hidden>
+          Generate Fixtures
+        </button>
+        <button class="secondary-btn" type="button" id="export-json">
+          Export JSON
+        </button>
+
+        <div class="group-output" id="group-output"></div>
+        <div class="fixtures-output" id="fixtures-output"></div>
+      </section>
+      <section class="league-section" id="league-simulation">
+        <h2>No Group (League Fixtures)</h2>
+        <div class="hint">All teams play without groups.</div>
+        <div class="options">
+          <fieldset>
+            <legend>League Fixture Options</legend>
+            <label>
+              <input type="checkbox" id="league-home-away" />
+              Home/Away
+            </label>
+            <label>
+              <input type="checkbox" id="league-back-to-back" />
+              Back-to-back
+            </label>
+          </fieldset>
+        </div>
+        <button class="primary-btn" type="button" id="generate-league-fixtures">
+          Generate League Fixtures
+        </button>
+        <div class="fixtures-output" id="league-fixtures-output"></div>
+      </section>
+      <p>
+        Go to the frontend:
+        <a href="../frontend/index.html">Dynamites Cup 2026</a>
+      </p>
+    </main>
+    <script>
+      const teamCountInput = document.getElementById("team-count");
+      const teamRows = document.getElementById("team-rows");
+
+      const clampTeamCount = (value) => {
+        const parsed = Number.parseInt(value, 10);
+        if (Number.isNaN(parsed)) return 0;
+        return Math.min(120, Math.max(2, parsed));
+      };
+
+      const renderTeamRows = (count) => {
+        teamRows.innerHTML = "";
+        for (let i = 1; i <= count; i += 1) {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>
+              <input type="text" name="teamName${i}" placeholder="Team ${i}" />
+            </td>
+            <td>
+              <input type="file" name="teamLogo${i}" accept="image/*" data-logo />
+            </td>
+            <td>
+              <select name="teamGroup${i}" data-team-group>
+                <option value="">Select</option>
+              </select>
+            </td>
+          `;
+          teamRows.appendChild(row);
+        }
+        updateGroupSelectOptions();
+      };
+
+      teamCountInput.addEventListener("input", (event) => {
+        const count = clampTeamCount(event.target.value);
+        if (count) {
+          renderTeamRows(count);
+        } else {
+          teamRows.innerHTML = "";
+        }
+      });
+
+      const updateGroupSelectOptions = () => {
+        const groupCount = Number.parseInt(
+          document.getElementById("group-count").value,
+          10
+        );
+        const selects = teamRows.querySelectorAll("[data-team-group]");
+        selects.forEach((select) => {
+          const current = select.value;
+          select.innerHTML = '<option value="">Select</option>';
+          if (!groupCount || groupCount < 2) return;
+          for (let i = 0; i < groupCount; i += 1) {
+            const label = `Group ${String.fromCharCode(65 + i)}`;
+            const option = document.createElement("option");
+            option.value = String(i);
+            option.textContent = label;
+            select.appendChild(option);
+          }
+          if (current) {
+            select.value = current;
+          }
+        });
+      };
+
+      document.getElementById("group-count").addEventListener("input", () => {
+        updateGroupSelectOptions();
+      });
+
+      teamRows.addEventListener("change", (event) => {
+        if (event.target && event.target.matches('input[data-logo]')) {
+          const file = event.target.files && event.target.files[0];
+          if (!file) {
+            event.target.dataset.logo = "";
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            event.target.dataset.logo = reader.result;
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      const syncManualMode = () => {
+        const manual = document.querySelector(
+          'input[name="assignMode"]:checked'
+        ).value === "manual";
+        const selects = teamRows.querySelectorAll("[data-team-group]");
+        selects.forEach((select) => {
+          select.disabled = !manual;
+        });
+      };
+
+      document
+        .querySelectorAll('input[name="assignMode"]')
+        .forEach((input) => {
+          input.addEventListener("change", syncManualMode);
+        });
+
+      const getTeamNames = () => {
+        const inputs = teamRows.querySelectorAll('input[type="text"]');
+        return Array.from(inputs)
+          .map((input) => input.value.trim())
+          .filter((value) => value.length > 0);
+      };
+
+      const getTeamData = () => {
+        const rows = teamRows.querySelectorAll("tr");
+        return Array.from(rows)
+          .map((row, index) => {
+            const nameInput = row.querySelector('input[type="text"]');
+            const logoInput = row.querySelector('input[data-logo]');
+            const name = nameInput ? nameInput.value.trim() : "";
+            const logo = logoInput ? logoInput.dataset.logo || "" : "";
+            return name
+              ? {
+                  id: index + 1,
+                  name,
+                  logo,
+                }
+              : null;
+          })
+          .filter(Boolean);
+      };
+
+      const shuffleArray = (array) => {
+        const result = array.slice();
+        for (let i = result.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
+      };
+
+      const buildGroups = (teams, groupCount, unevenMode, assignMode) => {
+        const groups = Array.from({ length: groupCount }, () => []);
+        if (assignMode === "manual") {
+          const rows = teamRows.querySelectorAll("tr");
+          rows.forEach((row) => {
+            const nameInput = row.querySelector('input[type="text"]');
+            const groupSelect = row.querySelector("[data-team-group]");
+            if (!nameInput || !groupSelect) return;
+            const name = nameInput.value.trim();
+            const groupIndex = Number.parseInt(groupSelect.value, 10);
+            if (!name || Number.isNaN(groupIndex)) return;
+            if (groupIndex >= 0 && groupIndex < groupCount) {
+              groups[groupIndex].push(name);
+            }
+          });
+          return groups;
+        }
+        let order = Array.from({ length: groupCount }, (_, idx) => idx);
+
+        if (assignMode === "auto" && unevenMode === "balanced") {
+          order = shuffleArray(order);
+        }
+
+        if (unevenMode === "fill-first") {
+          const base = Math.floor(teams.length / groupCount);
+          const remainder = teams.length % groupCount;
+          let cursor = 0;
+          order.forEach((groupIndex, idx) => {
+            const size = idx < remainder ? base + 1 : base;
+            for (let i = 0; i < size; i += 1) {
+              if (cursor >= teams.length) break;
+              groups[groupIndex].push(teams[cursor]);
+              cursor += 1;
+            }
+          });
+        } else {
+          let cursor = 0;
+          teams.forEach((team) => {
+            const groupIndex = order[cursor % groupCount];
+            groups[groupIndex].push(team);
+            cursor += 1;
+          });
+        }
+
+        return groups;
+      };
+
+      let currentGroups = [];
+      let currentFixtures = null;
+      let currentLeagueFixtures = null;
+
+      const renderGroups = (groups) => {
+        const output = document.getElementById("group-output");
+        output.innerHTML = "";
+        const fixturesBtn = document.getElementById("generate-fixtures");
+        fixturesBtn.hidden = false;
+        const roundRobin = document.querySelector(
+          'input[name="roundRobin"]:checked'
+        ).value;
+        groups.forEach((groupTeams, index) => {
+          const card = document.createElement("div");
+          card.className = "group-card";
+          const title = `Group ${String.fromCharCode(65 + index)}`;
+          const t = groupTeams.length;
+          let rounds = 0;
+          let matchesPerRound = 0;
+          let byeText = "No byes";
+          if (t > 0) {
+            if (t % 2 === 1) {
+              rounds = roundRobin === "double" ? t * 2 : t;
+              matchesPerRound = (t - 1) / 2;
+              byeText = "1 bye per round";
+            } else {
+              rounds = roundRobin === "double" ? (t - 1) * 2 : t - 1;
+              matchesPerRound = t / 2;
+            }
+          }
+          const listItems = groupTeams
+            .map((team) => `<li>${team}</li>`)
+            .join("");
+          card.innerHTML = `
+            <h4>${title}</h4>
+            <div class="hint">Teams: ${t} · Rounds: ${rounds} · Matches/round: ${matchesPerRound} · ${byeText}</div>
+            <ul>${listItems || "<li>No teams assigned</li>"}</ul>
+          `;
+          output.appendChild(card);
+        });
+      };
+
+      const generateRoundRobin = (teams) => {
+        const list = teams.slice();
+        let hasBye = false;
+        if (list.length % 2 === 1) {
+          list.push("BYE");
+          hasBye = true;
+        }
+        const rounds = [];
+        const totalRounds = list.length - 1;
+        const half = list.length / 2;
+        for (let round = 0; round < totalRounds; round += 1) {
+          const matches = [];
+          for (let i = 0; i < half; i += 1) {
+            const home = list[i];
+            const away = list[list.length - 1 - i];
+            if (home !== "BYE" && away !== "BYE") {
+              matches.push([home, away]);
+            }
+          }
+          rounds.push(matches);
+          const fixed = list[0];
+          const rest = list.slice(1);
+          rest.unshift(rest.pop());
+          list.splice(0, list.length, fixed, ...rest);
+        }
+        return { rounds, hasBye };
+      };
+
+      const sharesTeam = (matchA, matchB) => {
+        if (!matchA || !matchB) return false;
+        return (
+          matchA[0] === matchB[0] ||
+          matchA[0] === matchB[1] ||
+          matchA[1] === matchB[0] ||
+          matchA[1] === matchB[1]
+        );
+      };
+
+      const orderMatchesStrict = (matches, prevMatch = null) => {
+        if (matches.length === 0) return matches.slice();
+        if (matches.length === 1) {
+          if (prevMatch && sharesTeam(prevMatch, matches[0])) {
+            return null;
+          }
+          return matches.slice();
+        }
+
+        const maxNodes = 50000;
+        let nodes = 0;
+
+        const used = new Array(matches.length).fill(false);
+        const result = [];
+
+        const conflictScore = matches.map((m, idx) => {
+          let score = 0;
+          for (let j = 0; j < matches.length; j += 1) {
+            if (idx !== j && sharesTeam(m, matches[j])) score += 1;
+          }
+          return score;
+        });
+
+        const candidates = matches.map((m, i) => ({ m, i }));
+        candidates.sort((a, b) => conflictScore[b.i] - conflictScore[a.i]);
+
+        const dfs = (lastMatch) => {
+          if (nodes > maxNodes) return false;
+          if (result.length === matches.length) return true;
+
+          nodes += 1;
+          for (let c = 0; c < candidates.length; c += 1) {
+            const { i, m } = candidates[c];
+            if (used[i]) continue;
+            if (sharesTeam(lastMatch, m)) continue;
+            used[i] = true;
+            result.push(m);
+            if (dfs(m)) return true;
+            result.pop();
+            used[i] = false;
+          }
+          return false;
+        };
+
+        const start = prevMatch ? prevMatch : null;
+        const ok = dfs(start);
+        return ok ? result : null;
+      };
+
+      const arrangeRoundsNoBackToBack = (rounds, maxAttempts = 200) => {
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          const shuffledRounds = shuffleArray(rounds);
+          const arrangedRounds = [];
+          let prevMatch = null;
+          let ok = true;
+          for (let r = 0; r < shuffledRounds.length; r += 1) {
+            const arranged = orderMatchesStrict(shuffledRounds[r], prevMatch);
+            if (!arranged) {
+              ok = false;
+              break;
+            }
+            arrangedRounds.push(arranged);
+            prevMatch = arranged[arranged.length - 1] || prevMatch;
+          }
+          if (ok) return arrangedRounds;
+        }
+        return null;
+      };
+
+      const buildCrossGroupFixtures = (groups, homeAway) => {
+        const fixtures = [];
+        for (let i = 0; i < groups.length; i += 1) {
+          for (let j = i + 1; j < groups.length; j += 1) {
+            const groupA = groups[i];
+            const groupB = groups[j];
+            if (groupA.length === 0 || groupB.length === 0) continue;
+            let matches = [];
+            groupA.forEach((teamA) => {
+              groupB.forEach((teamB) => {
+                matches.push([teamA, teamB]);
+                if (homeAway) {
+                  matches.push([teamB, teamA]);
+                }
+              });
+            });
+            const ordered = orderMatchesStrict(matches);
+            matches = ordered || matches;
+            fixtures.push({
+              label: `Group ${String.fromCharCode(65 + i)} vs Group ${String.fromCharCode(
+                65 + j
+              )}`,
+              matches,
+            });
+          }
+        }
+        return fixtures;
+      };
+
+      const renderFixtures = (groups) => {
+        const output = document.getElementById("fixtures-output");
+        output.innerHTML = "";
+        const roundRobin = document.querySelector(
+          'input[name="roundRobin"]:checked'
+        ).value;
+        const backToBackAllowed =
+          document.getElementById("fixture-back-to-back").checked;
+        const scope = document.querySelector(
+          'input[name="fixtureScope"]:checked'
+        ).value;
+        const sameGroup = scope === "same";
+        const crossGroup = scope === "cross";
+        const homeAway = document.getElementById("fixture-home-away").checked;
+        const extraLegs = roundRobin === "double" ? 2 : 1;
+
+        if (sameGroup) {
+          const fixturesData = [];
+          groups.forEach((groupTeams, index) => {
+            const card = document.createElement("div");
+            card.className = "fixture-card";
+            const title = `Group ${String.fromCharCode(65 + index)} Fixtures`;
+            const { rounds } = generateRoundRobin(groupTeams);
+            const baseRounds = shuffleArray(rounds);
+            let roundsToShow = baseRounds;
+            if (extraLegs === 2) {
+              roundsToShow = baseRounds.concat(baseRounds);
+            }
+            if (homeAway && roundRobin === "single" && roundsToShow.length) {
+              const swapped = roundsToShow.map((matches) =>
+                matches.map(([home, away]) => [away, home])
+              );
+              roundsToShow = roundsToShow.concat(swapped);
+            }
+            const arrangedRounds = backToBackAllowed
+              ? roundsToShow
+              : arrangeRoundsNoBackToBack(roundsToShow);
+
+            if (!arrangedRounds) {
+              card.innerHTML = `
+                <h4>${title}</h4>
+                <div class="hint">Unable to avoid back-to-back teams for this group size.</div>
+              `;
+              output.appendChild(card);
+              return;
+            }
+
+            fixturesData.push({
+              group: String.fromCharCode(65 + index),
+              rounds: arrangedRounds.map((matches) =>
+                matches.map(([home, away]) => ({ home, away }))
+              ),
+            });
+
+            const fixtures = arrangedRounds
+              .map((matches, roundIndex) => {
+                if (matches.length === 0) return "";
+                const items = matches
+                  .map(([home, away]) => `<li>${home} vs ${away}</li>`)
+                  .join("");
+                return `<div class="hint">Round ${roundIndex + 1}</div><ul>${items}</ul>`;
+              })
+              .join("");
+
+            card.innerHTML = `
+              <h4>${title}</h4>
+              ${fixtures || "<div class='hint'>Not enough teams for fixtures.</div>"}
+            `;
+            output.appendChild(card);
+          });
+          currentFixtures = {
+            scope: "same",
+            roundRobin,
+            homeAway,
+            backToBackAllowed,
+            groups: fixturesData,
+          };
+        }
+
+        if (crossGroup) {
+          const fixturesData = [];
+          const crossFixtures = buildCrossGroupFixtures(groups, homeAway);
+          crossFixtures.forEach((fixture) => {
+            const card = document.createElement("div");
+            card.className = "fixture-card";
+            let items = "";
+            if (backToBackAllowed) {
+              items = fixture.matches
+                .map(([home, away]) => `<li>${home} vs ${away}</li>`)
+                .join("");
+              fixturesData.push({
+                label: fixture.label,
+                matches: fixture.matches.map(([home, away]) => ({ home, away })),
+              });
+            } else {
+              const arranged = orderMatchesStrict(fixture.matches);
+              if (!arranged) {
+                items = "";
+              } else {
+                items = arranged
+                  .map(([home, away]) => `<li>${home} vs ${away}</li>`)
+                  .join("");
+                fixturesData.push({
+                  label: fixture.label,
+                  matches: arranged.map(([home, away]) => ({ home, away })),
+                });
+              }
+            }
+            card.innerHTML = `
+              <h4>${fixture.label}</h4>
+              ${items ? `<ul>${items}</ul>` : "<div class='hint'>Unable to avoid back-to-back teams for this pairing.</div>"}
+            `;
+            output.appendChild(card);
+          });
+          currentFixtures = {
+            scope: "cross",
+            roundRobin,
+            homeAway,
+            backToBackAllowed,
+            pairs: fixturesData,
+          };
+        }
+
+        if (!sameGroup && !crossGroup) {
+          output.innerHTML = "<div class='hint'>Select a fixture option.</div>";
+          currentFixtures = null;
+        }
+      };
+
+      document.getElementById("generate-groups").addEventListener("click", () => {
+        const groupCount = Number.parseInt(
+          document.getElementById("group-count").value,
+          10
+        );
+        if (!groupCount || groupCount < 2) {
+          alert("Please enter a valid number of groups (min 2).");
+          return;
+        }
+
+        const assignMode = document.querySelector(
+          'input[name="assignMode"]:checked'
+        ).value;
+        const unevenMode = document.querySelector(
+          'input[name="unevenMode"]:checked'
+        ).value;
+
+        let teams = getTeamNames();
+        if (teams.length === 0) {
+          alert("Please enter at least one team name.");
+          return;
+        }
+        if (teams.length < groupCount) {
+          alert("Total teams (N) must be at least the number of groups (X).");
+          return;
+        }
+        if (assignMode === "auto") {
+          teams = shuffleArray(teams);
+        }
+
+        const groups = buildGroups(teams, groupCount, unevenMode, assignMode);
+        if (assignMode === "manual") {
+          const assignedCount = groups.reduce(
+            (sum, group) => sum + group.length,
+            0
+          );
+          if (assignedCount !== teams.length) {
+            alert("Please assign all team names to a group.");
+            return;
+          }
+        }
+        currentGroups = groups;
+        renderGroups(groups);
+        document.getElementById("fixtures-output").innerHTML = "";
+      });
+
+      document
+        .getElementById("generate-fixtures")
+        .addEventListener("click", () => {
+          if (!currentGroups.length) {
+            alert("Please generate groups first.");
+            return;
+          }
+          renderFixtures(currentGroups);
+        });
+
+      const renderLeagueFixtures = () => {
+        const output = document.getElementById("league-fixtures-output");
+        output.innerHTML = "";
+        const teams = getTeamNames();
+        if (teams.length < 2) {
+          alert("Please enter at least two team names.");
+          return;
+        }
+        const homeAway = document.getElementById("league-home-away").checked;
+        const backToBackAllowed =
+          document.getElementById("league-back-to-back").checked;
+
+        const { rounds } = generateRoundRobin(teams);
+        let roundsToShow = shuffleArray(rounds);
+        if (homeAway && roundsToShow.length) {
+          const swapped = roundsToShow.map((matches) =>
+            matches.map(([home, away]) => [away, home])
+          );
+          roundsToShow = roundsToShow.concat(swapped);
+        }
+
+        const arrangedRounds = backToBackAllowed
+          ? roundsToShow
+          : arrangeRoundsNoBackToBack(roundsToShow);
+
+        if (!arrangedRounds) {
+          output.innerHTML =
+            "<div class='hint'>Unable to avoid back-to-back teams for this league size.</div>";
+          currentLeagueFixtures = null;
+          return;
+        }
+
+        currentLeagueFixtures = {
+          homeAway,
+          backToBackAllowed,
+          rounds: arrangedRounds.map((matches) =>
+            matches.map(([home, away]) => ({ home, away }))
+          ),
+        };
+
+        const fixtures = arrangedRounds
+          .map((matches, roundIndex) => {
+            if (matches.length === 0) return "";
+            const items = matches
+              .map(([home, away]) => `<li>${home} vs ${away}</li>`)
+              .join("");
+            return `<div class="hint">Round ${roundIndex + 1}</div><ul>${items}</ul>`;
+          })
+          .join("");
+
+        output.innerHTML = `
+          <div class="fixture-card">
+            <h4>League Fixtures</h4>
+            ${fixtures || "<div class='hint'>Not enough teams for fixtures.</div>"}
+          </div>
+        `;
+      };
+
+      document
+        .getElementById("generate-league-fixtures")
+        .addEventListener("click", renderLeagueFixtures);
+
+      const buildExportData = () => {
+        const teamCount = Number.parseInt(teamCountInput.value, 10) || 0;
+        const groupCount =
+          Number.parseInt(document.getElementById("group-count").value, 10) ||
+          0;
+        const assignMode = document.querySelector(
+          'input[name="assignMode"]:checked'
+        ).value;
+        const unevenMode = document.querySelector(
+          'input[name="unevenMode"]:checked'
+        ).value;
+        const roundRobin = document.querySelector(
+          'input[name="roundRobin"]:checked'
+        ).value;
+        const fixtureScope = document.querySelector(
+          'input[name="fixtureScope"]:checked'
+        ).value;
+
+        const teams = getTeamNames();
+        const teamData = getTeamData();
+        return {
+          meta: {
+            exportedAt: new Date().toISOString(),
+          },
+          settings: {
+            teamCount,
+            groupCount,
+            assignMode,
+            unevenMode,
+            roundRobin,
+            fixtureScope,
+          },
+          teams,
+          teamData,
+          groups: currentGroups,
+          fixtures: currentFixtures,
+          leagueFixtures: currentLeagueFixtures,
+        };
+      };
+
+      document.getElementById("export-json").addEventListener("click", () => {
+        if (!currentGroups.length) {
+          alert("Please generate groups before exporting.");
+          return;
+        }
+        if (!currentFixtures) {
+          renderFixtures(currentGroups);
+        }
+        const data = buildExportData();
+        const json = JSON.stringify(data, null, 2);
+        localStorage.setItem("dynamitesData", json);
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "dynamites-data.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        alert("JSON exported and saved to local storage.");
+      });
+    </script>
+  </body>
+</html>

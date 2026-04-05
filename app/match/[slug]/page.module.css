@@ -1,0 +1,309 @@
+.page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(36, 91, 77, 0.25), transparent 28%),
+    linear-gradient(180deg, #f5f7f4 0%, #eef3ef 100%);
+  color: #13201b;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 3rem;
+}
+
+.hero {
+  margin-bottom: 1.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #0f6a4c;
+}
+
+.heading {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  line-height: 1.08;
+}
+
+.summaryCard,
+.lineupCard,
+.notFoundCard,
+.eventCard {
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 34px rgba(16, 34, 27, 0.08);
+}
+
+.summaryCard {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.lineupCard {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+}
+
+.lineupTitle {
+  margin: 0 0 1rem;
+  font-size: 1.4rem;
+  color: #10241d;
+}
+
+.lineupGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.lineupColumn {
+  padding: 1rem;
+  border-radius: 18px;
+  background: #f5f8f6;
+}
+
+.lineupSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0b4f39;
+}
+
+.lineupSummary::-webkit-details-marker {
+  display: none;
+}
+
+.lineupSummary::after {
+  content: "+";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(15, 106, 76, 0.12);
+  color: #0d6b4d;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.lineupColumn[open] .lineupSummary::after {
+  content: "-";
+}
+
+.lineupContent {
+  padding-top: 0.9rem;
+}
+
+.lineupList {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #41524b;
+}
+
+.lineupItem {
+  padding: 0.2rem 0;
+  line-height: 1.6;
+}
+
+.scoreBlock,
+.detailItem,
+.detailWide {
+  padding: 1rem;
+  border-radius: 18px;
+  background: #f5f8f6;
+}
+
+.scoreBlock {
+  display: grid;
+  align-content: center;
+  gap: 0.8rem;
+  text-align: center;
+}
+
+.teamLine {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.score {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 800;
+  color: #0b4f39;
+}
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.detailWide {
+  grid-column: 1 / -1;
+}
+
+.label {
+  margin: 0 0 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #62736b;
+}
+
+.value,
+.eventType,
+.eventMeta,
+.eventMinute,
+.notFoundText {
+  margin: 0;
+}
+
+.value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #13201b;
+}
+
+.eventsList {
+  display: grid;
+  gap: 1rem;
+}
+
+.eventCard {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1.1rem 1.2rem;
+}
+
+.eventMinute {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: rgba(15, 106, 76, 0.12);
+  color: #0d6b4d;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.eventContent {
+  display: grid;
+  gap: 0.3rem;
+  align-content: center;
+}
+
+.substitutionBlock {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.substitutionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.playerTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.playerOut {
+  background: rgba(219, 47, 62, 0.12);
+  color: #b51f31;
+}
+
+.playerIn {
+  background: rgba(15, 106, 76, 0.12);
+  color: #0d6b4d;
+}
+
+.arrow {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.eventType {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #10241d;
+}
+
+.goalType {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255, 211, 77, 0.28), rgba(255, 166, 0, 0.2));
+  color: #9a4d00;
+  box-shadow: 0 10px 24px rgba(255, 166, 0, 0.18);
+  animation: goalPulse 1.6s ease-in-out infinite;
+}
+
+.eventMeta,
+.notFoundText {
+  color: #41524b;
+  line-height: 1.7;
+}
+
+.notFoundCard {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+}
+
+@keyframes goalPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 10px 24px rgba(255, 166, 0, 0.18);
+  }
+
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 14px 30px rgba(255, 166, 0, 0.26);
+  }
+}
+
+@media (max-width: 768px) {
+  .summaryCard {
+    grid-template-columns: 1fr;
+  }
+
+  .lineupGrid,
+  .detailsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 1rem 1rem 2.5rem;
+  }
+
+  .eventCard {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AIUB Dynamites Presents - Dynamites Cup 2026</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500;700;800&family=Playfair+Display:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <main class="hero">
+        <div class="hero__glow"></div>
+        <div class="hero__frame">
+          <div class="hero__card">
+            <p class="hero__kicker">AIUB Dynamites Presents</p>
+            <h1 class="hero__title">Dynamites Cup 2026</h1>
+            <div class="hero__details">
+              <span>2nd May 2026</span>
+              <span class="hero__dot">•</span>
+              <span>Darmstadt, Germany</span>
+            </div>
+          </div>
+        </div>
+      </main>
+      <section class="content-section" id="team-draw">
+        <h2>Team Draw</h2>
+        <p>Teams will be drawn from the backend JSON.</p>
+        <div class="team-draw">
+          <div class="team-pool">
+            <h3>Teams</h3>
+            <div id="team-pool-list" class="team-pool-list"></div>
+          </div>
+          <div class="team-actions">
+            <button id="sort-btn" class="sort-btn" disabled>Sort</button>
+            <div id="sort-status" class="hint-text">Loading teams...</div>
+          </div>
+          <div class="groups-area">
+            <h3>Groups</h3>
+            <div id="groups-container" class="groups-container"></div>
+          </div>
+        </div>
+      </section>
+      <section class="content-section" id="fixtures">
+        <h2>Fixtures</h2>
+        <button id="fixtures-btn" class="sort-btn">Fixtures</button>
+        <div id="fixtures-output" class="fixtures-output"></div>
+      </section>
+      <footer class="site-footer">
+        Develped and Matained by <span>CODACTICS</span>
+      </footer>
+    </div>
+    <div id="sort-modal" class="sort-modal" hidden>
+      <div class="sort-modal__content">
+        <img
+          id="sort-spinner"
+          class="sort-spinner"
+          src="./photo/dynamites_cup_logo.gif"
+          alt="Sorting"
+        />
+      </div>
+    </div>
+    <div id="fixtures-modal" class="sort-modal" hidden>
+      <div class="sort-modal__content">
+        <div id="flip-line" class="flip-line is-active" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

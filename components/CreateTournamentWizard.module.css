@@ -1,0 +1,603 @@
+.section {
+  width: 100%;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.tabRow {
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.tabButton {
+  min-height: 46px;
+  padding: 0.85rem 1.2rem;
+  border: 1px solid rgba(19, 32, 27, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: #13201b;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.activeTabButton {
+  border-color: rgba(15, 106, 76, 0.22);
+  background: #0f6a4c;
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(15, 106, 76, 0.18);
+}
+
+.emptyCard,
+.formCard {
+  padding: 1.75rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 24px 60px rgba(9, 28, 22, 0.12);
+}
+
+.emptyCard {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+}
+
+.createButton,
+.primaryButton,
+.secondaryButton {
+  min-height: 48px;
+  border-radius: 999px;
+  font-size: 0.98rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.createButton,
+.primaryButton {
+  border: 0;
+  padding: 0.9rem 1.4rem;
+  background: #db2f3e;
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(219, 47, 62, 0.24);
+}
+
+.createButton:hover,
+.primaryButton:hover {
+  transform: translateY(-2px);
+  background: #b51f31;
+  box-shadow: 0 16px 28px rgba(181, 31, 49, 0.28);
+}
+
+.secondaryButton {
+  border: 1px solid rgba(19, 32, 27, 0.12);
+  padding: 0.9rem 1.3rem;
+  background: #ffffff;
+  color: #13201b;
+}
+
+.secondaryButton:disabled,
+.primaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+  box-shadow: none;
+}
+
+.progressRow,
+.actionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.stepLabel {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #0f6a4c;
+}
+
+.linkButton {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #db2f3e;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stepBlock {
+  margin: 1.5rem 0;
+}
+
+.setupBlock {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.question {
+  margin: 0;
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  line-height: 1.2;
+  color: #10241d;
+}
+
+.helper {
+  margin: 0.7rem 0 1rem;
+  color: #4a5d55;
+  line-height: 1.7;
+}
+
+.notice {
+  margin: 1rem 0 0;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: rgba(219, 47, 62, 0.08);
+  color: #a22735;
+  line-height: 1.6;
+}
+
+.input {
+  width: 100%;
+  min-height: 50px;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.12);
+  border-radius: 14px;
+  background: #f8fbf9;
+  color: #13201b;
+  outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.input:focus {
+  border-color: rgba(15, 106, 76, 0.4);
+  box-shadow: 0 0 0 4px rgba(15, 106, 76, 0.1);
+}
+
+.radioGrid,
+.doubleGrid,
+.optionGrid,
+.resultsGrid,
+.fixturesGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.radioGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.optionGrid,
+.resultsGrid,
+.fixturesGrid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.radioCard {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.12);
+  border-radius: 18px;
+  background: #f8fbf9;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.fieldLabel {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #10241d;
+}
+
+.optionCard,
+.resultCard {
+  padding: 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 20px;
+  background: #f8fbf9;
+}
+
+.optionTitle,
+.resultTitle {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #10241d;
+}
+
+.optionLabel,
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: #13201b;
+}
+
+.optionLabel + .optionLabel,
+.checkboxLabel + .checkboxLabel {
+  margin-top: 0.65rem;
+}
+
+.toggleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+}
+
+.teamGrid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.teamRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr) 180px;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.logoPreviewRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logoPreview,
+.teamLogoPreview,
+.savedTournamentLogo {
+  object-fit: cover;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  background: #ffffff;
+}
+
+.logoPreview {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+}
+
+.teamLogoPreview {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+}
+
+.teamLogoCell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.savedTournamentLogo {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+}
+
+.select {
+  width: 100%;
+  min-height: 50px;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.12);
+  border-radius: 14px;
+  background: #f8fbf9;
+  color: #13201b;
+  outline: none;
+}
+
+.generatorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+}
+
+.status {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: rgba(15, 106, 76, 0.08);
+  color: #0b4f39;
+  line-height: 1.6;
+}
+
+.resultMeta {
+  margin: 0 0 0.75rem;
+  color: #4a5d55;
+  line-height: 1.6;
+}
+
+.resultList {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.roundList {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.roundBlock {
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(19, 32, 27, 0.08);
+}
+
+.roundBlock:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.savedSection {
+  padding: 1.75rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 24px 60px rgba(9, 28, 22, 0.12);
+}
+
+.savedHeader {
+  margin-bottom: 1rem;
+}
+
+.savedTitle {
+  margin: 0;
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  line-height: 1.2;
+  color: #10241d;
+}
+
+.savedText {
+  margin: 0.7rem 0 0;
+  color: #4a5d55;
+  line-height: 1.7;
+}
+
+.savedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.savedStack {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.savedSubTitle {
+  margin: 0 0 0.9rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #10241d;
+}
+
+.savedCard {
+  padding: 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 20px;
+  background: #f8fbf9;
+}
+
+.savedCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.savedCardTitleBlock {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.manageTournamentButton {
+  min-height: 40px;
+  padding: 0.7rem 1rem;
+  border: 1px solid rgba(15, 106, 76, 0.16);
+  border-radius: 999px;
+  background: rgba(15, 106, 76, 0.08);
+  color: #0b4f39;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.savedActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.savedPrimaryActions,
+.savedSecondaryActions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.launchButton,
+.endButton,
+.pauseButton,
+.savedActionButton,
+.deleteButton {
+  min-height: 40px;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.launchButton {
+  border: 0;
+  background: #0f6a4c;
+  color: #ffffff;
+}
+
+.launchButton:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.endButton {
+  border: 1px solid rgba(15, 106, 76, 0.18);
+  background: rgba(15, 106, 76, 0.08);
+  color: #0b4f39;
+}
+
+.pauseButton {
+  border: 1px solid rgba(186, 124, 0, 0.18);
+  background: rgba(186, 124, 0, 0.08);
+  color: #7a5300;
+}
+
+.savedActionButton {
+  border: 1px solid rgba(19, 32, 27, 0.12);
+  background: #ffffff;
+  color: #13201b;
+}
+
+.savedActionButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.deleteButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.deleteButton {
+  border: 0;
+  background: #db2f3e;
+  color: #ffffff;
+}
+
+.savedEmpty {
+  padding: 1rem;
+  border-radius: 18px;
+  background: #f8fbf9;
+  color: #4a5d55;
+  line-height: 1.7;
+}
+
+.passwordOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(10, 20, 16, 0.56);
+}
+
+.passwordCard {
+  width: min(100%, 30rem);
+  padding: 1.5rem;
+  border: 1px solid rgba(19, 32, 27, 0.1);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(9, 28, 22, 0.18);
+}
+
+.passwordTitle {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #13201b;
+}
+
+.passwordText {
+  margin: 0.85rem 0 1rem;
+  color: #4d5c55;
+  line-height: 1.6;
+}
+
+.passwordActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 640px) {
+  .emptyCard,
+  .formCard,
+  .savedSection {
+    padding: 1.4rem;
+    border-radius: 22px;
+  }
+
+  .progressRow,
+  .actionRow,
+  .radioGrid,
+  .doubleGrid {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toggleRow,
+  .generatorActions,
+  .savedActions {
+    flex-direction: column;
+  }
+
+  .savedPrimaryActions,
+  .savedSecondaryActions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .savedCardHeader,
+  .savedCardTitleBlock {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .teamRow {
+    grid-template-columns: 1fr;
+  }
+
+  .logoPreviewRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .teamLogoCell {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .passwordActions {
+    flex-direction: column;
+  }
+}

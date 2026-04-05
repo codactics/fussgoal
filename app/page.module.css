@@ -1,0 +1,120 @@
+.page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(36, 91, 77, 0.25), transparent 28%),
+    linear-gradient(180deg, #f5f7f4 0%, #eef3ef 100%);
+  color: #13201b;
+}
+
+.hero {
+  padding: 2rem 1.5rem 1rem;
+}
+
+.heroContent {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2.4rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(18, 74, 59, 0.95), rgba(11, 43, 35, 0.92)),
+    #124a3b;
+  color: #f7fbf8;
+  box-shadow: 0 24px 60px rgba(9, 28, 22, 0.18);
+}
+
+.heroEyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #b8f2d2;
+}
+
+.heroTitle {
+  margin: 0;
+  max-width: none;
+  font-size: clamp(1.85rem, 4.4vw, 3.5rem);
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.heroText {
+  max-width: 700px;
+  margin: 1.15rem 0 0;
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: rgba(247, 251, 248, 0.8);
+}
+
+.heroTextBreak {
+  display: block;
+}
+
+.content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem 3rem;
+}
+
+.footer {
+  padding: 0 1.5rem 2.5rem;
+}
+
+.footerText {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(19, 32, 27, 0.1);
+  text-align: center;
+  color: #5c6d65;
+  font-size: 0.98rem;
+}
+
+.footerLink {
+  color: #db2f3e;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.footerLink:hover {
+  color: #b51f31;
+}
+
+.matchGrid,
+.tournamentGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.matchGrid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.tournamentGrid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 1rem 1rem 0.5rem;
+  }
+
+  .heroContent {
+    padding: 1.7rem;
+    border-radius: 22px;
+  }
+
+  .heroTitle {
+    white-space: normal;
+  }
+
+  .content {
+    padding: 0 1rem 2.5rem;
+  }
+
+  .footer {
+    padding: 0 1rem 2rem;
+  }
+}

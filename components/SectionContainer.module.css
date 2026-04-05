@@ -1,0 +1,31 @@
+.section {
+  margin-top: 2rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  color: #10241d;
+}
+
+.description {
+  margin: 0;
+  max-width: 480px;
+  color: #62736b;
+  line-height: 1.6;
+}
+
+@media (max-width: 700px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

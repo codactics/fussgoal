@@ -1,0 +1,38 @@
+.card {
+  padding: 1.25rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 34px rgba(16, 34, 27, 0.08);
+}
+
+.name {
+  margin: 0 0 1rem;
+  font-size: 1.08rem;
+  color: #10241d;
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #41524b;
+}
+
+.item {
+  padding: 0.25rem 0;
+  line-height: 1.6;
+}
+
+.teamRow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.teamLogo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+}

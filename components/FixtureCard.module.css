@@ -1,0 +1,85 @@
+.card {
+  padding: 1.25rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 34px rgba(16, 34, 27, 0.08);
+}
+
+.topRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.status {
+  display: inline-flex;
+  padding: 0.42rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(15, 106, 76, 0.12);
+  color: #0d6b4d;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.teams {
+  margin-bottom: 1rem;
+}
+
+.teamRow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.team,
+.vs,
+.metaLabel,
+.metaValue {
+  margin: 0;
+}
+
+.team {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #10241d;
+}
+
+.teamLogo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+}
+
+.vs {
+  margin: 0.35rem 0;
+  color: #62736b;
+  font-weight: 700;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(19, 32, 27, 0.08);
+}
+
+.meta + .meta {
+  margin-top: 0.7rem;
+}
+
+.metaLabel {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #62736b;
+}
+
+.metaValue {
+  font-weight: 700;
+  color: #0b4f39;
+}
