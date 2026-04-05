@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import styles from "./CreateTournamentWizard.module.css";
-import { getStoredImageUrl } from "./launchedTournamentUtils";
+import { getStoredImagePublicId, getStoredImageUrl } from "./launchedTournamentUtils";
 import {
   arrangeRoundsNoBackToBack,
   buildCrossGroupFixtures,
@@ -17,6 +17,7 @@ const initialForm = {
   startDate: "",
   logoName: "",
   logoDataUrl: "",
+  logoPublicId: "",
   teamCount: "",
   tournamentType: "",
   groupCount: "",
@@ -91,9 +92,12 @@ export default function CreateTournamentWizard() {
   const [adminPassword, setAdminPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const [isUploadingTournamentLogo, setIsUploadingTournamentLogo] = useState(false);
+  const [uploadingTeamIndex, setUploadingTeamIndex] = useState(null);
 
   const groupCountValue = Number.parseInt(form.groupCount, 10) || 0;
   const totalSteps = form.tournamentType === "league" ? 3 : 5;
+  const isUploadingLogo = isUploadingTournamentLogo || uploadingTeamIndex !== null;
 
   const namedTeams = teamEntries.map((entry) => entry.name.trim()).filter(Boolean);
   const savedUpcomingTournaments = savedTournaments.filter(
@@ -241,31 +245,58 @@ export default function CreateTournamentWizard() {
     });
   }
 
-  function handleTeamLogoChange(index, event) {
+  async function uploadLogoFile(file, kind) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("kind", kind);
+
+    const response = await fetch("/api/uploads/logo", {
+      method: "POST",
+      body: formData,
+    });
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || "Unable to upload the image.");
+    }
+
+    return result.image;
+  }
+
+  async function handleTeamLogoChange(index, event) {
     const file = event.target.files?.[0];
 
     if (!file) {
       updateTeamEntry(index, "logoName", "");
       updateTeamEntry(index, "logoDataUrl", "");
+      updateTeamEntry(index, "logoPublicId", "");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
+    setUploadingTeamIndex(index);
+    setStatusMessage(`Uploading ${file.name}...`);
+
+    try {
+      const image = await uploadLogoFile(file, "team");
       setTeamEntries((current) =>
         current.map((entry, entryIndex) =>
           entryIndex === index
             ? {
                 ...entry,
-                logoName: file.name,
-                logoDataUrl: typeof reader.result === "string" ? reader.result : "",
+                logoName: image.name || file.name,
+                logoDataUrl: image.url || "",
+                logoPublicId: image.publicId || "",
               }
             : entry
         )
       );
-      setStatusMessage(`${file.name} selected successfully.`);
-    };
-    reader.readAsDataURL(file);
+      setStatusMessage(`${file.name} uploaded successfully.`);
+    } catch (error) {
+      setStatusMessage(error.message);
+    } finally {
+      setUploadingTeamIndex(null);
+      event.target.value = "";
+    }
   }
 
   function persistSavedTournaments(nextSavedTournaments) {
@@ -450,6 +481,7 @@ export default function CreateTournamentWizard() {
         manualGroup: currentEntries[index]?.manualGroup || "",
         logoName: currentEntries[index]?.logoName || "",
         logoDataUrl: currentEntries[index]?.logoDataUrl || "",
+        logoPublicId: currentEntries[index]?.logoPublicId || "",
       }))
     );
 
@@ -487,24 +519,32 @@ export default function CreateTournamentWizard() {
     setStep(6);
   }
 
-  function handleLogoChange(event) {
+  async function handleLogoChange(event) {
     const file = event.target.files?.[0];
 
     if (!file) {
-      setForm((current) => ({ ...current, logoName: "", logoDataUrl: "" }));
+      setForm((current) => ({ ...current, logoName: "", logoDataUrl: "", logoPublicId: "" }));
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
+    setIsUploadingTournamentLogo(true);
+    setStatusMessage(`Uploading ${file.name}...`);
+
+    try {
+      const image = await uploadLogoFile(file, "tournament");
       setForm((current) => ({
         ...current,
-        logoName: file.name,
-        logoDataUrl: typeof reader.result === "string" ? reader.result : "",
+        logoName: image.name || file.name,
+        logoDataUrl: image.url || "",
+        logoPublicId: image.publicId || "",
       }));
-      setStatusMessage(`${file.name} selected successfully.`);
-    };
-    reader.readAsDataURL(file);
+      setStatusMessage(`${file.name} uploaded successfully.`);
+    } catch (error) {
+      setStatusMessage(error.message);
+    } finally {
+      setIsUploadingTournamentLogo(false);
+      event.target.value = "";
+    }
   }
 
   function generateGroups() {
@@ -750,14 +790,21 @@ export default function CreateTournamentWizard() {
         .map((entry, index) => ({
           id: index + 1,
           name: entry.name.trim(),
-          logo: entry.logoDataUrl || "",
+          logo: entry.logoDataUrl
+            ? {
+                name: entry.logoName || "",
+                url: entry.logoDataUrl,
+                publicId: entry.logoPublicId || "",
+              }
+            : null,
           logoName: entry.logoName || "",
         }))
         .filter((entry) => entry.name),
       tournamentLogo: form.logoDataUrl
         ? {
             name: form.logoName,
-            dataUrl: form.logoDataUrl,
+            url: form.logoDataUrl,
+            publicId: form.logoPublicId || "",
           }
         : null,
       groups: form.tournamentType === "group" ? groups : [],
@@ -965,6 +1012,7 @@ export default function CreateTournamentWizard() {
         manualGroup: manualGroupIndex >= 0 ? String(manualGroupIndex) : "",
         logoName: team.logoName,
         logoDataUrl: getStoredImageUrl(team.logo),
+        logoPublicId: getStoredImagePublicId(team.logo),
       };
     });
 
@@ -973,6 +1021,7 @@ export default function CreateTournamentWizard() {
       startDate: settings.startDate || tournament.startDate || "",
       logoName: settings.logoName || payload.tournamentLogo?.name || "",
       logoDataUrl: getStoredImageUrl(payload.tournamentLogo),
+      logoPublicId: getStoredImagePublicId(payload.tournamentLogo),
       teamCount: String(settings.teamCount || teams.length || ""),
       tournamentType: settings.tournamentType || tournament.tournamentType || "",
       groupCount: String(settings.groupCount || tournament.groupCount || ""),
@@ -1189,6 +1238,7 @@ export default function CreateTournamentWizard() {
                   className={styles.input}
                   id="tournament-logo"
                   accept="image/*"
+                  disabled={isUploadingLogo}
                   onChange={handleLogoChange}
                   type="file"
                 />
@@ -1201,7 +1251,11 @@ export default function CreateTournamentWizard() {
                         src={form.logoDataUrl}
                       />
                     ) : null}
-                    <p className={styles.resultMeta}>Selected file: {form.logoName}</p>
+                    <p className={styles.resultMeta}>
+                      {isUploadingTournamentLogo
+                        ? `Uploading ${form.logoName || "logo"}...`
+                        : `Uploaded file: ${form.logoName}`}
+                    </p>
                   </div>
                 ) : null}
               </div>
@@ -1460,6 +1514,7 @@ export default function CreateTournamentWizard() {
                       <input
                         accept="image/*"
                         className={styles.input}
+                        disabled={isUploadingLogo}
                         onChange={(event) => handleTeamLogoChange(index, event)}
                         type="file"
                       />
@@ -1470,6 +1525,9 @@ export default function CreateTournamentWizard() {
                           className={styles.teamLogoPreview}
                           src={entry.logoDataUrl}
                         />
+                      ) : null}
+                      {uploadingTeamIndex === index ? (
+                        <p className={styles.resultMeta}>Uploading {entry.logoName || "logo"}...</p>
                       ) : null}
                     </div>
 
@@ -1517,10 +1575,20 @@ export default function CreateTournamentWizard() {
                     Generate League Fixtures
                   </button>
                 )}
-                <button className={styles.secondaryButton} onClick={saveTournament} type="button">
+                <button
+                  className={styles.secondaryButton}
+                  disabled={isUploadingLogo}
+                  onClick={saveTournament}
+                  type="button"
+                >
                   Save Tournament
                 </button>
-                <button className={styles.primaryButton} onClick={exportTournament} type="button">
+                <button
+                  className={styles.primaryButton}
+                  disabled={isUploadingLogo}
+                  onClick={exportTournament}
+                  type="button"
+                >
                   Export JSON
                 </button>
               </div>

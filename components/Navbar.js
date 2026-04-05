@@ -51,9 +51,14 @@ export default function Navbar() {
         </Link>
 
         {isAdminAuthenticated ? (
-          <button className={styles.loginButton} onClick={handleAdminLogout} type="button">
-            Admin Logout
-          </button>
+          <div className={styles.adminActions}>
+            <Link className={styles.adminPanelButton} href="/admin/dashboard">
+              Admin Panel
+            </Link>
+            <button className={styles.loginButton} onClick={handleAdminLogout} type="button">
+              Admin Logout
+            </button>
+          </div>
         ) : (
           <Link className={styles.loginButton} href="/admin">
             Admin Login

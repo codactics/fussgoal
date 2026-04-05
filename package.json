@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "cloudinary": "^2.9.0",
     "mongodb": "^7.1.1",
     "next": "^15.5.14",
     "react": "19.0.0",

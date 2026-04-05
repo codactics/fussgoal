@@ -11,7 +11,15 @@ export function getStoredImageUrl(imageValue) {
     return imageValue;
   }
 
-  return imageValue.url || imageValue.dataUrl || "";
+  return imageValue.url || imageValue.secure_url || imageValue.dataUrl || "";
+}
+
+export function getStoredImagePublicId(imageValue) {
+  if (!imageValue || typeof imageValue === "string") {
+    return "";
+  }
+
+  return imageValue.publicId || "";
 }
 
 export function getTournamentDisplayStatus(startDate, endDate) {
@@ -116,7 +124,7 @@ export function normalizeSavedTournament(record) {
   const fixtures = payload.fixtures || payload.leagueFixtures || null;
   const teamLogoMap = (payload.teamData || []).reduce((accumulator, team) => {
     if (team?.name) {
-      accumulator[team.name] = team.logo || "";
+      accumulator[team.name] = getStoredImageUrl(team.logo);
     }
     return accumulator;
   }, {});
