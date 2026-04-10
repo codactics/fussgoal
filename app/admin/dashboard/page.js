@@ -9,6 +9,7 @@ import styles from "./page.module.css";
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [adminSession, setAdminSession] = useState(null);
 
   useEffect(() => {
     async function checkSession() {
@@ -20,6 +21,8 @@ export default function AdminDashboardPage() {
           router.replace("/admin");
           return;
         }
+
+        setAdminSession(result);
       } catch {
         router.replace("/admin");
         return;
@@ -58,9 +61,14 @@ export default function AdminDashboardPage() {
             Build new tournaments in setup mode, then switch to manage mode to control launch,
             pause, ending, and saved tournament operations.
           </p>
+          {adminSession ? (
+            <p className={styles.text}>
+              Signed in as {adminSession.username} ({adminSession.isMasterAdmin ? "Master Admin" : "Tournament Admin"}).
+            </p>
+          ) : null}
         </div>
 
-        <CreateTournamentWizard />
+        <CreateTournamentWizard adminSession={adminSession} />
       </section>
     </main>
   );

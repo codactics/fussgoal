@@ -1,3 +1,29 @@
+import {
+  buildTeamLogoMap,
+  buildTournamentTables,
+  formatMatchClock,
+  getFixtureKey,
+  getFixturePhaseLabel,
+  getFixtureStatusLabel,
+  getMatchClockSeconds,
+  getMatchScore,
+  getTournamentFixtureSections,
+} from "./manageTournamentUtils";
+
+const ACTION_LABELS = {
+  goal: "Goal",
+  red: "Red Card",
+  yellow: "Yellow Card",
+  "sub-in": "Sub In",
+  "sub-out": "Sub Out",
+  penalty: "Penalty",
+  "penalty-goal": "Penalty Goal",
+  "penalty-missed": "Penalty Missed",
+  "free-kick": "Free Kick",
+  corner: "Corner",
+  other: "Other",
+};
+
 export function createLaunchedTournamentSlug(tournamentId) {
   return `launched-${tournamentId}`;
 }
@@ -39,65 +65,154 @@ export function getTournamentDisplayStatus(startDate, endDate) {
   return "Ongoing";
 }
 
-function normalizeFixture(homeTeam, awayTeam, roundLabel, startDate, index, teamLogoMap) {
+function buildFixtureLineup(lineupRecord) {
+  const rows = Array.isArray(lineupRecord?.rows) ? lineupRecord.rows : [];
+
   return {
-    id: `${roundLabel}-${index + 1}-${homeTeam}-${awayTeam}`,
-    homeTeam,
-    awayTeam,
-    homeLogo: teamLogoMap[homeTeam] || "",
-    awayLogo: teamLogoMap[awayTeam] || "",
-    status: roundLabel,
-    date: startDate || "TBD",
-    time: "TBD",
+    home: rows
+      .filter((row) => String(row?.homePlayer || "").trim())
+      .map((row) => ({
+        player: String(row.homePlayer || ""),
+        role: String(row.homeRole || "starting"),
+      })),
+    away: rows
+      .filter((row) => String(row?.awayPlayer || "").trim())
+      .map((row) => ({
+        player: String(row.awayPlayer || ""),
+        role: String(row.awayRole || "starting"),
+      })),
   };
 }
 
-function normalizeGroupFixtures(fixtures, startDate, teamLogoMap) {
-  if (!fixtures) {
+function formatTimelineEvent(entry) {
+  if (entry.type === "kickoff") {
+    return "Kick Off";
+  }
+
+  if (entry.type === "halftime") {
+    return "Half Time";
+  }
+
+  if (entry.type === "fulltime") {
+    return "Full Time";
+  }
+
+  const actionLabel = ACTION_LABELS[entry.action] || "Match Event";
+  const subjectLabel = String(entry.subjectLabel || "").trim();
+  const teamName = String(entry.teamName || "").trim();
+
+  if (subjectLabel && teamName && subjectLabel !== teamName) {
+    return `${actionLabel} - ${subjectLabel} (${teamName})`;
+  }
+
+  if (teamName) {
+    return `${actionLabel} - ${teamName}`;
+  }
+
+  if (subjectLabel) {
+    return `${actionLabel} - ${subjectLabel}`;
+  }
+
+  return actionLabel;
+}
+
+function buildTimelineEntries(statusRecord) {
+  if (!statusRecord) {
     return [];
   }
 
-  if (fixtures.scope === "same" && Array.isArray(fixtures.groups)) {
-    return fixtures.groups.flatMap((group) =>
-      group.rounds.flatMap((matches, roundIndex) =>
-        matches.map((match, index) =>
-          normalizeFixture(
-            match.home,
-            match.away,
-            `Group ${group.group} Round ${roundIndex + 1}`,
-            startDate,
-            index,
-            teamLogoMap
-          )
-        )
-      )
-    );
-  }
+  const systemMoments = statusRecord.systemMoments || {};
+  const halfDurationMinutes = Number(statusRecord.halfDurationMinutes) || 0;
+  const halfDurationSeconds = Math.max(0, halfDurationMinutes * 60);
+  const totalDurationSeconds = halfDurationSeconds * 2;
+  const systemEntries = [
+    systemMoments.kickoff !== null
+      ? { id: "kickoff", type: "kickoff", seconds: systemMoments.kickoff, order: 0, note: "" }
+      : null,
+    systemMoments.halftime !== null
+      ? { id: "halftime", type: "halftime", seconds: systemMoments.halftime, order: 100000, note: "" }
+      : null,
+    systemMoments.fulltime !== null
+      ? { id: "fulltime", type: "fulltime", seconds: systemMoments.fulltime, order: 200000, note: "" }
+      : null,
+  ].filter(Boolean);
+  const eventEntries = Array.isArray(statusRecord.events)
+    ? statusRecord.events.map((event, index) => ({
+        ...event,
+        type: "event",
+        order: index + 10,
+      }))
+      : [];
 
-  if (fixtures.scope === "cross" && Array.isArray(fixtures.pairs)) {
-    return fixtures.pairs.flatMap((pair) =>
-      pair.matches.map((match, index) =>
-        normalizeFixture(match.home, match.away, pair.label, startDate, index, teamLogoMap)
-      )
-    );
-  }
+  return [...systemEntries, ...eventEntries]
+    .map((entry, index) => {
+      const rawSeconds = Number(entry.seconds) || 0;
+      let nextSeconds =
+        statusRecord.matchStatus === "ended"
+          ? Math.min(rawSeconds, totalDurationSeconds)
+          : rawSeconds;
+      let nextOrder = entry.order ?? index;
 
-  if (fixtures.scope === "league" && Array.isArray(fixtures.rounds)) {
-    return fixtures.rounds.flatMap((matches, roundIndex) =>
-      matches.map((match, index) =>
-        normalizeFixture(
-          match.home,
-          match.away,
-          `Round ${roundIndex + 1}`,
-          startDate,
-          index,
-          teamLogoMap
-        )
-      )
-    );
-  }
+      if (entry.type === "event" && entry.half === "first" && systemMoments.halftime !== null) {
+        nextSeconds = Math.min(rawSeconds, halfDurationSeconds);
+        nextOrder -= 0.5;
+      }
 
-  return [];
+      if (entry.type === "event" && entry.half === "second" && systemMoments.fulltime !== null) {
+        nextSeconds = Math.min(rawSeconds, totalDurationSeconds);
+        nextOrder -= 0.5;
+      }
+
+      return {
+        ...entry,
+        id: entry.id || `timeline-${index + 1}`,
+        seconds: nextSeconds,
+        order: nextOrder,
+        displayTime: formatMatchClock(nextSeconds),
+        text: formatTimelineEvent(entry),
+        note: String(entry.note || "").trim(),
+      };
+    })
+    .sort((left, right) => (left.seconds || 0) - (right.seconds || 0) || left.order - right.order);
+}
+
+function normalizeFixtureSections(record, teamLogoMap, startDate) {
+  const payload = record?.data || {};
+  const matchStatuses = payload.matchStatuses || {};
+  const matchLineups = payload.matchLineups || {};
+
+  return getTournamentFixtureSections(record).map((section, sectionIndex) => ({
+    title: section.title,
+    kind: section.kind || "fixture",
+    matches: section.matches.map((match) => {
+      const fixtureKey = getFixtureKey(sectionIndex, match.roundIndex, match.matchIndex);
+      const statusRecord = matchStatuses[fixtureKey] || null;
+      const lineupRecord = matchLineups[fixtureKey] || null;
+      const score = getMatchScore(statusRecord);
+      const clockSeconds = statusRecord ? getMatchClockSeconds(statusRecord) : 0;
+
+      return {
+        id: `${fixtureKey}-${match.home}-${match.away}`,
+        fixtureKey,
+        homeTeam: match.home,
+        awayTeam: match.away,
+        homeLogo: teamLogoMap[match.home] || "",
+        awayLogo: teamLogoMap[match.away] || "",
+        sectionTitle: section.title,
+        sectionKind: section.kind || "fixture",
+        status: getFixtureStatusLabel(statusRecord) || "Upcoming",
+        phaseLabel: getFixturePhaseLabel(statusRecord),
+        score,
+        clockSeconds,
+        clockText: statusRecord ? formatMatchClock(clockSeconds) : "",
+        statusRecord,
+        lineup: buildFixtureLineup(lineupRecord),
+        timelineEntries: buildTimelineEntries(statusRecord),
+        date: match.date || startDate || "TBD",
+        time: match.time || "TBD",
+      };
+    }),
+  }));
 }
 
 function normalizeGroups(groups, teamLogoMap) {
@@ -121,16 +236,30 @@ export function normalizeSavedTournament(record) {
   const settings = payload.settings || {};
   const startDate = settings.startDate || record.startDate || "";
   const endDate = settings.endDate || record.endDate || "";
-  const fixtures = payload.fixtures || payload.leagueFixtures || null;
-  const teamLogoMap = (payload.teamData || []).reduce((accumulator, team) => {
-    if (team?.name) {
-      accumulator[team.name] = getStoredImageUrl(team.logo);
-    }
-    return accumulator;
-  }, {});
-  const normalizedFixtures = normalizeGroupFixtures(fixtures, startDate, teamLogoMap);
+  const teamLogoMap = buildTeamLogoMap(payload);
+  const fixtureSections = normalizeFixtureSections(record, teamLogoMap, startDate);
   const normalizedGroups =
     record.tournamentType === "group" ? normalizeGroups(payload.groups, teamLogoMap) : [];
+  const normalizedPointsTables = buildTournamentTables(record).map((groupTable) => ({
+    name: groupTable.title,
+    rows: groupTable.rows.map((row, index) => ({
+      position: index + 1,
+      team: row.team,
+      logo: row.logo || "",
+      played: row.played,
+      won: row.wins,
+      draw: row.draws,
+      lost: row.losses,
+      goalDifference: row.difference,
+      points: row.points,
+      scored: row.scored,
+      contained: row.contained,
+      yellow: row.yellow,
+      red: row.red,
+      penalty: row.penalty,
+    })),
+  }));
+  const normalizedFixtures = fixtureSections.flatMap((section) => section.matches);
 
   return {
     id: record.id,
@@ -143,8 +272,9 @@ export function normalizeSavedTournament(record) {
         ? "League tournament launched by the admin."
         : "Group tournament launched by the admin.",
     fixtures: normalizedFixtures,
+    fixtureSections,
     groups: normalizedGroups,
-    pointsTables: [],
+    pointsTables: normalizedPointsTables,
     startDate,
     endDate,
     tournamentType: record.tournamentType,

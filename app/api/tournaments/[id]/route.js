@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDb } from "../../../../lib/mongodb";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "../../../../lib/adminAuth";
+import {
+  canAdminAccessTournament,
+  isMasterAdminSession,
+  sanitizeAdmin,
+} from "../../../../lib/adminAccess";
 
 function normalizeTournamentName(name) {
   return String(name || "").trim().toLowerCase();
@@ -21,6 +26,10 @@ export async function GET(_request, { params }) {
     const session = verifyAdminSessionToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
 
     if (!tournament.launched && !session) {
+      return NextResponse.json({ message: "Tournament not found." }, { status: 404 });
+    }
+
+    if (session && !canAdminAccessTournament(session, tournament)) {
       return NextResponse.json({ message: "Tournament not found." }, { status: 404 });
     }
 
@@ -45,7 +54,8 @@ export async function PUT(request, { params }) {
 
     const { id } = await params;
     const tournament = await request.json();
-    const name = String(tournament?.name || "").trim();
+    const { _id: _clientId, ...incomingTournament } = tournament || {};
+    const name = String(incomingTournament?.name || "").trim();
     const normalizedName = normalizeTournamentName(name);
 
     if (!name) {
@@ -72,19 +82,27 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ message: "Tournament not found." }, { status: 404 });
     }
 
+    if (!canAdminAccessTournament(session, currentTournament)) {
+      return NextResponse.json({ message: "Unauthorized." }, { status: 403 });
+    }
+
+    const sessionAdmin = sanitizeAdmin(session);
+
     const nextTournament = {
       ...currentTournament,
-      ...tournament,
+      ...incomingTournament,
       id,
       name,
       normalizedName,
+      ownerUsername: currentTournament.ownerUsername || sessionAdmin.username,
+      ownerRole: currentTournament.ownerRole || sessionAdmin.role,
       createdAt: currentTournament.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     await collection.replaceOne({ id }, nextTournament);
-
-    return NextResponse.json({ tournament: nextTournament });
+    const { _id, ...record } = nextTournament;
+    return NextResponse.json({ tournament: record });
   } catch {
     return NextResponse.json(
       { message: "Unable to update the tournament right now." },
@@ -100,6 +118,13 @@ export async function DELETE(_request, { params }) {
 
     if (!session) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    }
+
+    if (!isMasterAdminSession(session)) {
+      return NextResponse.json(
+        { message: "Only the master admin can delete tournaments." },
+        { status: 403 }
+      );
     }
 
     const { id } = await params;

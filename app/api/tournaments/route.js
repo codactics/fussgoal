@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDb } from "../../../lib/mongodb";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "../../../lib/adminAuth";
+import { buildTournamentAdminFilter, sanitizeAdmin } from "../../../lib/adminAccess";
 
 function normalizeTournamentName(name) {
   return String(name || "").trim().toLowerCase();
@@ -19,9 +20,10 @@ export async function GET(request) {
     }
 
     const db = await getDb();
+    const adminFilter = launchedOnly ? { launched: true } : buildTournamentAdminFilter(session);
     const tournaments = await db
       .collection("tournaments")
-      .find(launchedOnly ? { launched: true } : {})
+      .find(adminFilter)
       .sort({ savedAt: -1, updatedAt: -1, createdAt: -1 })
       .toArray();
 
@@ -55,6 +57,7 @@ export async function POST(request) {
 
     const db = await getDb();
     const collection = db.collection("tournaments");
+    const sessionAdmin = sanitizeAdmin(session);
     const existingTournament = await collection.findOne({ normalizedName });
 
     if (existingTournament) {
@@ -69,6 +72,8 @@ export async function POST(request) {
       ...tournament,
       name,
       normalizedName,
+      ownerUsername: tournament?.ownerUsername || sessionAdmin.username,
+      ownerRole: sessionAdmin.role,
       createdAt: now,
       updatedAt: now,
     };

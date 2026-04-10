@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import styles from "./CreateTournamentWizard.module.css";
 import { getStoredImagePublicId, getStoredImageUrl } from "./launchedTournamentUtils";
@@ -40,6 +41,25 @@ function getGroupLabel(index) {
   return `Group ${String.fromCharCode(65 + index)}`;
 }
 
+function createEmptyRoundSlots(rounds) {
+  return rounds.map((matches) => matches.map(() => ({ home: "", away: "" })));
+}
+
+function buildManualRoundSlots(teams, roundRobin, homeAway) {
+  const { rounds } = generateRoundRobin(teams);
+  let slots = createEmptyRoundSlots(rounds);
+
+  if (roundRobin === "double") {
+    slots = slots.concat(createEmptyRoundSlots(rounds));
+  }
+
+  if (homeAway && roundRobin === "single") {
+    slots = slots.concat(createEmptyRoundSlots(rounds));
+  }
+
+  return slots;
+}
+
 function getTournamentPhase(startDate, endDate) {
   const today = new Date();
   const currentDate = new Date(
@@ -76,7 +96,7 @@ function getAdminTournamentPhase({ startDate, endDate, launched = false, paused 
   return basePhase;
 }
 
-export default function CreateTournamentWizard() {
+export default function CreateTournamentWizard({ adminSession = null }) {
   const [activeTab, setActiveTab] = useState("setup");
   const [isStarted, setIsStarted] = useState(false);
   const [step, setStep] = useState(1);
@@ -369,7 +389,7 @@ export default function CreateTournamentWizard() {
     setIsVerifyingPassword(false);
   }
 
-  async function verifyAdminPassword() {
+  async function verifyAdminPassword(action) {
     const response = await fetch("/api/admin/verify-password", {
       method: "POST",
       headers: {
@@ -377,6 +397,7 @@ export default function CreateTournamentWizard() {
       },
       body: JSON.stringify({
         password: adminPassword,
+        action,
       }),
     });
 
@@ -396,10 +417,14 @@ export default function CreateTournamentWizard() {
     setPasswordError("");
 
     try {
-      await verifyAdminPassword();
+      await verifyAdminPassword(pendingProtectedAction.type);
 
       if (pendingProtectedAction.type === "pause") {
         await pauseTournament(pendingProtectedAction.tournamentId);
+      }
+
+      if (pendingProtectedAction.type === "end") {
+        await endTournament(pendingProtectedAction.tournamentId);
       }
 
       if (pendingProtectedAction.type === "edit") {
@@ -688,6 +713,84 @@ export default function CreateTournamentWizard() {
     setStatusMessage("Cross-group fixtures generated.");
   }
 
+  function generateManualFixtures() {
+    if (form.tournamentType === "group") {
+      if (!groups.length) {
+        setStatusMessage("Generate groups first.");
+        return;
+      }
+
+      if (options.fixtureScope === "same") {
+        const fixtureGroups = groups.map((groupTeams, index) => ({
+          group: String.fromCharCode(65 + index),
+          groupIndex: index,
+          rounds: buildManualRoundSlots(groupTeams, options.roundRobin, options.homeAway),
+        }));
+
+        setFixtures({
+          scope: "same",
+          roundRobin: options.roundRobin,
+          homeAway: options.homeAway,
+          backToBackAllowed: options.backToBack,
+          generationMode: "manual",
+          groups: fixtureGroups,
+        });
+        setStatusMessage("Manual fixture canvas created. Select teams for each match.");
+        return;
+      }
+
+      const crossFixtures = buildCrossGroupFixtures(groups, options.homeAway);
+      const pairs = [];
+
+      for (let leftIndex = 0; leftIndex < groups.length; leftIndex += 1) {
+        for (let rightIndex = leftIndex + 1; rightIndex < groups.length; rightIndex += 1) {
+          if (!groups[leftIndex].length || !groups[rightIndex].length) {
+            continue;
+          }
+
+          const pair = crossFixtures[pairs.length];
+          pairs.push({
+            label: pair.label,
+            leftGroupIndex: leftIndex,
+            rightGroupIndex: rightIndex,
+            matches: pair.matches.map(() => ({ home: "", away: "" })),
+          });
+        }
+      }
+
+      setFixtures({
+        scope: "cross",
+        roundRobin: options.roundRobin,
+        homeAway: options.homeAway,
+        backToBackAllowed: options.backToBack,
+        generationMode: "manual",
+        pairs,
+      });
+      setStatusMessage("Manual fixture canvas created. Select teams for each cross-group match.");
+      return;
+    }
+
+    if (namedTeams.length < 2) {
+      setStatusMessage("Enter at least two team names to create manual league fixtures.");
+      return;
+    }
+
+    if (new Set(namedTeams).size !== namedTeams.length) {
+      setStatusMessage("Team names must be unique.");
+      return;
+    }
+
+    setGroups([]);
+    setFixtures({
+      scope: "league",
+      homeAway: options.homeAway,
+      backToBackAllowed: options.backToBack,
+      generationMode: "manual",
+      rounds: buildManualRoundSlots(namedTeams, options.roundRobin, options.homeAway),
+    });
+    setStatusMessage("Manual league fixture canvas created. Select teams for each match.");
+  }
+
   function generateLeagueFixtures() {
     if (namedTeams.length < 2) {
       setStatusMessage("Enter at least two team names to generate league fixtures.");
@@ -730,6 +833,103 @@ export default function CreateTournamentWizard() {
     setStatusMessage("League fixtures generated.");
   }
 
+  function updateGroupedFixtureMatch(groupIndex, roundIndex, matchIndex, field, value) {
+    setFixtures((currentFixtures) => {
+      if (!currentFixtures || currentFixtures.scope !== "same") {
+        return currentFixtures;
+      }
+
+      return {
+        ...currentFixtures,
+        groups: currentFixtures.groups.map((group, currentGroupIndex) =>
+          currentGroupIndex === groupIndex
+            ? {
+                ...group,
+                rounds: group.rounds.map((matches, currentRoundIndex) =>
+                  currentRoundIndex === roundIndex
+                    ? matches.map((match, currentMatchIndex) =>
+                        currentMatchIndex === matchIndex
+                          ? { ...match, [field]: value }
+                          : match
+                      )
+                    : matches
+                ),
+              }
+            : group
+        ),
+      };
+    });
+  }
+
+  function updateCrossFixtureMatch(pairIndex, matchIndex, field, value) {
+    setFixtures((currentFixtures) => {
+      if (!currentFixtures || currentFixtures.scope !== "cross") {
+        return currentFixtures;
+      }
+
+      return {
+        ...currentFixtures,
+        pairs: currentFixtures.pairs.map((pair, currentPairIndex) =>
+          currentPairIndex === pairIndex
+            ? {
+                ...pair,
+                matches: pair.matches.map((match, currentMatchIndex) =>
+                  currentMatchIndex === matchIndex ? { ...match, [field]: value } : match
+                ),
+              }
+            : pair
+        ),
+      };
+    });
+  }
+
+  function updateLeagueFixtureMatch(roundIndex, matchIndex, field, value) {
+    setFixtures((currentFixtures) => {
+      if (!currentFixtures || currentFixtures.scope !== "league") {
+        return currentFixtures;
+      }
+
+      return {
+        ...currentFixtures,
+        rounds: currentFixtures.rounds.map((matches, currentRoundIndex) =>
+          currentRoundIndex === roundIndex
+            ? matches.map((match, currentMatchIndex) =>
+                currentMatchIndex === matchIndex ? { ...match, [field]: value } : match
+              )
+            : matches
+        ),
+      };
+    });
+  }
+
+  function hasIncompleteFixtures(currentFixtures) {
+    if (!currentFixtures) {
+      return true;
+    }
+
+    if (currentFixtures.scope === "same") {
+      return currentFixtures.groups.some((group) =>
+        group.rounds.some((matches) =>
+          matches.some((match) => !match.home || !match.away || match.home === match.away)
+        )
+      );
+    }
+
+    if (currentFixtures.scope === "cross") {
+      return currentFixtures.pairs.some((pair) =>
+        pair.matches.some((match) => !match.home || !match.away || match.home === match.away)
+      );
+    }
+
+    if (currentFixtures.scope === "league") {
+      return currentFixtures.rounds.some((matches) =>
+        matches.some((match) => !match.home || !match.away || match.home === match.away)
+      );
+    }
+
+    return true;
+  }
+
   function exportTournament() {
     const payload = buildTournamentPayload();
 
@@ -759,6 +959,11 @@ export default function CreateTournamentWizard() {
 
     if (!fixtures) {
       setStatusMessage("Generate fixtures before saving or exporting.");
+      return null;
+    }
+
+    if (hasIncompleteFixtures(fixtures)) {
+      setStatusMessage("Complete every fixture row with two different teams before saving or exporting.");
       return null;
     }
 
@@ -1076,9 +1281,9 @@ export default function CreateTournamentWizard() {
     const isRunning = tournament.launched && tournament.phase !== "past";
     const isEnded = tournament.phase === "past";
     const editDisabled = tournament.launched || isEnded;
-    const deleteDisabled = isRunning;
+    const canDelete = adminSession?.role === "master_admin";
+    const deleteDisabled = isRunning || !canDelete;
     const tournamentLogoUrl = getStoredImageUrl(tournament.data?.tournamentLogo);
-
     return (
       <article className={styles.savedCard} key={tournament.id}>
         <div className={styles.savedCardHeader}>
@@ -1093,13 +1298,12 @@ export default function CreateTournamentWizard() {
             <h3 className={styles.resultTitle}>{tournament.name}</h3>
           </div>
 
-          <button
+          <Link
             className={styles.manageTournamentButton}
-            onClick={() => setActiveTab("manage")}
-            type="button"
+            href={`/admin/dashboard/${tournament.id}`}
           >
             Manage Tournament
-          </button>
+          </Link>
         </div>
 
         <p className={styles.resultMeta}>
@@ -1111,6 +1315,9 @@ export default function CreateTournamentWizard() {
         {tournament.tournamentType === "group" ? (
           <p className={styles.resultMeta}>Groups: {tournament.groupCount}</p>
         ) : null}
+        {adminSession?.role === "master_admin" && tournament.ownerUsername ? (
+          <p className={styles.resultMeta}>Owner: {tournament.ownerUsername}</p>
+        ) : null}
         <p className={styles.resultMeta}>Saved: {new Date(tournament.savedAt).toLocaleString()}</p>
         <div className={styles.savedActions}>
           <div className={styles.savedPrimaryActions}>
@@ -1118,7 +1325,7 @@ export default function CreateTournamentWizard() {
               className={isRunning ? styles.endButton : styles.launchButton}
               onClick={() =>
                 isRunning
-                  ? endTournament(tournament.id)
+                  ? requestProtectedAction("end", tournament)
                   : launchTournament(tournament.id)
               }
               type="button"
@@ -1146,14 +1353,16 @@ export default function CreateTournamentWizard() {
             >
               Edit
             </button>
-            <button
-              className={styles.deleteButton}
-              disabled={deleteDisabled}
-              onClick={() => requestProtectedAction("delete", tournament)}
-              type="button"
-            >
-              Delete
-            </button>
+            {canDelete ? (
+              <button
+                className={styles.deleteButton}
+                disabled={deleteDisabled}
+                onClick={() => requestProtectedAction("delete", tournament)}
+                type="button"
+              >
+                Delete
+              </button>
+            ) : null}
           </div>
         </div>
       </article>
@@ -1563,17 +1772,33 @@ export default function CreateTournamentWizard() {
                       onClick={generateFixtures}
                       type="button"
                     >
-                      Generate Fixtures
+                      Generate Fixtures (Auto)
+                    </button>
+                    <button
+                      className={styles.secondaryButton}
+                      onClick={generateManualFixtures}
+                      type="button"
+                    >
+                      Generate Fixtures (Manual)
                     </button>
                   </>
                 ) : (
-                  <button
-                    className={styles.secondaryButton}
-                    onClick={generateLeagueFixtures}
-                    type="button"
-                  >
-                    Generate League Fixtures
-                  </button>
+                  <>
+                    <button
+                      className={styles.secondaryButton}
+                      onClick={generateLeagueFixtures}
+                      type="button"
+                    >
+                      Generate Fixtures (Auto)
+                    </button>
+                    <button
+                      className={styles.secondaryButton}
+                      onClick={generateManualFixtures}
+                      type="button"
+                    >
+                      Generate Fixtures (Manual)
+                    </button>
+                  </>
                 )}
                 <button
                   className={styles.secondaryButton}
@@ -1623,13 +1848,66 @@ export default function CreateTournamentWizard() {
                           group.rounds.map((matches, roundIndex) => (
                             <div className={styles.roundBlock} key={`${group.group}-${roundIndex + 1}`}>
                               <p className={styles.resultMeta}>Round {roundIndex + 1}</p>
-                              <ul className={styles.resultList}>
-                                {matches.map((match) => (
-                                  <li key={`${match.home}-${match.away}-${roundIndex}`}>
-                                    {match.home} vs {match.away}
-                                  </li>
-                                ))}
-                              </ul>
+                              {fixtures.generationMode === "manual" ? (
+                                <div className={styles.manualFixtureStack}>
+                                  {matches.map((match, matchIndex) => (
+                                    <div
+                                      className={styles.manualFixtureRow}
+                                      key={`${group.group}-manual-${roundIndex + 1}-${matchIndex + 1}`}
+                                    >
+                                      <select
+                                        className={styles.select}
+                                        onChange={(event) =>
+                                          updateGroupedFixtureMatch(
+                                            group.groupIndex,
+                                            roundIndex,
+                                            matchIndex,
+                                            "home",
+                                            event.target.value
+                                          )
+                                        }
+                                        value={match.home}
+                                      >
+                                        <option value="">Team 1</option>
+                                        {groups[group.groupIndex]?.map((team) => (
+                                          <option key={`${group.group}-home-${team}`} value={team}>
+                                            {team}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <span className={styles.manualFixtureVs}>VS</span>
+                                      <select
+                                        className={styles.select}
+                                        onChange={(event) =>
+                                          updateGroupedFixtureMatch(
+                                            group.groupIndex,
+                                            roundIndex,
+                                            matchIndex,
+                                            "away",
+                                            event.target.value
+                                          )
+                                        }
+                                        value={match.away}
+                                      >
+                                        <option value="">Team 2</option>
+                                        {groups[group.groupIndex]?.map((team) => (
+                                          <option key={`${group.group}-away-${team}`} value={team}>
+                                            {team}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <ul className={styles.resultList}>
+                                  {matches.map((match) => (
+                                    <li key={`${match.home}-${match.away}-${roundIndex}`}>
+                                      {match.home} vs {match.away}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
                             </div>
                           ))
                         ) : (
@@ -1643,20 +1921,70 @@ export default function CreateTournamentWizard() {
 
               {fixtures?.scope === "cross" ? (
                 <div className={styles.fixturesGrid}>
-                  {fixtures.pairs.map((pair) => (
+                  {fixtures.pairs.map((pair, pairIndex) => (
                     <div className={styles.resultCard} key={pair.label}>
                       <h3 className={styles.resultTitle}>{pair.label}</h3>
-                      <ul className={styles.resultList}>
-                        {pair.matches.length ? (
-                          pair.matches.map((match, index) => (
-                            <li key={`${pair.label}-${match.home}-${match.away}-${index}`}>
-                              {match.home} vs {match.away}
-                            </li>
-                          ))
+                      {pair.matches.length ? (
+                        fixtures.generationMode === "manual" ? (
+                          <div className={styles.manualFixtureStack}>
+                            {pair.matches.map((match, matchIndex) => (
+                              <div className={styles.manualFixtureRow} key={`${pair.label}-${matchIndex}`}>
+                                <select
+                                  className={styles.select}
+                                  onChange={(event) =>
+                                    updateCrossFixtureMatch(
+                                      pairIndex,
+                                      matchIndex,
+                                      "home",
+                                      event.target.value
+                                    )
+                                  }
+                                  value={match.home}
+                                >
+                                  <option value="">Team 1</option>
+                                  {groups[pair.leftGroupIndex]?.map((team) => (
+                                    <option key={`${pair.label}-home-${team}-${matchIndex}`} value={team}>
+                                      {team}
+                                    </option>
+                                  ))}
+                                </select>
+                                <span className={styles.manualFixtureVs}>VS</span>
+                                <select
+                                  className={styles.select}
+                                  onChange={(event) =>
+                                    updateCrossFixtureMatch(
+                                      pairIndex,
+                                      matchIndex,
+                                      "away",
+                                      event.target.value
+                                    )
+                                  }
+                                  value={match.away}
+                                >
+                                  <option value="">Team 2</option>
+                                  {groups[pair.rightGroupIndex]?.map((team) => (
+                                    <option key={`${pair.label}-away-${team}-${matchIndex}`} value={team}>
+                                      {team}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            ))}
+                          </div>
                         ) : (
+                          <ul className={styles.resultList}>
+                            {pair.matches.map((match, index) => (
+                              <li key={`${pair.label}-${match.home}-${match.away}-${index}`}>
+                                {match.home} vs {match.away}
+                              </li>
+                            ))}
+                          </ul>
+                        )
+                      ) : (
+                        <ul className={styles.resultList}>
                           <li>Unable to avoid back-to-back teams for this pairing.</li>
-                        )}
-                      </ul>
+                        </ul>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1670,13 +1998,61 @@ export default function CreateTournamentWizard() {
                       {fixtures.rounds.map((matches, roundIndex) => (
                         <div className={styles.roundBlock} key={`league-${roundIndex + 1}`}>
                           <p className={styles.resultMeta}>Round {roundIndex + 1}</p>
-                          <ul className={styles.resultList}>
-                            {matches.map((match, index) => (
-                              <li key={`league-${match.home}-${match.away}-${index}`}>
-                                {match.home} vs {match.away}
-                              </li>
-                            ))}
-                          </ul>
+                          {fixtures.generationMode === "manual" ? (
+                            <div className={styles.manualFixtureStack}>
+                              {matches.map((match, matchIndex) => (
+                                <div className={styles.manualFixtureRow} key={`league-${roundIndex}-${matchIndex}`}>
+                                  <select
+                                    className={styles.select}
+                                    onChange={(event) =>
+                                      updateLeagueFixtureMatch(
+                                        roundIndex,
+                                        matchIndex,
+                                        "home",
+                                        event.target.value
+                                      )
+                                    }
+                                    value={match.home}
+                                  >
+                                    <option value="">Team 1</option>
+                                    {namedTeams.map((team) => (
+                                      <option key={`league-home-${team}-${matchIndex}`} value={team}>
+                                        {team}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <span className={styles.manualFixtureVs}>VS</span>
+                                  <select
+                                    className={styles.select}
+                                    onChange={(event) =>
+                                      updateLeagueFixtureMatch(
+                                        roundIndex,
+                                        matchIndex,
+                                        "away",
+                                        event.target.value
+                                      )
+                                    }
+                                    value={match.away}
+                                  >
+                                    <option value="">Team 2</option>
+                                    {namedTeams.map((team) => (
+                                      <option key={`league-away-${team}-${matchIndex}`} value={team}>
+                                        {team}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <ul className={styles.resultList}>
+                              {matches.map((match, index) => (
+                                <li key={`league-${match.home}-${match.away}-${index}`}>
+                                  {match.home} vs {match.away}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1780,10 +2156,12 @@ export default function CreateTournamentWizard() {
           <div className={styles.passwordCard}>
             <h3 className={styles.passwordTitle}>Admin Password Required</h3>
             <p className={styles.passwordText}>
-              Enter the admin password to approve{" "}
+              Enter the {pendingProtectedAction.type === "delete" ? "master admin" : "admin"} password to approve{" "}
               <strong>
                 {pendingProtectedAction.type === "pause"
                   ? "Pause Tournament"
+                  : pendingProtectedAction.type === "end"
+                    ? "End Tournament"
                   : pendingProtectedAction.type === "edit"
                     ? "Edit"
                     : "Delete"}

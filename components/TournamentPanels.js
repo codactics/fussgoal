@@ -6,10 +6,16 @@ import GroupCard from "./GroupCard";
 import PointsTable from "./PointsTable";
 import styles from "./TournamentPanels.module.css";
 
-export default function TournamentPanels({ tournament }) {
+export default function TournamentPanels({ tournament, onFixtureSelect }) {
   const [openPanels, setOpenPanels] = useState([]);
+  const fixtureSections =
+    tournament.fixtureSections?.length
+      ? tournament.fixtureSections
+      : tournament.fixtures?.length
+        ? [{ title: "Fixtures", matches: tournament.fixtures }]
+        : [];
   const panelConfig = [
-    tournament.fixtures?.length ? { key: "fixtures", label: "Fixtures" } : null,
+    fixtureSections.length ? { key: "fixtures", label: "Fixtures" } : null,
     tournament.groups?.length ? { key: "groups", label: "Groups" } : null,
     tournament.pointsTables?.length ? { key: "pointsTable", label: "Points Table" } : null,
   ].filter(Boolean);
@@ -27,9 +33,20 @@ export default function TournamentPanels({ tournament }) {
   function renderPanelContent(panelKey) {
     if (panelKey === "fixtures") {
       return (
-        <div className={styles.fixtureGrid}>
-          {tournament.fixtures.map((fixture) => (
-            <FixtureCard key={fixture.id} fixture={fixture} />
+        <div className={styles.fixtureSections}>
+          {fixtureSections.map((section) => (
+            <div className={styles.fixtureSection} key={section.title}>
+              <h4 className={styles.fixtureSectionTitle}>{section.title}</h4>
+                <div className={styles.fixtureGrid}>
+                  {section.matches.map((fixture) => (
+                    <FixtureCard
+                      key={fixture.id}
+                      fixture={fixture}
+                      onClick={onFixtureSelect ? () => onFixtureSelect(fixture) : undefined}
+                    />
+                  ))}
+                </div>
+              </div>
           ))}
         </div>
       );

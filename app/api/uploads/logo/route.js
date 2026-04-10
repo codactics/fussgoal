@@ -12,6 +12,10 @@ function getUploadFolder(kind) {
     return "fussgoal/tournament-logos";
   }
 
+  if (kind === "player") {
+    return "fussgoal/player-photos";
+  }
+
   return "fussgoal/team-logos";
 }
 

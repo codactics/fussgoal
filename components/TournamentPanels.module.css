@@ -109,6 +109,23 @@
   gap: 1rem;
 }
 
+.fixtureSections {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.fixtureSection {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.fixtureSectionTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #10241d;
+}
+
 .fixtureGrid {
   grid-template-columns: 1fr;
 }

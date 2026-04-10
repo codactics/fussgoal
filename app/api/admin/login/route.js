@@ -5,6 +5,11 @@ import {
   createAdminSessionToken,
   getAdminSessionCookieOptions,
 } from "../../../../lib/adminAuth";
+import {
+  MAIN_ADMIN_COLLECTION,
+  TOURNAMENT_ADMIN_COLLECTION,
+  sanitizeAdmin,
+} from "../../../../lib/adminAccess";
 
 export async function POST(request) {
   try {
@@ -20,10 +25,17 @@ export async function POST(request) {
     }
 
     const db = await getDb();
-    const admin = await db.collection("admin_access").findOne({
+    let admin = await db.collection(MAIN_ADMIN_COLLECTION).findOne({
       username,
       password,
     });
+
+    if (!admin) {
+      admin = await db.collection(TOURNAMENT_ADMIN_COLLECTION).findOne({
+        username,
+        password,
+      });
+    }
 
     if (!admin) {
       return NextResponse.json(
@@ -32,14 +44,17 @@ export async function POST(request) {
       );
     }
 
+    const sessionAdmin = sanitizeAdmin(admin);
+
     const response = NextResponse.json({
       success: true,
-      username: admin.username,
+      username: sessionAdmin.username,
+      role: sessionAdmin.role,
     });
 
     response.cookies.set(
       ADMIN_SESSION_COOKIE,
-      createAdminSessionToken(admin.username),
+      createAdminSessionToken(sessionAdmin),
       getAdminSessionCookieOptions()
     );
 

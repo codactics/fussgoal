@@ -53,7 +53,7 @@ export default function AdminLoginPage() {
           <p className={styles.eyebrow}>Admin Access</p>
           <h1 className={styles.title}>Admin Login</h1>
           <p className={styles.text}>
-            Sign in with the admin username and password to manage the football scoreboard.
+            Sign in as a master admin or tournament admin to manage the football scoreboard.
           </p>
 
           <form className={styles.form} onSubmit={handleSubmit}>

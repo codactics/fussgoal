@@ -352,6 +352,24 @@
   border-top: 0;
 }
 
+.manualFixtureStack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.manualFixtureRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.manualFixtureVs {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #4a5d55;
+}
+
 .savedSection {
   padding: 1.75rem;
   border: 1px solid rgba(19, 32, 27, 0.08);
@@ -400,6 +418,11 @@
   border: 1px solid rgba(19, 32, 27, 0.08);
   border-radius: 20px;
   background: #f8fbf9;
+}
+
+.selectedSavedCard {
+  border-color: rgba(15, 106, 76, 0.28);
+  box-shadow: 0 16px 30px rgba(15, 106, 76, 0.12);
 }
 
 .savedCardHeader {
@@ -509,6 +532,640 @@
   line-height: 1.7;
 }
 
+.eyebrowLabel {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #0f6a4c;
+}
+
+.manageDetailSection {
+  display: grid;
+  gap: 1rem;
+}
+
+.manageDetailHeader,
+.manageSectionCard,
+.manageGroupCard,
+.manageFixtureCard {
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  background: #f8fbf9;
+}
+
+.manageDetailHeader,
+.manageSectionCard {
+  padding: 1.2rem;
+  border-radius: 22px;
+}
+
+.manageDetailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.manageDetailTitle,
+.manageSectionTitle,
+.manageGroupTitle,
+.manageFixtureTitle {
+  margin: 0;
+  color: #10241d;
+}
+
+.manageDetailTitle {
+  font-size: 1.4rem;
+}
+
+.manageSectionTitle {
+  margin-bottom: 1rem;
+  font-size: 1.05rem;
+}
+
+.manageGroupGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.manageGroupCard,
+.manageFixtureCard {
+  padding: 1rem;
+  border-radius: 18px;
+}
+
+.manageGroupTitle,
+.manageFixtureTitle {
+  margin-bottom: 0.85rem;
+  font-size: 1rem;
+}
+
+.manageTeamList,
+.manageFixturesStack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.manageTeamRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.manageTeamButton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 16px;
+  background: #ffffff;
+  color: #13201b;
+  cursor: pointer;
+  text-align: left;
+}
+
+.manageTeamLogo,
+.manageTeamLogoFallback {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  background: #ffffff;
+}
+
+.manageTeamLogo {
+  object-fit: cover;
+}
+
+.manageTeamLogoFallback {
+  display: grid;
+  place-items: center;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #0b4f39;
+}
+
+.manageTeamName {
+  font-weight: 700;
+  color: #13201b;
+}
+
+.fixtureRowList {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.fixtureRowLink {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 16px;
+  background: #ffffff;
+  color: #13201b;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.fixtureRowTeam,
+.fixtureRowTeamRight {
+  min-width: 0;
+}
+
+.fixtureRowTeamRight {
+  text-align: right;
+}
+
+.fixtureRowCenter {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+}
+
+.fixtureRowVs {
+  color: #4a5d55;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.fixtureRowMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.fixtureStatusBadge {
+  min-height: 26px;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fixtureStatusLive {
+  background: rgba(219, 47, 62, 0.12);
+  color: #b51f31;
+}
+
+.fixtureStatusHalftime {
+  background: rgba(186, 124, 0, 0.14);
+  color: #7a5300;
+}
+
+.fixtureStatusEnded {
+  background: rgba(15, 106, 76, 0.12);
+  color: #0b4f39;
+}
+
+.fixtureLiveScore {
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #10241d;
+}
+
+.fixtureLiveClock {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #4a5d55;
+}
+
+.fixtureLivePhase {
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #0f6a4c;
+  text-transform: uppercase;
+}
+
+.lineupHeader {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.lineupTeamTitle {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #10241d;
+}
+
+.lineupTable {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(140px, 0.8fr) minmax(0, 1.4fr) minmax(140px, 0.8fr);
+  gap: 0.75rem;
+}
+
+.lineupTableHead {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #4a5d55;
+}
+
+.lineupRow {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: inherit;
+  gap: 0.75rem;
+}
+
+.lineupActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.matchStatusEntryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(180px, 0.95fr) minmax(0, 1.2fr) 64px;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.matchStatusHead {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #4a5d55;
+}
+
+.eventActionButton,
+.eventIconButton {
+  min-height: 46px;
+  border: 1px solid rgba(19, 32, 27, 0.12);
+  border-radius: 14px;
+  background: #ffffff;
+  color: #13201b;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.matchTimeline {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.matchTimelineRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.matchTimelineText {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  color: #13201b;
+  font-weight: 700;
+}
+
+.matchTimelineTime {
+  min-width: 56px;
+  color: #db2f3e;
+  font-weight: 900;
+}
+
+.matchTimelineNote {
+  margin-left: auto;
+  color: #4a5d55;
+  font-size: 0.92rem;
+  text-align: right;
+}
+
+.matchTimelineActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.liveScoreboardCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  padding: 1.25rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 22px;
+  background: #ffffff;
+}
+
+.liveTeamBlock {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.liveTeamBlock:first-child {
+  justify-content: flex-start;
+}
+
+.liveTeamBlock:last-child {
+  justify-content: flex-end;
+}
+
+.liveTeamBlock:last-child .liveScoreTeamName {
+  text-align: right;
+}
+
+.liveControlBar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.liveScoreCenterBlock {
+  display: grid;
+  gap: 0.9rem;
+  justify-items: center;
+}
+
+.liveClockWithAction {
+  display: grid;
+  gap: 0.65rem;
+  justify-items: center;
+}
+
+.liveScoreTeamLogo,
+.liveScoreTeamLogoFallback {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  background: #ffffff;
+}
+
+.liveScoreTeamLogo {
+  object-fit: cover;
+}
+
+.liveScoreTeamLogoFallback {
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0b4f39;
+}
+
+.liveScoreTeamName {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #13201b;
+}
+
+.liveScoreValue {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #10241d;
+}
+
+.liveGoalScoreValue {
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  font-weight: 900;
+  color: #db2f3e;
+}
+
+.halfSlider {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(19, 32, 27, 0.1);
+  border-radius: 999px;
+  background: #f2f6f4;
+}
+
+.halfSliderButton {
+  min-height: 40px;
+  padding: 0.65rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #4a5d55;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.activeHalfSliderButton {
+  background: #0f6a4c;
+  color: #ffffff;
+  box-shadow: 0 10px 18px rgba(15, 106, 76, 0.18);
+}
+
+.squadModalCard {
+  width: min(100%, 72rem);
+  max-height: calc(100vh - 3rem);
+  overflow: auto;
+  padding: 1.5rem;
+  border: 1px solid rgba(19, 32, 27, 0.1);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(9, 28, 22, 0.18);
+  display: grid;
+  gap: 1rem;
+}
+
+.squadModalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.squadModalTitleBlock {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.squadTeamLogo {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  background: #ffffff;
+}
+
+.squadTableWrap {
+  overflow: auto;
+}
+
+.squadTable {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.squadTable th,
+.squadTable td {
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(19, 32, 27, 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+
+.squadTable th {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #10241d;
+  background: #f8fbf9;
+}
+
+.squadPhotoCell {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.tournamentTableWrap {
+  overflow: auto;
+}
+
+.tournamentTable {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: collapse;
+}
+
+.tournamentTable th,
+.tournamentTable td {
+  padding: 0.8rem 0.75rem;
+  border-bottom: 1px solid rgba(19, 32, 27, 0.08);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tournamentTable th {
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: #4a5d55;
+  text-transform: uppercase;
+}
+
+.tournamentTable td:first-child,
+.tournamentTable th:first-child {
+  font-weight: 800;
+  color: #10241d;
+}
+
+.squadPlayerPhoto {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  background: #ffffff;
+}
+
+.squadModalActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.squadLeadershipSection {
+  padding-top: 1rem;
+  border-top: 1px solid rgba(19, 32, 27, 0.08);
+  display: grid;
+  gap: 1rem;
+}
+
+.squadLeadershipGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.knockoutTeamList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.9rem;
+}
+
+.knockoutCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-weight: 700;
+  color: #13201b;
+}
+
+.knockoutCheckbox input {
+  width: 18px;
+  height: 18px;
+}
+
+.knockoutTeamGroup {
+  padding: 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 18px;
+  background: #f8fbf9;
+}
+
+.knockoutTeamGroupTitle {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #10241d;
+}
+
+.knockoutTeamTable {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.knockoutTeamTableHead,
+.knockoutTeamTableRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.knockoutTeamTableHead {
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid rgba(19, 32, 27, 0.08);
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #4a5d55;
+  text-transform: uppercase;
+}
+
+.knockoutTeamName {
+  margin: 0;
+  color: #4d5c55;
+  line-height: 1.6;
+}
+
+.knockoutTeamName + .knockoutTeamName {
+  margin-top: 0.35rem;
+}
+
+.knockoutTeamPoints {
+  font-weight: 800;
+  color: #10241d;
+}
+
 .passwordOverlay {
   position: fixed;
   inset: 0;
@@ -583,6 +1240,52 @@
     flex-direction: column;
   }
 
+  .manageDetailHeader {
+    flex-direction: column;
+  }
+
+  .liveControlBar {
+    flex-wrap: wrap;
+  }
+
+  .fixtureRowLink,
+  .liveScoreboardCard {
+    grid-template-columns: 1fr;
+  }
+
+  .lineupHeader,
+  .lineupTable,
+  .lineupRow,
+  .matchStatusEntryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .matchTimelineRow,
+  .matchTimelineText {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .matchTimelineNote {
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .fixtureRowVs,
+  .liveScoreValue {
+    justify-self: center;
+  }
+
+  .squadModalHeader,
+  .squadModalTitleBlock,
+  .squadModalActions {
+    flex-direction: column;
+  }
+
+  .squadLeadershipGrid {
+    grid-template-columns: 1fr;
+  }
+
   .teamRow {
     grid-template-columns: 1fr;
   }
@@ -595,6 +1298,14 @@
   .teamLogoCell {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .manualFixtureRow {
+    grid-template-columns: 1fr;
+  }
+
+  .manualFixtureVs {
+    justify-self: center;
   }
 
   .passwordActions {

@@ -4,6 +4,8 @@ import { use, useEffect, useMemo, useState } from "react";
 import Navbar from "../../../components/Navbar";
 import SectionContainer from "../../../components/SectionContainer";
 import MatchCard from "../../../components/MatchCard";
+import FixtureCard from "../../../components/FixtureCard";
+import FixtureDetailModal from "../../../components/FixtureDetailModal";
 import TournamentPanels from "../../../components/TournamentPanels";
 import { getTournamentBySlug } from "../../../data/tournaments";
 import { getMatchesByTournamentSlug } from "../../../data/matches";
@@ -15,12 +17,27 @@ import styles from "./page.module.css";
 
 const SAVED_TOURNAMENTS_EVENT = "saved-tournaments-updated";
 
+function getFixtureScheduleTimestamp(fixture) {
+  const dateValue = String(fixture?.date || "").trim();
+  const timeValue = String(fixture?.time || "").trim();
+
+  if (!dateValue || dateValue === "TBD") {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const normalizedTime = timeValue && timeValue !== "TBD" ? timeValue : "23:59";
+  const timestamp = new Date(`${dateValue}T${normalizedTime}:00`).getTime();
+
+  return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
+}
+
 export default function TournamentPage({ params }) {
   const { slug } = use(params);
   const staticTournament = getTournamentBySlug(slug);
   const staticMatches = getMatchesByTournamentSlug(slug);
   const [launchedTournament, setLaunchedTournament] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [selectedFixture, setSelectedFixture] = useState(null);
 
   useEffect(() => {
     async function loadLaunchedTournament() {
@@ -48,9 +65,15 @@ export default function TournamentPage({ params }) {
 
     loadLaunchedTournament();
     window.addEventListener(SAVED_TOURNAMENTS_EVENT, loadLaunchedTournament);
+    const intervalId = slug.startsWith("launched-")
+      ? window.setInterval(loadLaunchedTournament, 5000)
+      : null;
 
     return () => {
       window.removeEventListener(SAVED_TOURNAMENTS_EVENT, loadLaunchedTournament);
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
     };
   }, [slug]);
 
@@ -58,9 +81,54 @@ export default function TournamentPage({ params }) {
     () => (slug.startsWith("launched-") ? launchedTournament : staticTournament),
     [launchedTournament, slug, staticTournament]
   );
+  const fixtureList = useMemo(
+    () =>
+      tournament?.fixtureSections?.length
+        ? tournament.fixtureSections.flatMap((section) => section.matches || [])
+        : tournament?.fixtures || [],
+    [tournament]
+  );
+  const liveFixtures = useMemo(
+    () =>
+      fixtureList.filter((fixture) =>
+        ["running", "paused", "halftime"].includes(
+          String(fixture?.statusRecord?.matchStatus || "")
+        )
+      ),
+    [fixtureList]
+  );
+  const upcomingFixtures = useMemo(() => {
+    const now = Date.now();
+
+    return fixtureList
+      .filter((fixture) => {
+        const matchStatus = String(fixture?.statusRecord?.matchStatus || "");
+        if (["running", "halftime", "ended"].includes(matchStatus)) {
+          return false;
+        }
+
+        return getFixtureScheduleTimestamp(fixture) >= now;
+      })
+      .sort((left, right) => getFixtureScheduleTimestamp(left) - getFixtureScheduleTimestamp(right))
+      .slice(0, 2);
+  }, [fixtureList]);
 
   const tournamentMatches = slug.startsWith("launched-") ? [] : staticMatches;
   const tournamentLogoUrl = getStoredImageUrl(tournament?.tournamentLogo);
+
+  useEffect(() => {
+    if (!selectedFixture?.fixtureKey) {
+      return;
+    }
+
+    const refreshedFixture = fixtureList.find(
+      (fixture) => fixture.fixtureKey === selectedFixture.fixtureKey
+    );
+
+    if (refreshedFixture) {
+      setSelectedFixture(refreshedFixture);
+    }
+  }, [fixtureList, selectedFixture]);
 
   if (slug.startsWith("launched-") && !isLoaded) {
     return (
@@ -126,7 +194,50 @@ export default function TournamentPage({ params }) {
           </div>
         </section>
 
-        <TournamentPanels tournament={tournament} />
+        <TournamentPanels tournament={tournament} onFixtureSelect={setSelectedFixture} />
+
+        {liveFixtures.length ? (
+          <SectionContainer
+            title={
+              <span className={styles.liveSectionTitle}>
+                <span className={styles.livePulse} aria-hidden="true" />
+                Live Matches
+              </span>
+            }
+            description="Matches currently in progress or at half time."
+          >
+            <div className={styles.matchGrid}>
+              {liveFixtures.map((fixture) => (
+                <FixtureCard
+                  key={`live-${fixture.id}`}
+                  fixture={fixture}
+                  onClick={() => setSelectedFixture(fixture)}
+                />
+              ))}
+            </div>
+          </SectionContainer>
+        ) : null}
+
+        <SectionContainer
+          title="Upcoming Matches"
+          description="The next 2 scheduled matches based on the fixture date and time."
+        >
+          {upcomingFixtures.length ? (
+            <div className={styles.matchGrid}>
+              {upcomingFixtures.map((fixture) => (
+                <FixtureCard
+                  key={`upcoming-${fixture.id}`}
+                  fixture={fixture}
+                  onClick={() => setSelectedFixture(fixture)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className={styles.emptyCard}>
+              <p className={styles.notFoundText}>No upcoming scheduled matches right now.</p>
+            </div>
+          )}
+        </SectionContainer>
 
         {tournamentMatches.length ? (
           <SectionContainer
@@ -139,6 +250,10 @@ export default function TournamentPage({ params }) {
               ))}
             </div>
           </SectionContainer>
+        ) : null}
+
+        {selectedFixture ? (
+          <FixtureDetailModal fixture={selectedFixture} onClose={() => setSelectedFixture(null)} />
         ) : null}
       </div>
     </main>
