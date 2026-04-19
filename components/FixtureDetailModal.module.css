@@ -380,6 +380,26 @@
   transform: translateY(-1px);
 }
 
+.telecastFullscreenButton {
+  padding: 0.42rem 0.8rem;
+  border: 1px solid rgba(15, 106, 76, 0.22);
+  border-radius: 999px;
+  background: rgba(15, 106, 76, 0.08);
+  color: #0d6b4d;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.telecastFullscreenButton:hover {
+  transform: translateY(-1px);
+}
+
 .telecastControlButtonActive {
   border-color: rgba(15, 106, 76, 0.22);
   background: rgba(15, 106, 76, 0.1);
@@ -1017,6 +1037,10 @@
   .bottomScoreCenter {
     order: 0;
   }
+
+  .telecastFrameWrap {
+    padding-bottom: 62%;
+  }
 }
 
 @keyframes liveDotPulse {
@@ -1055,5 +1079,47 @@
   .headerActions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .telecastFrameWrap {
+    border-radius: 18px;
+    padding-bottom: 72%;
+  }
+
+  .telecastScoreboard {
+    top: 0.65rem;
+    left: 0.65rem;
+    width: min(100% - 1.3rem, 11rem);
+    padding: 0.4rem 0.5rem;
+  }
+
+  .telecastTeamLogo {
+    width: 26px;
+    height: 26px;
+  }
+
+  .telecastTeamName {
+    font-size: 0.55rem;
+  }
+
+  .telecastScoreValue {
+    font-size: 0.88rem;
+  }
+
+  .telecastClock,
+  .telecastPhase {
+    font-size: 0.58rem;
+  }
+
+  .bottomScoreboard {
+    left: 0.65rem;
+    right: 0.65rem;
+    bottom: 0.65rem;
+  }
+
+  .telecastCornerLogo {
+    width: 60px;
+    right: 0.6rem;
+    bottom: 0.6rem;
   }
 }

@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ScoreBoard Admin</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5}
+    .container{max-width:980px;margin:0 auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1)}
+    h1{margin:0 0 10px}
+    .muted{color:#666;margin:6px 0 16px}
+
+    .tabs{display:flex;border-bottom:2px solid #ddd;margin:16px 0;flex-wrap:wrap;gap:6px}
+    .tab-button{background:transparent;border:none;padding:12px 20px;cursor:pointer;font-size:16px;color:#666;border-bottom:3px solid transparent;border-radius:10px 10px 0 0}
+    .tab-button:hover{color:#333;background:#fafafa}
+    .tab-button.active{color:#007bff;border-bottom-color:#007bff;font-weight:bold}
+
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+
+    .card{background:#f9f9f9;border-radius:8px;padding:16px;margin:14px 0}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+    label{display:block;font-size:13px;color:#555;margin-bottom:4px}
+    input{padding:10px;border:1px solid #ddd;border-radius:6px;min-width:220px}
+    input[type="number"]{min-width:140px}
+    select{padding:10px;border:1px solid #ddd;border-radius:6px;min-width:260px;background:#fff}
+    button{padding:10px 14px;border:none;border-radius:6px;cursor:pointer}
+    .primary{background:#007bff;color:#fff}
+    .danger{background:#dc3545;color:#fff}
+    .ghost{background:#e9ecef}
+    .status{margin-top:10px;color:#666}
+
+    table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff;border-radius:8px;overflow:hidden}
+    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;vertical-align:middle}
+    th{background:#f3f3f3;color:#333}
+    td.actions{white-space:nowrap}
+    .small{font-size:12px;color:#666}
+    .pill{display:inline-block;background:#eef3ff;color:#2b5cff;padding:2px 8px;border-radius:999px;font-size:12px;margin-left:8px}
+    .top-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    textarea{width:100%;height:180px;padding:12px;border:1px solid #ddd;border-radius:8px;font:13px/1.4 monospace}
+    .badge{display:inline-block;background:#fff;border:1px solid #e5e5e5;border-radius:999px;padding:4px 10px;font-size:12px;color:#555}
+
+    .vs{color:#666;font-weight:bold;padding:0 6px}
+    .btn-sm{padding:6px 10px;font-size:12px;border-radius:999px}
+    .live{background:#fff3cd;color:#8a5a00}
+
+    /* squads */
+    .squad-card{background:#fff;border:1px solid #eee;border-radius:10px;padding:14px;margin-top:14px}
+    .squad-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+    .squad-head h3{margin:0}
+
+    /* events */
+    .event-card{background:#fff;border:1px solid #eee;border-radius:10px;padding:14px;margin-top:14px}
+    .pill-mini{display:inline-block;border:1px solid #e5e5e5;border-radius:999px;padding:2px 10px;font-size:12px;color:#444;background:#fff}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ScoreBoard Admin <span class="pill">No Server</span></h1>
+    <p class="muted">Data is stored in <b>localStorage</b>. Open your <b>Score.html</b> in another tab to view updates.</p>
+
+    <div class="top-actions">
+      <button class="ghost" id="exportBtn" type="button">Export JSON</button>
+      <button class="ghost" id="importBtn" type="button">Import JSON</button>
+      <input id="importFile" type="file" accept="application/json" style="display:none" />
+      <button class="danger" id="resetBtn" type="button">Reset Default</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab(event,'teamsTab')">Teams</button>
+      <button class="tab-button" onclick="switchTab(event,'fixturesTab')">Fixtures</button>
+      <button class="tab-button" onclick="switchTab(event,'scoresTab')">Scores</button>
+      <button class="tab-button" onclick="switchTab(event,'tableTab')">Table</button>
+    </div>
+
+    <!-- TEAMS -->
+    <div id="teamsTab" class="tab-content active">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <h2 style="margin:0">Teams</h2>
+          <span class="badge" id="teamsCounter">Teams: 0 / 0</span>
+        </div>
+
+        <!-- Teams-only export/import -->
+        <div class="top-actions" style="margin-top:10px">
+          <button class="ghost" id="exportTeamsBtn" type="button">Export teams.json</button>
+          <button class="ghost" id="importTeamsBtn" type="button">Import teams.json</button>
+          <input id="importTeamsFile" type="file" accept="application/json" style="display:none" />
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div>
+            <label>Number of teams (1–120)</label>
+            <input id="numTeams" type="number" min="1" max="120" step="1" />
+          </div>
+          <button class="primary" id="saveNumTeamsBtn" type="button">Save</button>
+        </div>
+        <div class="status small" id="numTeamsMsg"></div>
+
+        <hr style="border:none;border-top:1px solid #e5e5e5;margin:16px 0">
+
+        <div class="row">
+          <div>
+            <label>Team name</label>
+            <input id="teamName" placeholder="e.g., FC Tigers" />
+          </div>
+          <button class="primary" id="addTeamBtn" type="button">Add Team</button>
+        </div>
+        <div class="status small" id="teamsMsg"></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Team</th>
+              <th style="width:260px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="teamsTable"></tbody>
+        </table>
+
+        <!-- SQUADS (within Teams tab) -->
+        <div class="squad-card" id="squadEditor" style="display:none;">
+          <div class="squad-head">
+            <h3>Squad: <span id="squadTeamName"></span></h3>
+            <div class="row" style="gap:8px;align-items:center">
+              <button class="ghost btn-sm" id="closeSquadBtn" type="button">Close</button>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <div>
+              <label>Player name</label>
+              <input id="playerName" placeholder="e.g., John Doe" />
+            </div>
+            <div>
+              <label>Jersey #</label>
+              <input id="playerNumber" type="number" min="0" placeholder="e.g., 10" />
+            </div>
+            <div>
+              <label>Position</label>
+              <select id="playerPosition">
+                <option value="">Select</option>
+                <option>GK</option>
+                <option>DF</option>
+                <option>MF</option>
+                <option>FW</option>
+              </select>
+            </div>
+            <button class="primary" id="addPlayerBtn" type="button">Add Player</button>
+            <span class="status small" id="squadMsg"></span>
+          </div>
+
+          <table style="margin-top:12px">
+            <thead>
+              <tr>
+                <th style="width:60px">#</th>
+                <th>Player</th>
+                <th style="width:110px">Jersey</th>
+                <th style="width:110px">Pos</th>
+                <th style="width:200px">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="squadTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FIXTURES -->
+    <div id="fixturesTab" class="tab-content">
+      <div class="card">
+        <h2 style="margin-top:0">Fixtures</h2>
+
+        <div class="row">
+          <div>
+            <label>Date</label>
+            <input id="fixDate" type="date" />
+          </div>
+          <div>
+            <label>Time</label>
+            <input id="fixTime" type="time" />
+          </div>
+
+          <div>
+            <label>Team 1</label>
+            <select id="fixHome"></select>
+            <input id="fixHomeCustom" style="display:none;margin-top:6px" placeholder="Enter custom team/text" />
+          </div>
+
+          <div>
+            <label>Team 2</label>
+            <select id="fixAway"></select>
+            <input id="fixAwayCustom" style="display:none;margin-top:6px" placeholder="Enter custom team/text" />
+          </div>
+
+          <button class="primary" id="addFixtureBtn" type="button">Add Fixture</button>
+        </div>
+
+        <div class="status small" id="fixturesMsg"></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th style="width:140px">Date</th>
+              <th style="width:110px">Time</th>
+              <th>Match</th>
+              <th style="width:260px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="fixturesTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCORES -->
+    <div id="scoresTab" class="tab-content">
+      <div class="card">
+        <h2 style="margin-top:0">Scores</h2>
+        <p class="small muted" style="margin-top:0">Pick a fixture → teams auto-fill. Saving will create/update the same fixture score (no duplicates).</p>
+
+        <div class="row">
+          <div>
+            <label>Fixture</label>
+            <select id="scoreFixture"></select>
+          </div>
+
+          <div>
+            <label>Team 1</label>
+            <input id="scoreHomeTxt" disabled />
+          </div>
+          <div>
+            <label>Team 2</label>
+            <input id="scoreAwayTxt" disabled />
+          </div>
+
+          <div>
+            <label>Team 1 goals</label>
+            <input id="scoreHomeGoals" type="number" min="0" placeholder="0" />
+          </div>
+          <div>
+            <label>Team 2 goals</label>
+            <input id="scoreAwayGoals" type="number" min="0" placeholder="0" />
+          </div>
+
+          <div>
+            <label>Match status</label>
+            <div class="row" style="gap:6px;align-items:center">
+              <button class="btn-sm ghost" id="newStatusOngoingBtn" type="button">Ongoing</button>
+              <button class="btn-sm primary" id="newStatusEndedBtn" type="button">Match Ended</button>
+            </div>
+          </div>
+
+          <button class="primary" id="addScoreBtn" type="button">Save Score</button>
+        </div>
+
+        <!-- MATCH EVENTS -->
+        <div class="event-card">
+          <div class="row" style="justify-content:space-between;align-items:center">
+            <h3 style="margin:0">Match Events</h3>
+            <span class="pill-mini">Saved per fixture</span>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <div>
+              <label>Minute (optional)</label>
+              <input id="eventMinute" type="number" min="0" placeholder="auto" />
+            </div>
+
+            <div>
+              <label>Event type</label>
+              <select id="eventType">
+                <option value="goal">Goal</option>
+                <option value="yellow">Yellow Card</option>
+                <option value="red">Red Card</option>
+                <option value="sub">Substitution</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Team</label>
+              <select id="eventTeam"></select>
+            </div>
+
+            <div id="eventPlayerWrap">
+              <label>Player</label>
+              <select id="eventPlayer"></select>
+            </div>
+
+            <div id="eventSubWrap" style="display:none">
+              <div class="row" style="gap:10px;align-items:end">
+                <div>
+                  <label>OUT</label>
+                  <select id="eventPlayerOut"></select>
+                </div>
+                <div>
+                  <label>IN</label>
+                  <select id="eventPlayerIn"></select>
+                </div>
+              </div>
+            </div>
+
+            <button class="primary" id="addEventBtn" type="button">Add Event</button>
+          </div>
+
+          <div class="status small" id="eventsMsg"></div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width:70px">Min</th>
+                <th style="width:140px">Type</th>
+                <th style="width:180px">Team</th>
+                <th>Details</th>
+                <th style="width:140px">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTable"></tbody>
+          </table>
+        </div>
+
+        <div class="status small" id="scoresMsg"></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th style="width:170px">Fixture</th>
+              <th>Match</th>
+              <th style="width:160px">Score</th>
+              <th style="width:180px">Status</th>
+              <th style="width:360px">Controls</th>
+            </tr>
+          </thead>
+          <tbody id="scoresTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TABLE (GROUPS) -->
+    <div id="tableTab" class="tab-content">
+      <div class="card">
+        <h2 style="margin-top:0">Table (Groups)</h2>
+
+        <div class="row">
+          <div>
+            <label>Number of Groups</label>
+            <input id="numGroups" type="number" min="1" max="32" step="1" />
+          </div>
+          <div>
+            <label>Teams per Group</label>
+            <input id="teamsPerGroup" type="number" min="1" max="30" step="1" />
+          </div>
+          <button class="primary" id="saveGroupConfigBtn" type="button">Save</button>
+          <button class="ghost" id="autoAssignBtn" type="button">Auto Assign Teams</button>
+        </div>
+
+        <div class="status small" id="tableMsg"></div>
+
+        <hr style="border:none;border-top:1px solid #e5e5e5;margin:16px 0">
+
+        <h3 style="margin:0 0 10px">Assign Teams to Groups</h3>
+        <div class="small muted" style="margin-top:0">
+          Assign each team to a group. Standings are calculated from <b>Scores</b> (on frontend).
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width:60px">#</th>
+              <th>Team</th>
+              <th style="width:240px">Group</th>
+            </tr>
+          </thead>
+          <tbody id="groupAssignTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RAW JSON -->
+    <div class="card">
+      <h3 style="margin-top:0">Raw JSON (optional)</h3>
+      <p class="small muted" style="margin-top:0">
+        Match events saved in <b>matchEvents</b> by fixtureId.
+      </p>
+      <textarea id="rawJson"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="ghost" id="reloadRawBtn" type="button">Reload</button>
+        <button class="primary" id="saveRawBtn" type="button">Save JSON</button>
+        <span class="status small" id="rawMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchTab(e, tabId) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      e.target.classList.add('active');
+    }
+
+    const STORAGE_KEY = "scoreboard_data_v1";
+
+    const defaultData = {
+      numTeams: 8,
+      teams: [{ name: "Team A" }, { name: "Team B" }],
+      fixtures: [{ id: "fx_1", date: "2026-02-10", time: "18:00", home: "Team A", away: "Team B" }],
+      scores: [{
+        fixtureId: "fx_1",
+        home: "Team A", away: "Team B", homeGoals: 2, awayGoals: 1,
+        status: "ended",
+        timer: { elapsedSec: 0, running: false, lastStartTs: null }
+      }],
+      tableConfig: {
+        numGroups: 2,
+        teamsPerGroup: 4,
+        groupNames: ["Group A", "Group B"],
+        teamToGroup: { "Team A": 0, "Team B": 0 }
+      },
+      squads: {
+        "Team A": [{ "name": "Player 1", "number": 1, "position": "GK" }],
+        "Team B": [{ "name": "Player 2", "number": 9, "position": "FW" }]
+      },
+      matchEvents: {
+        "fx_1": []
+      }
+    };
+
+    function deepCopy(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+    function clampInt(n, min, max) {
+      const x = Number.parseInt(String(n), 10);
+      if (!Number.isFinite(x)) return null;
+      return Math.min(max, Math.max(min, x));
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (m) => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[m]));
+    }
+
+    function makeFixtureId() {
+      return `fx_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    }
+    function makeEventId() {
+      return `ev_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    }
+
+    function normalizeTimer(t) {
+      const out = { elapsedSec: 0, running: false, lastStartTs: null };
+      if (t && typeof t === "object") {
+        const e = Number(t.elapsedSec);
+        out.elapsedSec = Number.isFinite(e) && e >= 0 ? Math.floor(e) : 0;
+        out.running = !!t.running;
+        const ts = Number(t.lastStartTs);
+        out.lastStartTs = Number.isFinite(ts) ? ts : null;
+
+        if (!out.running) out.lastStartTs = null;
+        if (out.running && out.lastStartTs === null) out.running = false;
+      }
+      return out;
+    }
+
+    function fmtTime(sec) {
+      const s = Math.max(0, Math.floor(sec));
+      const mm = Math.floor(s / 60);
+      const ss = s % 60;
+      return String(mm).padStart(2,"0") + ":" + String(ss).padStart(2,"0");
+    }
+
+    function currentElapsed(timer) {
+      if (!timer) return 0;
+      if (!timer.running || timer.lastStartTs == null) return timer.elapsedSec;
+      const add = Math.floor((Date.now() - timer.lastStartTs) / 1000);
+      return timer.elapsedSec + Math.max(0, add);
+    }
+
+    function normalizeData(data) {
+      if (!data || typeof data !== "object") data = deepCopy(defaultData);
+
+      data.teams = Array.isArray(data.teams) ? data.teams : [];
+      data.fixtures = Array.isArray(data.fixtures) ? data.fixtures : [];
+      data.scores = Array.isArray(data.scores) ? data.scores : [];
+
+      const nt = clampInt(data.numTeams, 1, 120);
+      data.numTeams = (nt === null) ? defaultData.numTeams : nt;
+
+      // fixtures ensure id
+      data.fixtures = data.fixtures.map((f, idx) => {
+        const id = (f && typeof f.id === "string" && f.id.trim()) ? f.id.trim() : `fx_${Date.now()}_${idx}`;
+        return {
+          id,
+          date: String(f?.date ?? ""),
+          time: String(f?.time ?? ""),
+          home: String(f?.home ?? ""),
+          away: String(f?.away ?? "")
+        };
+      });
+      const fixtureIdSet = new Set(data.fixtures.map(f => f.id));
+
+      // scores normalize (+ fixtureId)
+      data.scores = data.scores.map(s => {
+        const out = {
+          fixtureId: (typeof s?.fixtureId === "string" && s.fixtureId.trim()) ? s.fixtureId.trim() : null,
+          home: (s?.home ?? ""),
+          away: (s?.away ?? ""),
+          homeGoals: Number(s?.homeGoals),
+          awayGoals: Number(s?.awayGoals),
+          status: (s?.status === "ongoing" ? "ongoing" : "ended"),
+          timer: normalizeTimer(s?.timer)
+        };
+        if (!Number.isFinite(out.homeGoals) || out.homeGoals < 0) out.homeGoals = 0;
+        if (!Number.isFinite(out.awayGoals) || out.awayGoals < 0) out.awayGoals = 0;
+        if (out.fixtureId && !fixtureIdSet.has(out.fixtureId)) {
+          // keep for imports; UI shows deleted fixture
+        }
+        return out;
+      });
+
+      // table config
+      if (!data.tableConfig || typeof data.tableConfig !== "object") data.tableConfig = deepCopy(defaultData.tableConfig);
+      const cfg = data.tableConfig;
+
+      const ng = clampInt(cfg.numGroups, 1, 32);
+      const tpg = clampInt(cfg.teamsPerGroup, 1, 30);
+      cfg.numGroups = ng === null ? defaultData.tableConfig.numGroups : ng;
+      cfg.teamsPerGroup = tpg === null ? defaultData.tableConfig.teamsPerGroup : tpg;
+
+      if (!Array.isArray(cfg.groupNames)) cfg.groupNames = [];
+      if (!cfg.teamToGroup || typeof cfg.teamToGroup !== "object") cfg.teamToGroup = {};
+
+      const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      cfg.groupNames = Array.from({length: cfg.numGroups}, (_, i) => cfg.groupNames[i] || `Group ${letters[i] || (i+1)}`);
+
+      const teamSet = new Set((data.teams || []).map(t => String(t.name || "").trim()).filter(Boolean));
+      for (const k of Object.keys(cfg.teamToGroup)) {
+        if (!teamSet.has(k)) delete cfg.teamToGroup[k];
+      }
+      for (const k of Object.keys(cfg.teamToGroup)) {
+        const v = clampInt(cfg.teamToGroup[k], 0, cfg.numGroups - 1);
+        cfg.teamToGroup[k] = v === null ? 0 : v;
+      }
+      for (const team of teamSet) {
+        if (!(team in cfg.teamToGroup)) cfg.teamToGroup[team] = 0;
+      }
+
+      // squads
+      if (!data.squads || typeof data.squads !== "object") data.squads = {};
+      for (const k of Object.keys(data.squads)) {
+        if (!teamSet.has(k)) delete data.squads[k];
+      }
+      for (const team of teamSet) {
+        if (!Array.isArray(data.squads[team])) data.squads[team] = [];
+        data.squads[team] = data.squads[team].map(p => {
+          const name = String(p?.name ?? "").trim();
+          const num = Number(p?.number);
+          const position = String(p?.position ?? "").trim();
+          return {
+            name,
+            number: Number.isFinite(num) && num >= 0 ? Math.floor(num) : null,
+            position
+          };
+        }).filter(p => p.name.length > 0);
+      }
+
+      // matchEvents
+      if (!data.matchEvents || typeof data.matchEvents !== "object") data.matchEvents = {};
+      for (const k of Object.keys(data.matchEvents)) {
+        if (!fixtureIdSet.has(k)) delete data.matchEvents[k];
+      }
+      for (const fxId of fixtureIdSet) {
+        if (!Array.isArray(data.matchEvents[fxId])) data.matchEvents[fxId] = [];
+        data.matchEvents[fxId] = data.matchEvents[fxId].map(ev => {
+          const id = (typeof ev?.id === "string" && ev.id.trim()) ? ev.id.trim() : makeEventId();
+          const minute = Number(ev?.minute);
+          const type = String(ev?.type || "").trim() || "goal";
+          const team = String(ev?.team || "").trim();
+          const player = (ev?.player == null) ? null : String(ev.player).trim();
+          const playerIn = (ev?.playerIn == null) ? null : String(ev.playerIn).trim();
+          const playerOut = (ev?.playerOut == null) ? null : String(ev.playerOut).trim();
+          const ts = Number(ev?.ts);
+          return {
+            id,
+            minute: Number.isFinite(minute) && minute >= 0 ? Math.floor(minute) : null,
+            type,
+            team,
+            player,
+            playerIn,
+            playerOut,
+            ts: Number.isFinite(ts) ? ts : Date.now()
+          };
+        });
+        data.matchEvents[fxId].sort((a,b) => {
+          const am = (a.minute === null ? 1e9 : a.minute);
+          const bm = (b.minute === null ? 1e9 : b.minute);
+          return (am - bm) || ((a.ts||0) - (b.ts||0));
+        });
+      }
+
+      return data;
+    }
+
+    function getData() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
+        return deepCopy(defaultData);
+      }
+      try { return normalizeData(JSON.parse(raw)); }
+      catch { return deepCopy(defaultData); }
+    }
+
+    function saveData(data) {
+      const normalized = normalizeData(data);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+      renderAll();
+    }
+
+    function setMsg(id, text) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      setTimeout(() => { el.textContent = ""; }, 2200);
+    }
+
+    // ===== NEW SCORE STATUS (add form) =====
+    let newScoreStatus = "ended";
+    const newStatusOngoingBtn = document.getElementById("newStatusOngoingBtn");
+    const newStatusEndedBtn = document.getElementById("newStatusEndedBtn");
+
+    function renderNewStatusButtons() {
+      if (newScoreStatus === "ongoing") {
+        newStatusOngoingBtn.className = "btn-sm primary";
+        newStatusEndedBtn.className = "btn-sm ghost";
+      } else {
+        newStatusOngoingBtn.className = "btn-sm ghost";
+        newStatusEndedBtn.className = "btn-sm primary";
+      }
+    }
+    newStatusOngoingBtn.addEventListener("click", () => { newScoreStatus = "ongoing"; renderNewStatusButtons(); });
+    newStatusEndedBtn.addEventListener("click", () => { newScoreStatus = "ended"; renderNewStatusButtons(); });
+    renderNewStatusButtons();
+
+    // ===== Team dropdowns for fixtures (with Custom) =====
+    function fillTeamSelect(selectEl, teams, placeholder = "Select team", includeCustom = false) {
+      if (!selectEl) return;
+      const prev = selectEl.value;
+
+      selectEl.innerHTML = "";
+      const opt0 = document.createElement("option");
+      opt0.value = "";
+      opt0.textContent = placeholder;
+      selectEl.appendChild(opt0);
+
+      teams.forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t.name;
+        opt.textContent = t.name;
+        selectEl.appendChild(opt);
+      });
+
+      if (includeCustom) {
+        const optCustom = document.createElement("option");
+        optCustom.value = "__custom__";
+        optCustom.textContent = "✍️ Custom…";
+        selectEl.appendChild(optCustom);
+      }
+
+      if ([...selectEl.options].some(o => o.value === prev)) selectEl.value = prev;
+    }
+
+    function renderFixtureTeamDropdowns() {
+      const data = getData();
+      const teams = data.teams.map(t => ({ name: String(t.name || "").trim() })).filter(t => t.name);
+
+      fillTeamSelect(document.getElementById("fixHome"), teams, "Team 1", true);
+      fillTeamSelect(document.getElementById("fixAway"), teams, "Team 2", true);
+    }
+
+    function bindCustomTeamSelect(selectId, inputId) {
+      const sel = document.getElementById(selectId);
+      const inp = document.getElementById(inputId);
+      if (!sel || !inp) return;
+
+      function sync() {
+        const isCustom = sel.value === "__custom__";
+        inp.style.display = isCustom ? "block" : "none";
+        if (!isCustom) inp.value = "";
+      }
+
+      sel.addEventListener("change", sync);
+      sync();
+    }
+
+    // ===== Scores use Fixtures =====
+    function fillFixtureSelect() {
+      const data = getData();
+      const sel = document.getElementById("scoreFixture");
+      if (!sel) return;
+
+      const prev = sel.value;
+      sel.innerHTML = "";
+
+      const opt0 = document.createElement("option");
+      opt0.value = "";
+      opt0.textContent = "Select fixture";
+      sel.appendChild(opt0);
+
+      data.fixtures.forEach(f => {
+        const opt = document.createElement("option");
+        opt.value = f.id;
+        opt.textContent = `${(f.date||"").trim()} ${(f.time||"").trim()} — ${f.home||""} VS ${f.away||""}`.trim();
+        sel.appendChild(opt);
+      });
+
+      if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+    }
+
+    function getFixtureById(data, fxId) {
+      return (data.fixtures || []).find(f => f.id === fxId);
+    }
+
+    function setScoreTeamsFromFixture(preloadScore = true) {
+      const data = getData();
+      const sel = document.getElementById("scoreFixture");
+      const h = document.getElementById("scoreHomeTxt");
+      const a = document.getElementById("scoreAwayTxt");
+      if (!sel || !h || !a) return;
+
+      const fxId = sel.value;
+      const fx = getFixtureById(data, fxId);
+
+      if (!fx) {
+        h.value = "";
+        a.value = "";
+        if (preloadScore) {
+          document.getElementById("scoreHomeGoals").value = "";
+          document.getElementById("scoreAwayGoals").value = "";
+        }
+        renderEventsUI();
+        return;
+      }
+
+      h.value = fx.home || "";
+      a.value = fx.away || "";
+
+      if (preloadScore) {
+        const existing = (data.scores || []).find(s => s.fixtureId === fxId);
+        if (existing) {
+          document.getElementById("scoreHomeGoals").value = existing.homeGoals ?? 0;
+          document.getElementById("scoreAwayGoals").value = existing.awayGoals ?? 0;
+          newScoreStatus = (existing.status === "ongoing") ? "ongoing" : "ended";
+          renderNewStatusButtons();
+        } else {
+          document.getElementById("scoreHomeGoals").value = "";
+          document.getElementById("scoreAwayGoals").value = "";
+        }
+      }
+
+      renderEventsUI();
+    }
+
+    document.getElementById("scoreFixture").addEventListener("change", () => setScoreTeamsFromFixture(true));
+
+    // ===== MATCH EVENTS UI =====
+    function getSelectedFixtureId() {
+      return document.getElementById("scoreFixture").value.trim();
+    }
+
+    function eventTypeLabel(t) {
+      if (t === "goal") return "Goal";
+      if (t === "yellow") return "Yellow Card";
+      if (t === "red") return "Red Card";
+      if (t === "sub") return "Substitution";
+      return t;
+    }
+
+    function fillSelect(el, options, placeholder) {
+      if (!el) return;
+      const prev = el.value;
+      el.innerHTML = "";
+      const o0 = document.createElement("option");
+      o0.value = "";
+      o0.textContent = placeholder || "Select";
+      el.appendChild(o0);
+      options.forEach(optVal => {
+        const o = document.createElement("option");
+        o.value = optVal;
+        o.textContent = optVal;
+        el.appendChild(o);
+      });
+      if ([...el.options].some(o => o.value === prev)) el.value = prev;
+    }
+
+    function getSquadNames(data, teamName) {
+      const list = (data.squads && data.squads[teamName]) ? data.squads[teamName] : [];
+      return list.map(p => p.number != null ? `${p.name} (#${p.number})` : p.name);
+    }
+
+    function renderEventsUI() {
+      const data = getData();
+      const fxId = getSelectedFixtureId();
+      const fx = getFixtureById(data, fxId);
+
+      const teamSel = document.getElementById("eventTeam");
+      const playerSel = document.getElementById("eventPlayer");
+      const outSel = document.getElementById("eventPlayerOut");
+      const inSel = document.getElementById("eventPlayerIn");
+
+      const type = document.getElementById("eventType").value;
+
+      if (!fxId || !fx) {
+        fillSelect(teamSel, [], "Select team");
+        fillSelect(playerSel, [], "Select player");
+        fillSelect(outSel, [], "Select player");
+        fillSelect(inSel, [], "Select player");
+        document.getElementById("eventsTable").innerHTML = `<tr><td colspan="5" class="small">Select a fixture to manage events.</td></tr>`;
+        return;
+      }
+
+      const teams = [fx.home, fx.away].filter(Boolean);
+      fillSelect(teamSel, teams, "Select team");
+      if (!teamSel.value && teams.length) teamSel.value = teams[0];
+
+      const squadNames = getSquadNames(data, teamSel.value);
+      fillSelect(playerSel, squadNames, "Select player");
+      fillSelect(outSel, squadNames, "Select player");
+      fillSelect(inSel, squadNames, "Select player");
+
+      const playerWrap = document.getElementById("eventPlayerWrap");
+      const subWrap = document.getElementById("eventSubWrap");
+      if (type === "sub") {
+        playerWrap.style.display = "none";
+        subWrap.style.display = "block";
+      } else {
+        playerWrap.style.display = "block";
+        subWrap.style.display = "none";
+      }
+
+      renderEventsTable();
+    }
+
+    document.getElementById("eventType").addEventListener("change", renderEventsUI);
+    document.getElementById("eventTeam").addEventListener("change", renderEventsUI);
+
+    function autoMinuteForFixture(data, fxId) {
+      const score = (data.scores || []).find(s => s.fixtureId === fxId);
+      if (!score) return null;
+      const sec = currentElapsed(score.timer);
+      return Math.floor(sec / 60);
+    }
+
+    document.getElementById("addEventBtn").addEventListener("click", () => {
+      const data = getData();
+      const fxId = getSelectedFixtureId();
+      const fx = getFixtureById(data, fxId);
+      if (!fxId || !fx) return setMsg("eventsMsg", "Select a fixture first ❌");
+
+      const type = document.getElementById("eventType").value;
+      const team = document.getElementById("eventTeam").value.trim();
+      if (!team) return setMsg("eventsMsg", "Select team ❌");
+
+      const minuteRaw = document.getElementById("eventMinute").value;
+      let minute = minuteRaw === "" ? null : Number(minuteRaw);
+      if (minuteRaw === "") minute = autoMinuteForFixture(data, fxId);
+      if (minute !== null && (!Number.isFinite(minute) || minute < 0)) return setMsg("eventsMsg", "Minute must be 0+ ❌");
+      if (minute !== null) minute = Math.floor(minute);
+
+      let ev = { id: makeEventId(), minute, type, team, ts: Date.now() };
+
+      if (type === "sub") {
+        const outP = document.getElementById("eventPlayerOut").value.trim();
+        const inP = document.getElementById("eventPlayerIn").value.trim();
+        if (!outP || !inP) return setMsg("eventsMsg", "Select OUT and IN players ❌");
+        if (outP === inP) return setMsg("eventsMsg", "OUT and IN cannot be same ❌");
+        ev.playerOut = outP;
+        ev.playerIn = inP;
+      } else {
+        const player = document.getElementById("eventPlayer").value.trim();
+        if (!player) return setMsg("eventsMsg", "Select player ❌");
+        ev.player = player;
+      }
+
+      if (!data.matchEvents || typeof data.matchEvents !== "object") data.matchEvents = {};
+      if (!Array.isArray(data.matchEvents[fxId])) data.matchEvents[fxId] = [];
+      data.matchEvents[fxId].push(ev);
+
+      document.getElementById("eventMinute").value = "";
+      document.getElementById("eventPlayer").value = "";
+      document.getElementById("eventPlayerOut").value = "";
+      document.getElementById("eventPlayerIn").value = "";
+
+      saveData(data);
+      setMsg("eventsMsg", "Event added ✅");
+      renderEventsUI();
+    });
+
+    function renderEventsTable() {
+      const data = getData();
+      const fxId = getSelectedFixtureId();
+      if (!fxId) return;
+
+      const events = (data.matchEvents && Array.isArray(data.matchEvents[fxId])) ? data.matchEvents[fxId] : [];
+      const tbody = document.getElementById("eventsTable");
+
+      if (!events.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="small">No events yet for this match.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = events.map((ev) => {
+        const min = (ev.minute === null || ev.minute === undefined) ? "-" : ev.minute;
+        let details = "";
+        if (ev.type === "sub") {
+          details = `OUT: ${escapeHtml(ev.playerOut || "")} → IN: ${escapeHtml(ev.playerIn || "")}`;
+        } else {
+          details = escapeHtml(ev.player || "");
+        }
+        return `
+          <tr>
+            <td>${min}'</td>
+            <td>${escapeHtml(eventTypeLabel(ev.type))}</td>
+            <td>${escapeHtml(ev.team || "")}</td>
+            <td>${details}</td>
+            <td class="actions">
+              <button class="danger btn-sm" type="button" onclick="deleteEvent('${escapeHtml(ev.id)}')">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    window.deleteEvent = (eventId) => {
+      const data = getData();
+      const fxId = getSelectedFixtureId();
+      if (!fxId) return;
+
+      const list = (data.matchEvents && Array.isArray(data.matchEvents[fxId])) ? data.matchEvents[fxId] : [];
+      data.matchEvents[fxId] = list.filter(ev => ev.id !== eventId);
+
+      saveData(data);
+      setMsg("eventsMsg", "Event deleted ✅");
+      renderEventsUI();
+    };
+
+    // ===== Teams-only export/import =====
+    document.getElementById("exportTeamsBtn").addEventListener("click", () => {
+      const data = getData();
+      const teamsJson = {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        numTeams: data.numTeams,
+        teams: (data.teams || []).map(t => ({ name: String(t.name || "").trim() })).filter(t => t.name)
+      };
+      const blob = new Blob([JSON.stringify(teamsJson, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "teams.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("importTeamsBtn").addEventListener("click", () => {
+      document.getElementById("importTeamsFile").click();
+    });
+
+    document.getElementById("importTeamsFile").addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          if (!parsed || !Array.isArray(parsed.teams)) throw new Error("Invalid teams.json");
+
+          const cleanedTeams = parsed.teams
+            .filter(t => t && typeof t.name === "string" && t.name.trim())
+            .map(t => ({ name: t.name.trim() }));
+
+          const seen = new Set();
+          const unique = [];
+          for (const t of cleanedTeams) {
+            const key = t.name.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            unique.push(t);
+          }
+
+          const data = getData();
+          data.teams = unique;
+
+          const nt = clampInt(parsed.numTeams, 1, 120);
+          if (nt !== null) data.numTeams = nt;
+
+          const cfg = data.tableConfig;
+          cfg.teamToGroup = cfg.teamToGroup || {};
+          for (const t of unique) {
+            if (!(t.name in cfg.teamToGroup)) cfg.teamToGroup[t.name] = 0;
+          }
+
+          // ensure squads entries exist
+          data.squads = data.squads || {};
+          for (const t of unique) {
+            if (!Array.isArray(data.squads[t.name])) data.squads[t.name] = [];
+          }
+
+          saveData(data);
+          alert("teams.json imported ✅");
+        } catch {
+          alert("Invalid teams.json ❌");
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    });
+
+    // ===== TABLE TAB (admin) =====
+    function renderTableAdminUI() {
+      const data = getData();
+      const cfg = data.tableConfig;
+
+      const numGroupsEl = document.getElementById("numGroups");
+      const teamsPerGroupEl = document.getElementById("teamsPerGroup");
+      const tbody = document.getElementById("groupAssignTable");
+
+      if (!numGroupsEl || !teamsPerGroupEl || !tbody) return;
+
+      numGroupsEl.value = cfg.numGroups;
+      teamsPerGroupEl.value = cfg.teamsPerGroup;
+
+      const groupOptionsHtml = cfg.groupNames
+        .map((gn, idx) => `<option value="${idx}">${escapeHtml(gn)}</option>`)
+        .join("");
+
+      tbody.innerHTML = data.teams.map((t, i) => {
+        const name = String(t.name || "").trim();
+        return `
+          <tr>
+            <td>${i+1}</td>
+            <td>${escapeHtml(name)}</td>
+            <td>
+              <select data-team="${escapeHtml(name)}" class="groupSelect">
+                ${groupOptionsHtml}
+              </select>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      tbody.querySelectorAll("select.groupSelect").forEach(sel => {
+        const team = sel.getAttribute("data-team");
+        sel.value = String(cfg.teamToGroup[team] ?? 0);
+        sel.addEventListener("change", () => {
+          const d = getData();
+          const c = d.tableConfig;
+          c.teamToGroup[team] = clampInt(sel.value, 0, c.numGroups - 1) ?? 0;
+          saveData(d);
+        });
+      });
+    }
+
+    document.getElementById("saveGroupConfigBtn").addEventListener("click", () => {
+      const data = getData();
+      const ng = clampInt(document.getElementById("numGroups").value, 1, 32);
+      const tpg = clampInt(document.getElementById("teamsPerGroup").value, 1, 30);
+
+      if (ng === null || tpg === null) return setMsg("tableMsg", "Invalid group config ❌");
+
+      data.tableConfig.numGroups = ng;
+      data.tableConfig.teamsPerGroup = tpg;
+
+      const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      data.tableConfig.groupNames = Array.from({length: ng}, (_, i) => `Group ${letters[i] || (i+1)}`);
+
+      for (const k of Object.keys(data.tableConfig.teamToGroup)) {
+        const v = clampInt(data.tableConfig.teamToGroup[k], 0, ng - 1);
+        data.tableConfig.teamToGroup[k] = v === null ? 0 : v;
+      }
+
+      saveData(data);
+      setMsg("tableMsg", "Saved ✅");
+    });
+
+    document.getElementById("autoAssignBtn").addEventListener("click", () => {
+      const data = getData();
+      const cfg = data.tableConfig;
+
+      const teams = data.teams.map(t => String(t.name || "").trim()).filter(Boolean);
+      if (teams.length === 0) return setMsg("tableMsg", "No teams available ❌");
+
+      const maxTeams = cfg.numGroups * cfg.teamsPerGroup;
+      if (teams.length > maxTeams) {
+        setMsg("tableMsg", `Too many teams for config (${teams.length} > ${maxTeams}) ❌`);
+        return;
+      }
+
+      cfg.teamToGroup = {};
+      teams.forEach((team, idx) => {
+        const g = Math.floor(idx / cfg.teamsPerGroup);
+        cfg.teamToGroup[team] = Math.min(cfg.numGroups - 1, g);
+      });
+
+      saveData(data);
+      setMsg("tableMsg", "Auto assigned ✅");
+    });
+
+    // ===== SQUADS (manage players per team) =====
+    let squadTeamIndex = null;
+    let squadEditingPlayerIndex = null;
+
+    function openSquadEditor(teamIdx) {
+      const data = getData();
+      const teamName = String(data.teams?.[teamIdx]?.name || "").trim();
+      if (!teamName) return;
+
+      squadTeamIndex = teamIdx;
+      squadEditingPlayerIndex = null;
+
+      const editor = document.getElementById("squadEditor");
+      editor.style.display = "block";
+      document.getElementById("squadTeamName").textContent = teamName;
+
+      document.getElementById("playerName").value = "";
+      document.getElementById("playerNumber").value = "";
+      document.getElementById("playerPosition").value = "";
+      document.getElementById("addPlayerBtn").textContent = "Add Player";
+
+      renderSquadTable();
+      editor.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function closeSquadEditor() {
+      const editor = document.getElementById("squadEditor");
+      editor.style.display = "none";
+      squadTeamIndex = null;
+      squadEditingPlayerIndex = null;
+      document.getElementById("squadMsg").textContent = "";
+    }
+
+    document.getElementById("closeSquadBtn").addEventListener("click", closeSquadEditor);
+
+    function renderSquadTable() {
+      const data = getData();
+      const teamName = String(data.teams?.[squadTeamIndex]?.name || "").trim();
+      if (!teamName) return;
+
+      if (!data.squads || typeof data.squads !== "object") data.squads = {};
+      if (!Array.isArray(data.squads[teamName])) data.squads[teamName] = [];
+
+      const rows = data.squads[teamName].map((p, idx) => {
+        const num = (p.number === null || p.number === undefined) ? "" : p.number;
+        return `
+          <tr>
+            <td>${idx+1}</td>
+            <td>${escapeHtml(p.name || "")}</td>
+            <td>${escapeHtml(String(num))}</td>
+            <td>${escapeHtml(p.position || "")}</td>
+            <td class="actions">
+              <button class="ghost btn-sm" type="button" onclick="editPlayer(${idx})">Edit</button>
+              <button class="danger btn-sm" type="button" onclick="deletePlayer(${idx})">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      document.getElementById("squadTable").innerHTML = rows || `<tr><td colspan="5" class="small">No players yet.</td></tr>`;
+    }
+
+    function addOrSavePlayer() {
+      const data = getData();
+      const teamName = String(data.teams?.[squadTeamIndex]?.name || "").trim();
+      if (!teamName) return;
+
+      const name = document.getElementById("playerName").value.trim();
+      const numRaw = document.getElementById("playerNumber").value;
+      const num = numRaw === "" ? null : Number(numRaw);
+      const pos = document.getElementById("playerPosition").value.trim();
+
+      if (!name) return setMsg("squadMsg", "Player name required ❌");
+      if (num !== null && (!Number.isFinite(num) || num < 0)) return setMsg("squadMsg", "Jersey must be 0 or more ❌");
+
+      if (!data.squads || typeof data.squads !== "object") data.squads = {};
+      if (!Array.isArray(data.squads[teamName])) data.squads[teamName] = [];
+
+      const exists = data.squads[teamName].some((p, idx) => {
+        if (squadEditingPlayerIndex !== null && idx === squadEditingPlayerIndex) return false;
+        return String(p.name||"").trim().toLowerCase() === name.toLowerCase();
+      });
+      if (exists) return setMsg("squadMsg", "Player already exists ❌");
+
+      const playerObj = { name, number: (num === null ? null : Math.floor(num)), position: pos };
+
+      if (squadEditingPlayerIndex === null) {
+        data.squads[teamName].push(playerObj);
+        setMsg("squadMsg", "Player added ✅");
+      } else {
+        data.squads[teamName][squadEditingPlayerIndex] = playerObj;
+        squadEditingPlayerIndex = null;
+        document.getElementById("addPlayerBtn").textContent = "Add Player";
+        setMsg("squadMsg", "Player updated ✅");
+      }
+
+      saveData(data);
+      document.getElementById("playerName").value = "";
+      document.getElementById("playerNumber").value = "";
+      document.getElementById("playerPosition").value = "";
+      renderSquadTable();
+    }
+
+    document.getElementById("addPlayerBtn").addEventListener("click", addOrSavePlayer);
+
+    window.editPlayer = (playerIdx) => {
+      const data = getData();
+      const teamName = String(data.teams?.[squadTeamIndex]?.name || "").trim();
+      if (!teamName) return;
+
+      const p = data.squads?.[teamName]?.[playerIdx];
+      if (!p) return;
+
+      squadEditingPlayerIndex = playerIdx;
+      document.getElementById("playerName").value = p.name || "";
+      document.getElementById("playerNumber").value = (p.number === null || p.number === undefined) ? "" : String(p.number);
+      document.getElementById("playerPosition").value = p.position || "";
+      document.getElementById("addPlayerBtn").textContent = "Save Player";
+    };
+
+    window.deletePlayer = (playerIdx) => {
+      const data = getData();
+      const teamName = String(data.teams?.[squadTeamIndex]?.name || "").trim();
+      if (!teamName) return;
+
+      if (!Array.isArray(data.squads?.[teamName])) return;
+      data.squads[teamName].splice(playerIdx, 1);
+      saveData(data);
+      renderSquadTable();
+      setMsg("squadMsg", "Player deleted ✅");
+    };
+
+    // ===== RENDER =====
+    function renderAll() {
+      const data = getData();
+
+      // teams counter
+      document.getElementById("numTeams").value = data.numTeams;
+      document.getElementById("teamsCounter").textContent = `Teams: ${data.teams.length} / ${data.numTeams}`;
+
+      // teams table
+      document.getElementById("teamsTable").innerHTML = data.teams.map((t, i) => `
+        <tr>
+          <td>${i+1}</td>
+          <td>${escapeHtml(t.name || "")}</td>
+          <td class="actions">
+            <button class="ghost" type="button" onclick="openSquadEditor(${i})">Squad</button>
+            <button class="ghost" type="button" onclick="editTeam(${i})">Edit</button>
+            <button class="danger" type="button" onclick="deleteTeam(${i})">Delete</button>
+          </td>
+        </tr>
+      `).join("");
+
+      // fixtures table
+      document.getElementById("fixturesTable").innerHTML = data.fixtures.map((f, i) => `
+        <tr>
+          <td>${i+1}</td>
+          <td>${escapeHtml(f.date || "")}</td>
+          <td>${escapeHtml(f.time || "")}</td>
+          <td>${escapeHtml(f.home || "")}<span class="vs">VS</span>${escapeHtml(f.away || "")}</td>
+          <td class="actions">
+            <button class="ghost" type="button" onclick="editFixture(${i})">Edit</button>
+            <button class="danger" type="button" onclick="deleteFixture(${i})">Delete</button>
+          </td>
+        </tr>
+      `).join("");
+
+      // scores table
+      document.getElementById("scoresTable").innerHTML = (data.scores || []).map((s, i) => {
+        const fx = getFixtureById(data, s.fixtureId);
+        const fixtureLabel = fx ? `${(fx.date||"").trim()} ${(fx.time||"").trim()}`.trim() : "(deleted fixture)";
+        const home = fx ? fx.home : (s.home || "");
+        const away = fx ? fx.away : (s.away || "");
+
+        const elapsed = currentElapsed(s.timer);
+        const statusLabel = s.status === "ongoing"
+          ? `<span class="badge live">Ongoing • <span id="admTimer-${i}">${fmtTime(elapsed)}</span></span>`
+          : `<span class="badge">Match Ended</span>`;
+
+        const halfBtnLabel = (() => {
+          if (s.status !== "ongoing") return "";
+          const t = s.timer || {elapsedSec:0,running:false,lastStartTs:null};
+          if (t.running) return "Half Time";
+          if (!t.running && (t.elapsedSec || 0) > 0) return "Resume";
+          return "Start";
+        })();
+
+        return `
+          <tr>
+            <td>${i+1}</td>
+            <td>${escapeHtml(fixtureLabel || "—")}</td>
+            <td>${escapeHtml(home)}<span class="vs">VS</span>${escapeHtml(away)}</td>
+            <td>${Number(s.homeGoals)||0} - ${Number(s.awayGoals)||0}</td>
+            <td>${statusLabel}</td>
+            <td class="actions">
+              <button class="btn-sm ${s.status==="ongoing" ? "primary" : "ghost"}" type="button" onclick="setScoreStatus(${i},'ongoing')">Ongoing</button>
+              <button class="btn-sm ${s.status==="ended" ? "primary" : "ghost"}" type="button" onclick="setScoreStatus(${i},'ended')">Match Ended</button>
+              ${s.status==="ongoing" ? `<button class="btn-sm ghost" type="button" onclick="toggleHalfTime(${i})">${halfBtnLabel}</button>` : ``}
+              <button class="btn-sm danger" type="button" onclick="deleteScore(${i})">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      // raw json
+      document.getElementById("rawJson").value = JSON.stringify(data, null, 2);
+
+      // fixtures form dropdowns
+      renderFixtureTeamDropdowns();
+      bindCustomTeamSelect("fixHome", "fixHomeCustom");
+      bindCustomTeamSelect("fixAway", "fixAwayCustom");
+
+      // score form fixture dropdown + events
+      fillFixtureSelect();
+      setScoreTeamsFromFixture(true);
+      renderEventsUI();
+
+      // table tab
+      renderTableAdminUI();
+
+      refreshAdminTimers();
+
+      // keep squad editor table synced
+      const ed = document.getElementById("squadEditor");
+      if (ed && ed.style.display !== "none" && squadTeamIndex !== null) {
+        renderSquadTable();
+      }
+    }
+
+    function refreshAdminTimers() {
+      const data = getData();
+      (data.scores || []).forEach((s, i) => {
+        const el = document.getElementById(`admTimer-${i}`);
+        if (!el) return;
+        el.textContent = fmtTime(currentElapsed(s.timer));
+      });
+    }
+
+    // ===== Actions =====
+
+    // Number of teams
+    document.getElementById("saveNumTeamsBtn").addEventListener("click", () => {
+      const val = clampInt(document.getElementById("numTeams").value, 1, 120);
+      if (val === null) return setMsg("numTeamsMsg", "Enter a valid number (1–120) ❌");
+      const data = getData();
+      data.numTeams = val;
+      saveData(data);
+      setMsg("numTeamsMsg", "Saved ✅");
+    });
+
+    // Add team
+    document.getElementById("addTeamBtn").addEventListener("click", () => {
+      const name = document.getElementById("teamName").value.trim();
+      if (!name) return setMsg("teamsMsg", "Team name required ❌");
+
+      const data = getData();
+      if (data.teams.length >= data.numTeams) return setMsg("teamsMsg", `Cannot add more. Limit is ${data.numTeams} teams ❌`);
+
+      const exists = data.teams.some(t => String(t.name||"").trim().toLowerCase() === name.toLowerCase());
+      if (exists) return setMsg("teamsMsg", "Team already exists ❌");
+
+      data.teams.push({ name });
+      data.tableConfig.teamToGroup[name] = data.tableConfig.teamToGroup[name] ?? 0;
+
+      data.squads = data.squads || {};
+      if (!Array.isArray(data.squads[name])) data.squads[name] = [];
+
+      saveData(data);
+      document.getElementById("teamName").value = "";
+      setMsg("teamsMsg", "Team added ✅");
+    });
+
+    window.deleteTeam = (i) => {
+      const data = getData();
+      const old = String(data.teams[i]?.name || "").trim();
+      data.teams.splice(i, 1);
+      if (old) {
+        delete data.tableConfig.teamToGroup[old];
+        if (data.squads) delete data.squads[old];
+      }
+      saveData(data);
+      setMsg("teamsMsg", "Team deleted ✅");
+      closeSquadEditor();
+    };
+
+    window.editTeam = (i) => {
+      const data = getData();
+      const current = String(data.teams[i]?.name ?? "").trim();
+      const name = prompt("Edit team name:", current);
+      if (name === null) return;
+
+      const clean = name.trim();
+      if (!clean) return setMsg("teamsMsg", "Invalid name ❌");
+
+      const exists = data.teams.some((t, idx) => idx !== i && String(t.name||"").trim().toLowerCase() === clean.toLowerCase());
+      if (exists) return setMsg("teamsMsg", "Team already exists ❌");
+
+      data.teams[i].name = clean;
+
+      // Update fixtures referencing old name
+      data.fixtures = data.fixtures.map(f => ({
+        ...f,
+        home: f.home === current ? clean : f.home,
+        away: f.away === current ? clean : f.away
+      }));
+
+      // Update scores fallback
+      data.scores = data.scores.map(s => ({
+        ...s,
+        home: s.home === current ? clean : s.home,
+        away: s.away === current ? clean : s.away
+      }));
+
+      // Update table mapping
+      const cfg = data.tableConfig;
+      const oldGroup = cfg.teamToGroup[current];
+      delete cfg.teamToGroup[current];
+      cfg.teamToGroup[clean] = (typeof oldGroup === "number" ? oldGroup : 0);
+
+      // Rename squad key
+      if (data.squads) {
+        const oldSquad = data.squads[current];
+        delete data.squads[current];
+        if (Array.isArray(oldSquad)) data.squads[clean] = oldSquad;
+        else if (!Array.isArray(data.squads[clean])) data.squads[clean] = [];
+      }
+
+      // Update event.team if it matched old name
+      if (data.matchEvents && typeof data.matchEvents === "object") {
+        Object.keys(data.matchEvents).forEach(fxId => {
+          const arr = data.matchEvents[fxId];
+          if (!Array.isArray(arr)) return;
+          arr.forEach(ev => {
+            if (ev && ev.team === current) ev.team = clean;
+          });
+        });
+      }
+
+      saveData(data);
+      setMsg("teamsMsg", "Team updated ✅");
+
+      if (document.getElementById("squadTeamName").textContent === current) {
+        document.getElementById("squadTeamName").textContent = clean;
+      }
+    };
+
+    // Add fixture
+    document.getElementById("addFixtureBtn").addEventListener("click", () => {
+      const date = document.getElementById("fixDate").value.trim();
+      const time = document.getElementById("fixTime").value.trim();
+
+      const fixHomeSel = document.getElementById("fixHome").value.trim();
+      const fixAwaySel = document.getElementById("fixAway").value.trim();
+      const fixHomeCustom = document.getElementById("fixHomeCustom").value.trim();
+      const fixAwayCustom = document.getElementById("fixAwayCustom").value.trim();
+
+      const home = (fixHomeSel === "__custom__") ? fixHomeCustom : fixHomeSel;
+      const away = (fixAwaySel === "__custom__") ? fixAwayCustom : fixAwaySel;
+
+      if (!date || !time || !home || !away) return setMsg("fixturesMsg", "Date, time, Team 1, Team 2 required ❌");
+      if (home === away) return setMsg("fixturesMsg", "Teams must be different ❌");
+
+      const data = getData();
+      const id = makeFixtureId();
+      data.fixtures.push({ id, date, time, home, away });
+
+      // ensure events list exists for this fixture
+      data.matchEvents = data.matchEvents || {};
+      if (!Array.isArray(data.matchEvents[id])) data.matchEvents[id] = [];
+
+      saveData(data);
+
+      document.getElementById("fixDate").value = "";
+      document.getElementById("fixTime").value = "";
+      document.getElementById("fixHome").value = "";
+      document.getElementById("fixAway").value = "";
+      document.getElementById("fixHomeCustom").value = "";
+      document.getElementById("fixAwayCustom").value = "";
+      document.getElementById("fixHomeCustom").style.display = "none";
+      document.getElementById("fixAwayCustom").style.display = "none";
+
+      setMsg("fixturesMsg", "Fixture added ✅");
+    });
+
+    window.deleteFixture = (i) => {
+      const data = getData();
+      const fxId = data.fixtures[i]?.id;
+      data.fixtures.splice(i, 1);
+
+      if (fxId) {
+        data.scores = (data.scores || []).filter(s => s.fixtureId !== fxId);
+        if (data.matchEvents) delete data.matchEvents[fxId];
+      }
+
+      saveData(data);
+      setMsg("fixturesMsg", "Fixture deleted ✅");
+    };
+
+    window.editFixture = (i) => {
+      const data = getData();
+      const f = data.fixtures[i] || {};
+      const date = prompt("Edit date (YYYY-MM-DD):", f.date || "");
+      if (date === null) return;
+      const time = prompt("Edit time (HH:MM):", f.time || "");
+      if (time === null) return;
+      const t1 = prompt("Edit Team 1:", f.home || "");
+      if (t1 === null) return;
+      const t2 = prompt("Edit Team 2:", f.away || "");
+      if (t2 === null) return;
+
+      const d = date.trim(), t = time.trim(), h = t1.trim(), a = t2.trim();
+      if (!d || !t || !h || !a) return setMsg("fixturesMsg", "Invalid values ❌");
+      if (h === a) return setMsg("fixturesMsg", "Teams must be different ❌");
+
+      data.fixtures[i] = { id: f.id, date: d, time: t, home: h, away: a };
+
+      // keep linked score fallback synced
+      data.scores = (data.scores || []).map(s => {
+        if (s.fixtureId !== f.id) return s;
+        return { ...s, home: h, away: a };
+      });
+
+      saveData(data);
+      setMsg("fixturesMsg", "Fixture updated ✅");
+    };
+
+    // Save score (fixture-linked create/update)
+    document.getElementById("addScoreBtn").addEventListener("click", () => {
+      const fxId = document.getElementById("scoreFixture").value.trim();
+      if (!fxId) return setMsg("scoresMsg", "Select a fixture ❌");
+
+      const data = getData();
+      const fx = getFixtureById(data, fxId);
+      if (!fx) return setMsg("scoresMsg", "Fixture not found ❌");
+
+      const home = String(fx.home || "").trim();
+      const away = String(fx.away || "").trim();
+
+      const hg = Number(document.getElementById("scoreHomeGoals").value);
+      const ag = Number(document.getElementById("scoreAwayGoals").value);
+
+      if (!home || !away) return setMsg("scoresMsg", "Fixture teams missing ❌");
+      if (!Number.isFinite(hg) || hg < 0 || !Number.isFinite(ag) || ag < 0) return setMsg("scoresMsg", "Goals must be 0 or more ❌");
+
+      const idx = (data.scores || []).findIndex(s => s.fixtureId === fxId);
+
+      if (idx >= 0) {
+        const s = data.scores[idx];
+        s.home = home; s.away = away;
+        s.homeGoals = Math.floor(hg);
+        s.awayGoals = Math.floor(ag);
+        s.status = newScoreStatus;
+
+        if (newScoreStatus === "ended") {
+          if (s.timer?.running && s.timer.lastStartTs != null) {
+            s.timer.elapsedSec = currentElapsed(s.timer);
+            s.timer.running = false;
+            s.timer.lastStartTs = null;
+          }
+        } else {
+          s.timer = normalizeTimer(s.timer);
+        }
+
+        data.scores[idx] = s;
+        saveData(data);
+        setMsg("scoresMsg", "Score updated ✅");
+        return;
+      }
+
+      const isOngoing = (newScoreStatus === "ongoing");
+      data.scores.push({
+        fixtureId: fxId,
+        home, away,
+        homeGoals: Math.floor(hg),
+        awayGoals: Math.floor(ag),
+        status: newScoreStatus,
+        timer: isOngoing
+          ? { elapsedSec: 0, running: true, lastStartTs: Date.now() }
+          : { elapsedSec: 0, running: false, lastStartTs: null }
+      });
+
+      saveData(data);
+      setMsg("scoresMsg", "Score added ✅");
+    });
+
+    window.deleteScore = (i) => {
+      const data = getData();
+      data.scores.splice(i, 1);
+      saveData(data);
+      setMsg("scoresMsg", "Score deleted ✅");
+    };
+
+    window.setScoreStatus = (i, status) => {
+      const data = getData();
+      const s = data.scores[i];
+      if (!s) return;
+
+      if (status === "ended") {
+        if (s.timer?.running && s.timer.lastStartTs != null) {
+          s.timer.elapsedSec = currentElapsed(s.timer);
+          s.timer.running = false;
+          s.timer.lastStartTs = null;
+        }
+        s.status = "ended";
+      } else {
+        s.status = "ongoing";
+        s.timer = normalizeTimer(s.timer);
+      }
+
+      saveData(data);
+    };
+
+    window.toggleHalfTime = (i) => {
+      const data = getData();
+      const s = data.scores[i];
+      if (!s || s.status !== "ongoing") return;
+
+      s.timer = normalizeTimer(s.timer);
+
+      if (s.timer.running && s.timer.lastStartTs != null) {
+        s.timer.elapsedSec = currentElapsed(s.timer);
+        s.timer.running = false;
+        s.timer.lastStartTs = null;
+      } else {
+        s.timer.running = true;
+        s.timer.lastStartTs = Date.now();
+      }
+
+      saveData(data);
+    };
+
+    // Raw JSON
+    document.getElementById("reloadRawBtn").addEventListener("click", () => {
+      renderAll();
+      setMsg("rawMsg", "Reloaded ✅");
+    });
+
+    document.getElementById("saveRawBtn").addEventListener("click", () => {
+      const raw = document.getElementById("rawJson").value;
+      try {
+        const parsed = JSON.parse(raw);
+        saveData(parsed);
+        setMsg("rawMsg", "Saved JSON ✅");
+      } catch {
+        setMsg("rawMsg", "Invalid JSON ❌");
+      }
+    });
+
+    // Export / Import / Reset (full data)
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const data = localStorage.getItem(STORAGE_KEY) || JSON.stringify(defaultData);
+      const blob = new Blob([data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "scoreboard-data.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("importBtn").addEventListener("click", () => {
+      document.getElementById("importFile").click();
+    });
+
+    document.getElementById("importFile").addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          saveData(parsed);
+          alert("Imported ✅");
+        } catch {
+          alert("Invalid JSON file ❌");
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      if (!confirm("Reset all data to default?")) return;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
+      renderAll();
+      alert("Reset ✅");
+    });
+
+    // Keep timers ticking
+    setInterval(refreshAdminTimers, 1000);
+
+    window.addEventListener("storage", renderAll);
+
+    // Boot
+    renderAll();
+  </script>
+</body>
+</html>

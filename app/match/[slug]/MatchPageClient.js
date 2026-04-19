@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import codacticsGif from "../../../logo/codactics.gif";
 import Navbar from "../../../components/Navbar";
 import SectionContainer from "../../../components/SectionContainer";
@@ -142,6 +142,7 @@ function getTelecastStatusLabel(status) {
 export default function MatchPageClient({ initialMatch }) {
   const [match, setMatch] = useState(() => buildMatchData(initialMatch));
   const [timerNow, setTimerNow] = useState(Date.now());
+  const telecastFrameWrapRef = useRef(null);
 
   useEffect(() => {
     setMatch(buildMatchData(initialMatch));
@@ -205,6 +206,7 @@ export default function MatchPageClient({ initialMatch }) {
   const awayGoalScorers = useMemo(() => getGoalScorers(match, "away"), [match]);
   const homeScore = String(match?.score?.home ?? 0);
   const awayScore = String(match?.score?.away ?? 0);
+  const telecastUrl = String(match?.telecast?.url || "").trim();
   const telecastStatus = String(match?.telecast?.status || "stopped");
   const telecastOverlay = String(match?.telecast?.overlay || "none");
   const showBottomScore = Boolean(match?.telecast?.bottomScore);
@@ -226,9 +228,27 @@ export default function MatchPageClient({ initialMatch }) {
       : telecastOverlay === "away"
         ? match?.awayLogo
         : "";
-  const hasTelecastSource = Boolean(String(match?.telecast?.url || "").trim());
+  const hasTelecastSource = Boolean(telecastUrl);
   const showTelecastPlayer = hasTelecastSource && telecastStatus === "live";
   const showPausedTelecast = hasTelecastSource && telecastStatus === "paused";
+
+  async function handleTelecastFullscreen() {
+    const telecastFrameWrap = telecastFrameWrapRef.current;
+
+    try {
+      if (telecastFrameWrap && typeof telecastFrameWrap.requestFullscreen === "function") {
+        await telecastFrameWrap.requestFullscreen();
+        await screen.orientation?.lock?.("landscape");
+        return;
+      }
+    } catch {
+      // Fall back to opening the hosted stream directly when the browser blocks fullscreen.
+    }
+
+    if (telecastUrl) {
+      window.open(telecastUrl, "_blank", "noopener,noreferrer");
+    }
+  }
 
   if (!match) {
     return (
@@ -319,20 +339,31 @@ export default function MatchPageClient({ initialMatch }) {
                 <p className={styles.kicker}>Codactics TV</p>
                 <h2 className={styles.sectionTitle}>Live Match Telecast</h2>
               </div>
-              <span className={styles.telecastBadge}>
-                {getTelecastStatusLabel(telecastStatus)}
-              </span>
+              <div className={styles.telecastHeaderActions}>
+                <span className={styles.telecastBadge}>
+                  {getTelecastStatusLabel(telecastStatus)}
+                </span>
+                {showTelecastPlayer ? (
+                  <button
+                    className={styles.telecastActionButton}
+                    onClick={handleTelecastFullscreen}
+                    type="button"
+                  >
+                    Fullscreen
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             {showTelecastPlayer ? (
-              <div className={styles.telecastFrameWrap}>
+              <div className={styles.telecastFrameWrap} ref={telecastFrameWrapRef}>
                 <iframe
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                   className={styles.telecastFrame}
                   frameBorder="0"
                   referrerPolicy="strict-origin-when-cross-origin"
-                  src={match.telecast.url}
+                  src={telecastUrl}
                   title={`${match.homeTeam} vs ${match.awayTeam} live telecast`}
                 />
                 <div className={styles.telecastScoreboard}>

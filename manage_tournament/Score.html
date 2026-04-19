@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ScoreBoard</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5}
+    .container{max-width:980px;margin:0 auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1)}
+    h1{margin:0 0 10px}
+    .muted{color:#666;margin:6px 0 16px}
+
+    .tabs{display:flex;border-bottom:2px solid #ddd;margin:16px 0;flex-wrap:wrap;gap:6px}
+    .tab-button{background:transparent;border:none;padding:12px 20px;cursor:pointer;font-size:16px;color:#666;border-bottom:3px solid transparent;border-radius:10px 10px 0 0}
+    .tab-button:hover{color:#333;background:#fafafa}
+    .tab-button.active{color:#007bff;border-bottom-color:#007bff;font-weight:bold}
+
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+
+    .card{background:#f9f9f9;border-radius:8px;padding:16px;margin:14px 0}
+    table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff;border-radius:8px;overflow:hidden}
+    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}
+    th{background:#f3f3f3;color:#333}
+    .small{font-size:12px;color:#666}
+    .badge{display:inline-block;background:#fff;border:1px solid #e5e5e5;border-radius:999px;padding:4px 10px;font-size:12px;color:#555}
+    .live{background:#fff3cd;color:#8a5a00}
+    .ended{background:#f8d7da;color:#842029;border-color:#f5c2c7}
+    .vs{color:#666;font-weight:bold;padding:0 6px}
+
+    label{display:block;font-size:13px;color:#555;margin-bottom:4px}
+    select{padding:10px;border:1px solid #ddd;border-radius:6px;min-width:260px;background:#fff}
+
+    /* Event list */
+    .event-title{margin-top:8px;font-weight:700;font-size:12px;color:#444}
+    .event-list{margin:6px 0 0;padding-left:18px}
+    .event-list li{margin:3px 0}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ScoreBoard</h1>
+    <p class="muted">Open <b>admin.html</b> to manage teams, fixtures, scores and match events. This page reads from <b>localStorage</b>.</p>
+
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab(event,'fixturesTab')">Fixtures</button>
+      <button class="tab-button" onclick="switchTab(event,'scoresTab')">Scores</button>
+      <button class="tab-button" onclick="switchTab(event,'tableTab')">Table</button>
+      <button class="tab-button" onclick="switchTab(event,'squadsTab')">Squads</button>
+    </div>
+
+    <!-- FIXTURES -->
+    <div id="fixturesTab" class="tab-content active">
+      <div class="card">
+        <h2 style="margin-top:0">Fixtures</h2>
+        <div class="small muted">Schedule set by admin.</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th style="width:140px">Date</th>
+              <th style="width:110px">Time</th>
+              <th>Match</th>
+            </tr>
+          </thead>
+          <tbody id="fixturesTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCORES (UPDATED: Event history shown per match) -->
+    <div id="scoresTab" class="tab-content">
+      <div class="card">
+        <h2 style="margin-top:0">Scores</h2>
+        <div class="small muted">Ongoing matches show a live timer. Event history is shown under each match.</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th style="width:170px">Fixture</th>
+              <th>Match + Events</th>
+              <th style="width:120px">Score</th>
+              <th style="width:200px">Status</th>
+            </tr>
+          </thead>
+          <tbody id="scoresTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div id="tableTab" class="tab-content">
+      <div class="card">
+        <h2 style="margin-top:0">Group Table</h2>
+        <div class="small muted">Standings are calculated from scores. Cross-group matches are ignored for table.</div>
+        <div id="tablesWrap"></div>
+      </div>
+    </div>
+
+    <!-- SQUADS -->
+    <div id="squadsTab" class="tab-content">
+      <div class="card">
+        <h2 style="margin-top:0">Squads</h2>
+        <div class="small muted">Select a team to see its squad.</div>
+
+        <div style="margin-top:10px">
+          <label>Team</label>
+          <select id="squadTeamSelect"></select>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width:60px">#</th>
+              <th>Player</th>
+              <th style="width:110px">Jersey</th>
+              <th style="width:110px">Pos</th>
+            </tr>
+          </thead>
+          <tbody id="squadBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const STORAGE_KEY = "scoreboard_data_v1";
+
+    function switchTab(e, tabId) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      e.target.classList.add('active');
+    }
+
+    function getData() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+      catch { return {}; }
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (m) => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[m]));
+    }
+
+    function currentElapsed(timer) {
+      if (!timer) return 0;
+      const elapsedSec = Number(timer.elapsedSec);
+      const running = !!timer.running;
+      const lastStartTs = Number(timer.lastStartTs);
+      const base = (Number.isFinite(elapsedSec) && elapsedSec >= 0) ? Math.floor(elapsedSec) : 0;
+      if (!running || !Number.isFinite(lastStartTs)) return base;
+      const add = Math.floor((Date.now() - lastStartTs) / 1000);
+      return base + Math.max(0, add);
+    }
+
+    function fmtTime(sec) {
+      const s = Math.max(0, Math.floor(sec));
+      const mm = Math.floor(s / 60);
+      const ss = s % 60;
+      return String(mm).padStart(2,"0") + ":" + String(ss).padStart(2,"0");
+    }
+
+    function getFixtureById(data, fxId) {
+      const fixtures = Array.isArray(data.fixtures) ? data.fixtures : [];
+      return fixtures.find(f => f.id === fxId);
+    }
+
+    function eventTypeLabel(t) {
+      if (t === "goal") return "Goal";
+      if (t === "yellow") return "Yellow Card";
+      if (t === "red") return "Red Card";
+      if (t === "sub") return "Substitution";
+      return t;
+    }
+
+    function formatEvent(ev) {
+      const min = (ev.minute === null || ev.minute === undefined) ? "" : `${ev.minute}' `;
+      const type = eventTypeLabel(ev.type);
+      const team = ev.team || "";
+
+      if (ev.type === "sub") {
+        const outP = ev.playerOut || "";
+        const inP = ev.playerIn || "";
+        return `${min}${type} (${team}): OUT ${outP} → IN ${inP}`;
+      }
+
+      const player = ev.player || "";
+      return `${min}${type} (${team}): ${player}`;
+    }
+
+    // Fixtures tab
+    function renderFixtures(data) {
+      const tb = document.getElementById("fixturesTable");
+      const fixtures = Array.isArray(data.fixtures) ? data.fixtures : [];
+      if (!fixtures.length) {
+        tb.innerHTML = `<tr><td colspan="4">No fixtures yet.</td></tr>`;
+        return;
+      }
+      tb.innerHTML = fixtures.map((f, i) => `
+        <tr>
+          <td>${i+1}</td>
+          <td>${escapeHtml(f.date || "")}</td>
+          <td>${escapeHtml(f.time || "")}</td>
+          <td>${escapeHtml(f.home || "")}<span class="vs">VS</span>${escapeHtml(f.away || "")}</td>
+        </tr>
+      `).join("");
+    }
+
+    // ✅ Scores tab (includes event history)
+    function renderScores(data) {
+      const tb = document.getElementById("scoresTable");
+      const scores = Array.isArray(data.scores) ? data.scores : [];
+
+      if (!scores.length) {
+        tb.innerHTML = `<tr><td colspan="5">No scores yet.</td></tr>`;
+        return;
+      }
+
+      tb.innerHTML = scores.map((s, i) => {
+        const fx = getFixtureById(data, s.fixtureId);
+        const fixtureLabel = fx ? `${(fx.date||"").trim()} ${(fx.time||"").trim()}`.trim() : "(deleted fixture)";
+        const home = fx ? fx.home : (s.home || "");
+        const away = fx ? fx.away : (s.away || "");
+
+        const status = (s.status === "ongoing") ? "ongoing" : "ended";
+        const timerText = (status === "ongoing") ? fmtTime(currentElapsed(s.timer)) : "";
+        const badge = (status === "ongoing")
+          ? `<span class="badge live">Ongoing • <span id="feTimer-${i}">${timerText}</span></span>`
+          : `<span class="badge ended">Match Ended</span>`;
+
+        const events = (data.matchEvents && Array.isArray(data.matchEvents[s.fixtureId]))
+          ? data.matchEvents[s.fixtureId]
+          : [];
+
+        const eventsHtml = events.length
+          ? `<div class="event-title">Event History</div>
+             <ul class="event-list">
+               ${events.map(ev => `<li>${escapeHtml(formatEvent(ev))}</li>`).join("")}
+             </ul>`
+          : `<div class="small muted" style="margin-top:8px">No events yet.</div>`;
+
+        return `
+          <tr>
+            <td>${i+1}</td>
+            <td>${escapeHtml(fixtureLabel || "—")}</td>
+            <td>
+              <div><b>${escapeHtml(home)}</b><span class="vs">VS</span><b>${escapeHtml(away)}</b></div>
+              ${eventsHtml}
+            </td>
+            <td>${Number(s.homeGoals)||0} - ${Number(s.awayGoals)||0}</td>
+            <td>${badge}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // Table tab (unchanged)
+    function computeStandingsByGroup(data) {
+      const cfg = data.tableConfig || { numGroups: 1, groupNames: ["Group A"], teamToGroup: {} };
+      const numGroups = Number(cfg.numGroups) || 1;
+      const groupNames = Array.isArray(cfg.groupNames) ? cfg.groupNames : [];
+      const teamToGroup = (cfg.teamToGroup && typeof cfg.teamToGroup === "object") ? cfg.teamToGroup : {};
+
+      const teams = (Array.isArray(data.teams) ? data.teams : [])
+        .map(t => String(t.name || "").trim())
+        .filter(Boolean);
+
+      const scores = Array.isArray(data.scores) ? data.scores : [];
+
+      const groups = Array.from({length: Math.max(1, numGroups)}, (_, gi) => ({
+        name: groupNames[gi] || `Group ${gi+1}`,
+        teams: []
+      }));
+
+      const statsByTeam = {};
+      teams.forEach(team => {
+        const gi = Number(teamToGroup[team]);
+        if (!Number.isFinite(gi) || gi < 0 || gi >= groups.length) return;
+        statsByTeam[team] = { team, P:0,W:0,D:0,L:0,GF:0,GA:0,GD:0,Pts:0, groupIndex: gi };
+      });
+
+      scores.forEach(s => {
+        const fx = getFixtureById(data, s.fixtureId);
+        const home = String((fx ? fx.home : s.home) || "").trim();
+        const away = String((fx ? fx.away : s.away) || "").trim();
+        if (!statsByTeam[home] || !statsByTeam[away]) return;
+
+        const g1 = statsByTeam[home].groupIndex;
+        const g2 = statsByTeam[away].groupIndex;
+        if (g1 !== g2) return;
+
+        const hg = Number(s.homeGoals);
+        const ag = Number(s.awayGoals);
+        if (!Number.isFinite(hg) || !Number.isFinite(ag)) return;
+
+        const H = statsByTeam[home];
+        const A = statsByTeam[away];
+
+        H.P++; A.P++;
+        H.GF += hg; H.GA += ag;
+        A.GF += ag; A.GA += hg;
+
+        if (hg > ag) { H.W++; A.L++; H.Pts += 3; }
+        else if (hg < ag) { A.W++; H.L++; A.Pts += 3; }
+        else { H.D++; A.D++; H.Pts += 1; A.Pts += 1; }
+      });
+
+      Object.values(statsByTeam).forEach(t => {
+        t.GD = t.GF - t.GA;
+        groups[t.groupIndex].teams.push(t);
+      });
+
+      groups.forEach(g => {
+        g.teams.sort((a,b) =>
+          (b.Pts - a.Pts) ||
+          (b.GD - a.GD) ||
+          (b.GF - a.GF) ||
+          a.team.localeCompare(b.team)
+        );
+      });
+
+      return groups;
+    }
+
+    function renderGroupTables(data) {
+      const wrap = document.getElementById("tablesWrap");
+      const groups = computeStandingsByGroup(data);
+
+      wrap.innerHTML = groups.map(g => {
+        const rows = g.teams.map((t, i) => `
+          <tr>
+            <td>${i+1}</td>
+            <td>${escapeHtml(t.team)}</td>
+            <td>${t.P}</td>
+            <td>${t.W}</td>
+            <td>${t.D}</td>
+            <td>${t.L}</td>
+            <td>${t.GF}</td>
+            <td>${t.GA}</td>
+            <td>${t.GD}</td>
+            <td><b>${t.Pts}</b></td>
+          </tr>
+        `).join("");
+
+        return `
+          <div style="margin:14px 0;border:1px solid #eee;border-radius:10px;overflow:hidden;background:#fff;">
+            <div style="padding:10px 12px;font-weight:700;background:#f3f3f3;">${escapeHtml(g.name)}</div>
+            <div style="overflow:auto">
+              <table style="width:100%;border-collapse:collapse">
+                <thead>
+                  <tr style="background:#fafafa">
+                    <th style="padding:10px;border-bottom:1px solid #eee;">#</th>
+                    <th style="padding:10px;border-bottom:1px solid #eee;">Team</th>
+                    <th style="padding:10px;border-bottom:1px solid #eee;">P</th>
+                    <th style="padding:10px;border-bottom:1px solid #eee;">W</th>
+                    <th style="padding:10px;border-bottom:1px solid #eee;">D</th>
+                    <th style="padding:10px;border-bottom:1px solid #eee;">L</th>
+                    <th style="padding:10px;border-bottom:1px solid #eee;">GF</th>
+                    <th style="padding:10px;border-bottom:1px solid #eee;">GA</th>
+                    <th style="padding:10px;border-bottom:1px solid #eee;">GD</th>
+                    <th style="padding:10px;border-bottom:1px solid #eee;">Pts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows || `<tr><td colspan="10" style="padding:10px;">No teams in this group</td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Squads tab
+    function fillSquadTeamSelect(data) {
+      const sel = document.getElementById("squadTeamSelect");
+      if (!sel) return;
+      const teams = (Array.isArray(data.teams) ? data.teams : []).map(t => String(t.name||"").trim()).filter(Boolean);
+      const prev = sel.value;
+
+      sel.innerHTML = `<option value="">Select team</option>` + teams.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+      if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+      if (!sel.value && teams.length) sel.value = teams[0];
+    }
+
+    function renderSquadTeam(data) {
+      const sel = document.getElementById("squadTeamSelect");
+      const body = document.getElementById("squadBody");
+      if (!sel || !body) return;
+
+      const team = sel.value;
+      const squads = (data.squads && typeof data.squads === "object") ? data.squads : {};
+      const list = Array.isArray(squads[team]) ? squads[team] : [];
+
+      body.innerHTML = list.length ? list.map((p,i)=>`
+        <tr>
+          <td>${i+1}</td>
+          <td>${escapeHtml(p.name || "")}</td>
+          <td>${p.number ?? ""}</td>
+          <td>${escapeHtml(p.position || "")}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="4">No squad.</td></tr>`;
+    }
+
+    document.addEventListener("change", (e) => {
+      if (e.target && e.target.id === "squadTeamSelect") {
+        renderSquadTeam(getData());
+      }
+    });
+
+    function renderAllFrontend() {
+      const data = getData();
+      renderFixtures(data);
+      renderScores(data);
+      renderGroupTables(data);
+      fillSquadTeamSelect(data);
+      renderSquadTeam(data);
+    }
+
+    function refreshFrontEndTimersOnly() {
+      const data = getData();
+      const scores = Array.isArray(data.scores) ? data.scores : [];
+      scores.forEach((s, i) => {
+        if (s.status !== "ongoing") return;
+        const el = document.getElementById(`feTimer-${i}`);
+        if (!el) return;
+        el.textContent = fmtTime(currentElapsed(s.timer));
+      });
+    }
+
+    renderAllFrontend();
+
+    window.addEventListener("storage", (e) => {
+      if (e.key === STORAGE_KEY) renderAllFrontend();
+    });
+
+    setInterval(refreshFrontEndTimersOnly, 1000);
+  </script>
+</body>
+</html>

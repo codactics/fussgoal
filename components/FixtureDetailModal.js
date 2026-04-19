@@ -69,6 +69,7 @@ export default function FixtureDetailModal({ fixture, onClose }) {
   const [changedSide, setChangedSide] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const previousScoreRef = useRef(`${fixture?.score?.home ?? 0}:${fixture?.score?.away ?? 0}`);
+  const telecastFrameWrapRef = useRef(null);
   const isLive = fixture?.status === "Live";
   const isPaused = fixture?.statusRecord?.matchStatus === "paused";
 
@@ -158,6 +159,24 @@ export default function FixtureDetailModal({ fixture, onClose }) {
   const homeGoalScorers = getGoalScorers(fixture, "home");
   const awayGoalScorers = getGoalScorers(fixture, "away");
   const canShareMatch = Boolean(fixture?.matchSlug);
+
+  async function handleTelecastFullscreen() {
+    const telecastFrameWrap = telecastFrameWrapRef.current;
+
+    try {
+      if (telecastFrameWrap && typeof telecastFrameWrap.requestFullscreen === "function") {
+        await telecastFrameWrap.requestFullscreen();
+        await screen.orientation?.lock?.("landscape");
+        return;
+      }
+    } catch {
+      // Fall back to opening the hosted stream directly when the browser blocks fullscreen.
+    }
+
+    if (telecastEmbedUrl) {
+      window.open(telecastEmbedUrl, "_blank", "noopener,noreferrer");
+    }
+  }
 
   async function handleShareMatch() {
     if (!fixture?.matchSlug || typeof window === "undefined") {
@@ -307,6 +326,15 @@ export default function FixtureDetailModal({ fixture, onClose }) {
                 >
                   Hide
                 </button>
+                {showTelecastPlayer ? (
+                  <button
+                    className={styles.telecastFullscreenButton}
+                    onClick={handleTelecastFullscreen}
+                    type="button"
+                  >
+                    Fullscreen
+                  </button>
+                ) : null}
               </div>
               <div className={styles.telecastHeaderActions}>
                 <span
@@ -325,7 +353,7 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             {viewerTelecastMode === "hidden" ? (
               <p className={styles.empty}>Live TV is hidden. Press Show to display it again.</p>
             ) : showTelecastPlayer ? (
-              <div className={styles.telecastFrameWrap}>
+              <div className={styles.telecastFrameWrap} ref={telecastFrameWrapRef}>
                 <iframe
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen

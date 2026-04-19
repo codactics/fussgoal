@@ -16,6 +16,8 @@ export default function PointsTable({ rows, title = "Group A" }) {
               <th>Won</th>
               <th>Draw</th>
               <th>Lost</th>
+              <th>Scored</th>
+              <th>Contained</th>
               <th>G/D</th>
             </tr>
           </thead>
@@ -38,6 +40,8 @@ export default function PointsTable({ rows, title = "Group A" }) {
                 <td>{row.won ?? row.wins ?? 0}</td>
                 <td>{row.draw ?? row.draws ?? 0}</td>
                 <td>{row.lost ?? row.losses ?? 0}</td>
+                <td>{row.goalsScored ?? row.scored ?? 0}</td>
+                <td>{row.goalsAgainst ?? row.contained ?? 0}</td>
                 <td>{row.goalDifference ?? row.difference ?? 0}</td>
               </tr>
             ))}
