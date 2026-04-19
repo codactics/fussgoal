@@ -15,8 +15,18 @@ import {
   validateTournamentAdmins,
 } from "../../../../lib/tournamentAdminAccounts";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function normalizeTournamentName(name) {
   return String(name || "").trim().toLowerCase();
+}
+
+function withNoStore(response) {
+  response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
+  return response;
 }
 
 export async function GET(_request, { params }) {
@@ -41,12 +51,12 @@ export async function GET(_request, { params }) {
     }
 
     const { _id, ...record } = tournament;
-    return NextResponse.json({ tournament: record });
+    return withNoStore(NextResponse.json({ tournament: record }));
   } catch {
-    return NextResponse.json(
+    return withNoStore(NextResponse.json(
       { message: "Unable to load the tournament right now." },
       { status: 500 }
-    );
+    ));
   }
 }
 
@@ -56,7 +66,7 @@ export async function PUT(request, { params }) {
     const session = verifyAdminSessionToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
 
     if (!session) {
-      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+      return withNoStore(NextResponse.json({ message: "Unauthorized." }, { status: 401 }));
     }
 
     const { id } = await params;
@@ -66,7 +76,9 @@ export async function PUT(request, { params }) {
     const normalizedName = normalizeTournamentName(name);
 
     if (!name) {
-      return NextResponse.json({ message: "Tournament name is required." }, { status: 400 });
+      return withNoStore(
+        NextResponse.json({ message: "Tournament name is required." }, { status: 400 })
+      );
     }
 
     const db = await getDb();
@@ -77,20 +89,20 @@ export async function PUT(request, { params }) {
     });
 
     if (existingTournament) {
-      return NextResponse.json(
+      return withNoStore(NextResponse.json(
         { message: "Tournament already exists." },
         { status: 409 }
-      );
+      ));
     }
 
     const currentTournament = await collection.findOne({ id });
 
     if (!currentTournament) {
-      return NextResponse.json({ message: "Tournament not found." }, { status: 404 });
+      return withNoStore(NextResponse.json({ message: "Tournament not found." }, { status: 404 }));
     }
 
     if (!canAdminAccessTournament(session, currentTournament)) {
-      return NextResponse.json({ message: "Unauthorized." }, { status: 403 });
+      return withNoStore(NextResponse.json({ message: "Unauthorized." }, { status: 403 }));
     }
 
     const requestedTournamentAdmins = isMasterAdminSession(session)
@@ -99,7 +111,7 @@ export async function PUT(request, { params }) {
     const tournamentAdminError = validateTournamentAdmins(requestedTournamentAdmins);
 
     if (tournamentAdminError) {
-      return NextResponse.json({ message: tournamentAdminError }, { status: 400 });
+      return withNoStore(NextResponse.json({ message: tournamentAdminError }, { status: 400 }));
     }
 
     const sessionAdmin = sanitizeAdmin(session);
@@ -132,12 +144,12 @@ export async function PUT(request, { params }) {
       currentTournament.tournamentAdmins || []
     );
     const { _id, ...record } = nextTournament;
-    return NextResponse.json({ tournament: record });
+    return withNoStore(NextResponse.json({ tournament: record }));
   } catch (error) {
-    return NextResponse.json(
+    return withNoStore(NextResponse.json(
       { message: error?.message || "Unable to update the tournament right now." },
       { status: 500 }
-    );
+    ));
   }
 }
 
@@ -147,7 +159,7 @@ export async function PATCH(request, { params }) {
     const session = verifyAdminSessionToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
 
     if (!session) {
-      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+      return withNoStore(NextResponse.json({ message: "Unauthorized." }, { status: 401 }));
     }
 
     const { id } = await params;
@@ -156,10 +168,10 @@ export async function PATCH(request, { params }) {
     const snapshot = payload?.snapshot;
 
     if (!fixtureKey || !snapshot || typeof snapshot !== "object") {
-      return NextResponse.json(
+      return withNoStore(NextResponse.json(
         { message: "Fixture key and snapshot are required." },
         { status: 400 }
-      );
+      ));
     }
 
     const db = await getDb();
@@ -167,11 +179,11 @@ export async function PATCH(request, { params }) {
     const currentTournament = await collection.findOne({ id });
 
     if (!currentTournament) {
-      return NextResponse.json({ message: "Tournament not found." }, { status: 404 });
+      return withNoStore(NextResponse.json({ message: "Tournament not found." }, { status: 404 }));
     }
 
     if (!canAdminAccessTournament(session, currentTournament)) {
-      return NextResponse.json({ message: "Unauthorized." }, { status: 403 });
+      return withNoStore(NextResponse.json({ message: "Unauthorized." }, { status: 403 }));
     }
 
     const updatedAt = new Date().toISOString();
@@ -188,19 +200,19 @@ export async function PATCH(request, { params }) {
     const updatedTournament = await collection.findOne({ id });
 
     if (!updatedTournament) {
-      return NextResponse.json(
+      return withNoStore(NextResponse.json(
         { message: "Unable to load the updated tournament." },
         { status: 500 }
-      );
+      ));
     }
 
     const { _id, ...record } = updatedTournament;
-    return NextResponse.json({ tournament: record });
+    return withNoStore(NextResponse.json({ tournament: record }));
   } catch (error) {
-    return NextResponse.json(
+    return withNoStore(NextResponse.json(
       { message: error?.message || "Unable to update the live match status right now." },
       { status: 500 }
-    );
+    ));
   }
 }
 
@@ -210,14 +222,14 @@ export async function DELETE(_request, { params }) {
     const session = verifyAdminSessionToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
 
     if (!session) {
-      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+      return withNoStore(NextResponse.json({ message: "Unauthorized." }, { status: 401 }));
     }
 
     if (!isMasterAdminSession(session)) {
-      return NextResponse.json(
+      return withNoStore(NextResponse.json(
         { message: "Only the master admin can delete tournaments." },
         { status: 403 }
-      );
+      ));
     }
 
     const { id } = await params;
@@ -225,22 +237,22 @@ export async function DELETE(_request, { params }) {
     const tournament = await db.collection("tournaments").findOne({ id });
 
     if (!tournament) {
-      return NextResponse.json({ message: "Tournament not found." }, { status: 404 });
+      return withNoStore(NextResponse.json({ message: "Tournament not found." }, { status: 404 }));
     }
 
     const result = await db.collection("tournaments").deleteOne({ id });
 
     if (!result.deletedCount) {
-      return NextResponse.json({ message: "Tournament not found." }, { status: 404 });
+      return withNoStore(NextResponse.json({ message: "Tournament not found." }, { status: 404 }));
     }
 
     await deleteTournamentAdminAccounts(db, id, tournament.tournamentAdmins || []);
 
-    return NextResponse.json({ success: true });
+    return withNoStore(NextResponse.json({ success: true }));
   } catch (error) {
-    return NextResponse.json(
+    return withNoStore(NextResponse.json(
       { message: error?.message || "Unable to delete the tournament right now." },
       { status: 500 }
-    );
+    ));
   }
 }

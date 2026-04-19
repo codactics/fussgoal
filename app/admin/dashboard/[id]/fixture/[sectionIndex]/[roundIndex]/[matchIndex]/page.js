@@ -83,6 +83,7 @@ export default function AdminFixturePage({ params }) {
   const [savedMatchEvents, setSavedMatchEvents] = useState([]);
   const [editingMatchEventId, setEditingMatchEventId] = useState(null);
   const [matchStatusMessage, setMatchStatusMessage] = useState("");
+  const [statusDebugInfo, setStatusDebugInfo] = useState(null);
   const [systemMoments, setSystemMoments] = useState({
     kickoff: null,
     halftime: null,
@@ -425,6 +426,15 @@ export default function AdminFixturePage({ params }) {
 
     lastSavedStatusRef.current = snapshotKey;
     statusSaveInFlightRef.current = true;
+    setStatusDebugInfo({
+      stage: "sending",
+      fixtureKey,
+      requestedAt: new Date().toISOString(),
+      snapshot,
+      responseMatchStatus: "",
+      responseUpdatedAt: "",
+      error: "",
+    });
 
     try {
       const response = await fetch(`/api/tournaments/${id}`, {
@@ -444,9 +454,29 @@ export default function AdminFixturePage({ params }) {
       }
 
       setTournament(result.tournament || currentTournament);
+      setStatusDebugInfo({
+        stage: "success",
+        fixtureKey,
+        requestedAt: new Date().toISOString(),
+        snapshot,
+        responseMatchStatus:
+          result?.tournament?.data?.matchStatuses?.[fixtureKey]?.matchStatus || "",
+        responseUpdatedAt:
+          result?.tournament?.data?.matchStatuses?.[fixtureKey]?.updatedAt || "",
+        error: "",
+      });
     } catch (error) {
       setMatchStatusMessage(error.message || "Unable to save the live match status.");
       lastSavedStatusRef.current = "";
+      setStatusDebugInfo({
+        stage: "error",
+        fixtureKey,
+        requestedAt: new Date().toISOString(),
+        snapshot,
+        responseMatchStatus: "",
+        responseUpdatedAt: "",
+        error: error.message || "Unable to save the live match status.",
+      });
     } finally {
       statusSaveInFlightRef.current = false;
 
@@ -1469,6 +1499,27 @@ export default function AdminFixturePage({ params }) {
               </div>
 
               {matchStatusMessage ? <p className={wizardStyles.status}>{matchStatusMessage}</p> : null}
+              <div
+                className={wizardStyles.status}
+                style={{ marginTop: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+              >
+                <strong>Debug</strong>
+                {"\n"}fixtureKey: {fixtureKey}
+                {"\n"}local matchStatus: {matchStatus}
+                {"\n"}selectedHalf: {selectedHalf}
+                {"\n"}elapsedBeforePause: {elapsedBeforePause}
+                {"\n"}runningStartedAt: {runningStartedAt ?? "null"}
+                {"\n"}kickoff: {systemMoments.kickoff ?? "null"}
+                {"\n"}halftime: {systemMoments.halftime ?? "null"}
+                {"\n"}fulltime: {systemMoments.fulltime ?? "null"}
+                {"\n"}save stage: {statusDebugInfo?.stage || "idle"}
+                {"\n"}save time: {statusDebugInfo?.requestedAt || "-"}
+                {"\n"}api matchStatus: {statusDebugInfo?.responseMatchStatus || "-"}
+                {"\n"}api updatedAt: {statusDebugInfo?.responseUpdatedAt || "-"}
+                {"\n"}api error: {statusDebugInfo?.error || "-"}
+                {"\n"}snapshot:
+                {"\n"}{JSON.stringify(statusDebugInfo?.snapshot || null, null, 2)}
+              </div>
 
               <div className={wizardStyles.matchTimeline}>
                 {timelineEntries.map((entry) => (
