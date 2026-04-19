@@ -56,6 +56,37 @@
   padding: 0 1.5rem 1rem;
 }
 
+.introSection,
+.featuresSection {
+  padding: 0 1.5rem 1rem;
+}
+
+.introCard,
+.featuresCard {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1.6rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 16px 34px rgba(17, 37, 30, 0.08);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: clamp(1.3rem, 2vw, 1.75rem);
+  line-height: 1.2;
+  color: #13201b;
+}
+
+.introText {
+  max-width: 860px;
+  margin: 0.95rem 0 0;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: rgba(19, 32, 27, 0.8);
+}
+
 .socialSectionInner {
   max-width: 1200px;
   margin: 0 auto;
@@ -137,6 +168,33 @@
   padding: 0 1.5rem 3rem;
 }
 
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.featureItem {
+  padding: 1rem 1.05rem;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(244, 249, 246, 0.95), rgba(232, 240, 235, 0.92));
+  border: 1px solid rgba(19, 32, 27, 0.08);
+}
+
+.featureItem h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.featureItem p {
+  margin: 0.55rem 0 0;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: rgba(19, 32, 27, 0.78);
+}
+
 .matchGrid,
 .tournamentGrid {
   display: grid;
@@ -169,6 +227,17 @@
     padding: 0 1rem 0.9rem;
   }
 
+  .introSection,
+  .featuresSection {
+    padding: 0 1rem 0.9rem;
+  }
+
+  .introCard,
+  .featuresCard {
+    padding: 1.2rem;
+    border-radius: 20px;
+  }
+
   .socialSectionInner {
     grid-template-columns: 1fr;
   }
@@ -179,5 +248,9 @@
 
   .content {
     padding: 0 1rem 2.5rem;
+  }
+
+  .featureGrid {
+    grid-template-columns: 1fr;
   }
 }

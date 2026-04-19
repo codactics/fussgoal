@@ -5,25 +5,27 @@ import { getMatchesByTournamentSlug } from "../../../data/matches";
 import { buildAbsoluteUrl, getNormalizedLaunchedTournamentBySlug } from "../../../lib/site";
 
 function buildTournamentMetadata(tournament, slug) {
-  const description =
-    String(tournament?.description || "").trim() ||
-    `Follow fixtures, standings, and live updates for ${tournament.name}.`;
+  const tournamentName = String(tournament?.name || "Football Tournament").trim();
+  const customDescription = String(tournament?.description || "").trim();
+  const description = customDescription
+    ? `${tournamentName} tournament on FussGoal. ${customDescription} Follow fixtures, standings, live scores, and results.`
+    : `${tournamentName} tournament page on FussGoal with fixtures, live scores, standings, match schedule, and results.`;
 
   return {
-    title: tournament.name,
+    title: `${tournamentName} Tournament Fixtures, Standings and Live Scores`,
     description,
     alternates: {
       canonical: `/tournament/${slug}`,
     },
     openGraph: {
-      title: tournament.name,
+      title: `${tournamentName} Tournament Fixtures, Standings and Live Scores`,
       description,
       url: buildAbsoluteUrl(`/tournament/${slug}`),
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
-      title: tournament.name,
+      title: `${tournamentName} Tournament Fixtures, Standings and Live Scores`,
       description,
     },
   };

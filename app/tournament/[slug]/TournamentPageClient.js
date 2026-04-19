@@ -29,6 +29,18 @@ function getFixtureScheduleTimestamp(fixture) {
   return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
 }
 
+function buildTournamentSeoSummary(tournament, fixtureCount) {
+  const tournamentName = String(tournament?.name || "This tournament").trim();
+  const description = String(tournament?.description || "").trim();
+  const matchesLabel = fixtureCount === 1 ? "1 match" : `${fixtureCount} matches`;
+
+  if (description) {
+    return `${tournamentName} tournament hub with ${matchesLabel}, live scores, fixtures, standings, and results. ${description}`;
+  }
+
+  return `${tournamentName} tournament hub with ${matchesLabel}, live scores, fixtures, standings, and results on FussGoal.`;
+}
+
 export default function TournamentPageClient({
   slug,
   staticTournament,
@@ -120,6 +132,18 @@ export default function TournamentPageClient({
 
   const tournamentMatches = slug.startsWith("launched-") ? [] : staticMatches;
   const tournamentLogoUrl = getStoredImageUrl(tournament?.tournamentLogo);
+  const seoSummary = useMemo(
+    () => buildTournamentSeoSummary(tournament, fixtureList.length),
+    [fixtureList.length, tournament]
+  );
+  const seoHighlights = useMemo(
+    () => [
+      `${tournament.name} fixtures and schedule`,
+      `${tournament.name} standings and points table`,
+      `${tournament.name} live scores and match results`,
+    ],
+    [tournament.name]
+  );
 
   useEffect(() => {
     if (!selectedFixture?.fixtureKey) {
@@ -182,6 +206,22 @@ export default function TournamentPageClient({
             ) : null}
             <h1 className={styles.heading}>{tournament.name}</h1>
           </div>
+        </section>
+
+        <section className={styles.seoIntroCard} aria-labelledby="tournament-seo-title">
+          <h2 id="tournament-seo-title" className={styles.seoTitle}>
+            {tournament.name} tournament overview
+          </h2>
+          <p className={styles.seoText}>{seoSummary}</p>
+          <p className={styles.seoText}>
+            Use this page to follow the {tournament.name} tournament schedule, upcoming matches,
+            current standings, and latest results in one place.
+          </p>
+          <ul className={styles.seoList}>
+            {seoHighlights.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
         </section>
 
         <section className={styles.summaryCard}>

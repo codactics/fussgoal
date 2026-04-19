@@ -1,8 +1,32 @@
+import Script from "next/script";
 import Navbar from "../components/Navbar";
 import LaunchedTournamentList from "../components/LaunchedTournamentList";
 import styles from "./page.module.css";
-import { getLaunchedTournamentRecords } from "../lib/site";
+import { buildAbsoluteUrl, getLaunchedTournamentRecords, getSiteUrl } from "../lib/site";
 import { createLaunchedTournamentSlug, getTournamentDisplayStatus } from "../components/launchedTournamentUtils";
+
+const siteUrl = getSiteUrl();
+const homepageTitle = "Live Football Scores, Fixtures and Tournament Tables";
+const homepageDescription =
+  "FussGoal helps fans follow live football scores, fixtures, standings, tournament brackets, and match updates in one football scoreboard platform.";
+
+export const metadata = {
+  title: homepageTitle,
+  description: homepageDescription,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: `FussGoal | ${homepageTitle}`,
+    description: homepageDescription,
+    url: siteUrl,
+    type: "website",
+  },
+  twitter: {
+    title: `FussGoal | ${homepageTitle}`,
+    description: homepageDescription,
+  },
+};
 
 function getTournamentBucket(endDate) {
   return getTournamentDisplayStatus("", endDate) === "Past" ? "past" : "ongoing";
@@ -48,20 +72,79 @@ export default async function HomePage() {
     slug: createLaunchedTournamentSlug(tournament.id),
     bucket: getTournamentBucket(tournament.endDate),
   }));
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        name: "FussGoal",
+        url: siteUrl,
+        description: homepageDescription,
+        inLanguage: "en",
+        publisher: {
+          "@type": "Organization",
+          name: "CODACTICS",
+          url: "https://www.codactics.com/",
+        },
+      },
+      {
+        "@type": "CollectionPage",
+        name: "Football tournaments, fixtures and live scores",
+        url: siteUrl,
+        description: homepageDescription,
+        isPartOf: {
+          "@type": "WebSite",
+          name: "FussGoal",
+          url: siteUrl,
+        },
+        about: [
+          {
+            "@type": "SportsEvent",
+            sport: "Football",
+          },
+          {
+            "@type": "Thing",
+            name: "Football tournament standings",
+          },
+        ],
+        primaryImageOfPage: buildAbsoluteUrl("/opengraph-image"),
+      },
+    ],
+  };
 
   return (
     <main className={styles.page}>
+      <Script id="homepage-structured-data" type="application/ld+json">
+        {JSON.stringify(structuredData)}
+      </Script>
       <Navbar />
 
       <section className={styles.hero}>
         <div className={styles.heroContent}>
           <p className={styles.heroEyebrow}>Fuss Goal</p>
-          <h1 className={styles.heroTitle}>Fuss Goal — Your Football Hub</h1>
+          <h1 className={styles.heroTitle}>Live Football Scores, Fixtures and Tournament Tables</h1>
           <p className={styles.heroText}>
-            Follow live scores, explore tournaments, and never miss a match.
+            Follow live football scores, explore tournaments, track standings, and never miss a match.
             <span className={styles.heroTextBreak}>
-              Everything from live action to final results, all in one clean dashboard.
+              FussGoal brings fixtures, results, scoreboards, and tournament updates into one football hub.
             </span>
+          </p>
+        </div>
+      </section>
+
+      <section className={styles.introSection} aria-labelledby="homepage-intro-title">
+        <div className={styles.introCard}>
+          <h2 id="homepage-intro-title" className={styles.sectionTitle}>
+            Track football tournaments in one place
+          </h2>
+          <p className={styles.introText}>
+            FussGoal is a football scoreboard platform built for following matches, fixtures, standings,
+            and tournament progress across competitions. Use it to check upcoming games, monitor live
+            score updates, and review results from finished matches.
+          </p>
+          <p className={styles.introText}>
+            Whether you want a quick football live score view or a full tournament overview with points
+            tables and match pages, FussGoal keeps the essential information easy to browse.
           </p>
         </div>
       </section>
@@ -118,6 +201,28 @@ export default async function HomePage() {
       <div className={styles.content}>
         <LaunchedTournamentList initialTournaments={initialTournaments} />
       </div>
+
+      <section className={styles.featuresSection} aria-labelledby="homepage-features-title">
+        <div className={styles.featuresCard}>
+          <h2 id="homepage-features-title" className={styles.sectionTitle}>
+            What you can follow on FussGoal
+          </h2>
+          <div className={styles.featureGrid}>
+            <article className={styles.featureItem}>
+              <h3>Live scores</h3>
+              <p>Follow football scores as matches progress and review final results after full time.</p>
+            </article>
+            <article className={styles.featureItem}>
+              <h3>Fixtures and schedules</h3>
+              <p>Browse upcoming fixtures to see who is playing next and when tournaments continue.</p>
+            </article>
+            <article className={styles.featureItem}>
+              <h3>Standings and tables</h3>
+              <p>Check points tables, group standings, and tournament positions in a single dashboard.</p>
+            </article>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

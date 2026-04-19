@@ -87,10 +87,12 @@ export async function generateMetadata({ params }) {
     };
   }
 
-  const title = `${match.homeTeam} vs ${match.awayTeam}`;
-  const description = `${
-    launchedMatch?.tournament?.name || staticMatch?.tournament || "Football"
-  } match on ${match.date || "TBD"}${match.time ? ` at ${match.time}` : ""}.`;
+  const tournamentName =
+    launchedMatch?.tournament?.name || staticMatch?.tournament || "Football Tournament";
+  const title = `${match.homeTeam} vs ${match.awayTeam} | ${tournamentName} Live Score and Result`;
+  const description = `Follow ${match.homeTeam} vs ${match.awayTeam} in the ${tournamentName} on ${
+    match.date || "TBD"
+  }${match.time ? ` at ${match.time}` : ""}. Get live score, match updates, lineups, timeline, and result on FussGoal.`;
 
   return {
     title,

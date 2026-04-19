@@ -46,12 +46,40 @@
 }
 
 .summaryCard,
-.notFoundCard {
+.notFoundCard,
+.seoIntroCard {
   padding: 1.5rem;
   border: 1px solid rgba(19, 32, 27, 0.08);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 16px 34px rgba(16, 34, 27, 0.08);
+}
+
+.seoIntroCard {
+  margin-bottom: 1.5rem;
+}
+
+.seoTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.25;
+  color: #13201b;
+}
+
+.seoText {
+  margin: 0.85rem 0 0;
+  color: #41524b;
+  line-height: 1.75;
+}
+
+.seoList {
+  margin: 1rem 0 0;
+  padding-left: 1.2rem;
+  color: #0b4f39;
+}
+
+.seoList li + li {
+  margin-top: 0.45rem;
 }
 
 .summaryCard {
