@@ -588,6 +588,15 @@ export default function ManageTournamentDetail({ tournament }) {
                       const clockText = matchStatus
                         ? formatMatchClock(getMatchClockSeconds(matchStatus, timerNow))
                         : "";
+                      const hasScheduledDate = Boolean(match.date && match.date !== "TBD");
+                      const hasScheduledTime = Boolean(match.time && match.time !== "TBD");
+                      const hasSchedule = hasScheduledDate || hasScheduledTime;
+                      const displayStatusLabel = statusLabel || (hasSchedule ? "Upcoming" : "");
+                      const scheduleText = hasSchedule
+                        ? [hasScheduledDate ? match.date : "", hasScheduledTime ? match.time : ""]
+                            .filter(Boolean)
+                            .join(" | ")
+                        : "";
 
                       return (
                         <Link
@@ -598,29 +607,36 @@ export default function ManageTournamentDetail({ tournament }) {
                           <span className={styles.fixtureRowTeam}>{match.home}</span>
                           <span className={styles.fixtureRowCenter}>
                             <span className={styles.fixtureRowVs}>vs</span>
-                            {matchStatus ? (
+                            {matchStatus || hasSchedule ? (
                               <span className={styles.fixtureRowMeta}>
-                                {statusLabel ? (
+                                {displayStatusLabel ? (
                                   <span
                                     className={`${styles.fixtureStatusBadge} ${
-                                      statusLabel === "Live"
+                                      displayStatusLabel === "Live"
                                         ? styles.fixtureStatusLive
-                                        : statusLabel === "HT"
+                                        : displayStatusLabel === "HT"
                                           ? styles.fixtureStatusHalftime
-                                          : styles.fixtureStatusEnded
+                                          : displayStatusLabel === "Upcoming"
+                                            ? styles.fixtureStatusUpcoming
+                                            : styles.fixtureStatusEnded
                                     }`}
                                   >
-                                    {statusLabel}
+                                    {displayStatusLabel}
                                   </span>
                                 ) : null}
-                                <span className={styles.fixtureLiveScore}>
-                                  {score.home}:{score.away}
-                                </span>
-                                {clockText ? (
+                                {matchStatus ? (
+                                  <span className={styles.fixtureLiveScore}>
+                                    {score.home}:{score.away}
+                                  </span>
+                                ) : null}
+                                {matchStatus && clockText ? (
                                   <span className={styles.fixtureLiveClock}>{clockText}</span>
                                 ) : null}
-                                {phaseLabel ? (
+                                {matchStatus && phaseLabel ? (
                                   <span className={styles.fixtureLivePhase}>{phaseLabel}</span>
+                                ) : null}
+                                {!matchStatus && scheduleText ? (
+                                  <span className={styles.fixtureScheduleMeta}>{scheduleText}</span>
                                 ) : null}
                               </span>
                             ) : null}
