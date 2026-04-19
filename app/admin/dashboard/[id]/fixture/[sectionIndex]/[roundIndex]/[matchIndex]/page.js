@@ -307,7 +307,7 @@ export default function AdminFixturePage({ params }) {
     setScheduleMessage("");
     setTelecastMessage("");
     setTimerNow(Date.now());
-    lastSavedStatusRef.current = JSON.stringify({
+    lastSavedStatusRef.current = getMatchStatusSnapshotKey({
       homeTeam: fixture.home,
       awayTeam: fixture.away,
       selectedHalf: savedStatus?.selectedHalf === "second" ? "second" : "first",
@@ -405,6 +405,15 @@ export default function AdminFixturePage({ params }) {
     };
   }
 
+  function getMatchStatusSnapshotKey(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") {
+      return "";
+    }
+
+    const { updatedAt: _updatedAt, ...stableSnapshot } = snapshot;
+    return JSON.stringify(stableSnapshot);
+  }
+
   async function persistMatchStatusSnapshot(snapshotOverride = {}) {
     const currentTournament = tournamentRef.current || tournament;
 
@@ -413,7 +422,7 @@ export default function AdminFixturePage({ params }) {
     }
 
     const snapshot = buildMatchStatusSnapshot(snapshotOverride);
-    const snapshotKey = JSON.stringify(snapshot);
+    const snapshotKey = getMatchStatusSnapshotKey(snapshot);
 
     if (lastSavedStatusRef.current === snapshotKey) {
       return;
