@@ -5,6 +5,8 @@ import {
   getNormalizedLaunchedMatchBySlug,
 } from "../../../lib/site";
 
+export const dynamic = "force-dynamic";
+
 function buildStaticInitialMatch(match) {
   if (!match) {
     return null;

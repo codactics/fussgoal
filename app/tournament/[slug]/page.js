@@ -4,6 +4,8 @@ import { getTournamentBySlug } from "../../../data/tournaments";
 import { getMatchesByTournamentSlug } from "../../../data/matches";
 import { buildAbsoluteUrl, getNormalizedLaunchedTournamentBySlug } from "../../../lib/site";
 
+export const dynamic = "force-dynamic";
+
 function buildTournamentMetadata(tournament, slug) {
   const tournamentName = String(tournament?.name || "Football Tournament").trim();
   const customDescription = String(tournament?.description || "").trim();
