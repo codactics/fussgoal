@@ -28,6 +28,42 @@ export function createLaunchedTournamentSlug(tournamentId) {
   return `launched-${tournamentId}`;
 }
 
+function slugifySegment(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function createLaunchedMatchSlug(tournamentId, fixture) {
+  const normalizedTournamentId = String(tournamentId || "").trim();
+  const fixtureKey = String(fixture?.fixtureKey || "").trim();
+
+  if (!normalizedTournamentId || !fixtureKey) {
+    return "";
+  }
+
+  const homeTeam = slugifySegment(fixture?.homeTeam || fixture?.home || "home-team");
+  const awayTeam = slugifySegment(fixture?.awayTeam || fixture?.away || "away-team");
+
+  return `launched-${normalizedTournamentId}--${fixtureKey}--${homeTeam}-vs-${awayTeam}`;
+}
+
+export function parseLaunchedMatchSlug(slug) {
+  const normalizedSlug = String(slug || "").trim();
+  const match = normalizedSlug.match(/^launched-(.+?)--(\d+-\d+-\d+)(?:--.*)?$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    tournamentId: match[1],
+    fixtureKey: match[2],
+  };
+}
+
 export function getStoredImageUrl(imageValue) {
   if (!imageValue) {
     return "";
@@ -180,6 +216,7 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
   const payload = record?.data || {};
   const matchStatuses = payload.matchStatuses || {};
   const matchLineups = payload.matchLineups || {};
+  const matchTelecasts = payload.matchTelecasts || {};
 
   return getTournamentFixtureSections(record).map((section, sectionIndex) => ({
     title: section.title,
@@ -188,12 +225,18 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
       const fixtureKey = getFixtureKey(sectionIndex, match.roundIndex, match.matchIndex);
       const statusRecord = matchStatuses[fixtureKey] || null;
       const lineupRecord = matchLineups[fixtureKey] || null;
+      const telecastRecord = matchTelecasts[fixtureKey] || null;
       const score = getMatchScore(statusRecord);
       const clockSeconds = statusRecord ? getMatchClockSeconds(statusRecord) : 0;
 
       return {
         id: `${fixtureKey}-${match.home}-${match.away}`,
         fixtureKey,
+        matchSlug: createLaunchedMatchSlug(record.id, {
+          fixtureKey,
+          homeTeam: match.home,
+          awayTeam: match.away,
+        }),
         homeTeam: match.home,
         awayTeam: match.away,
         homeLogo: teamLogoMap[match.home] || "",
@@ -208,6 +251,20 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
         statusRecord,
         lineup: buildFixtureLineup(lineupRecord),
         timelineEntries: buildTimelineEntries(statusRecord),
+        telecast: telecastRecord
+          ? {
+              url: String(telecastRecord.url || "").trim(),
+              status:
+                telecastRecord.status === "live" || telecastRecord.status === "paused"
+                  ? telecastRecord.status
+                  : "stopped",
+              overlay:
+                telecastRecord.overlay === "home" || telecastRecord.overlay === "away"
+                  ? telecastRecord.overlay
+                  : "none",
+              bottomScore: Boolean(telecastRecord.bottomScore),
+            }
+          : null,
         date: match.date || startDate || "TBD",
         time: match.time || "TBD",
       };

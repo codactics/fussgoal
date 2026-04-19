@@ -26,6 +26,12 @@ const initialForm = {
   maxTeamsPerGroup: "",
 };
 
+const initialTournamentAdmin = {
+  id: 1,
+  username: "",
+  password: "",
+};
+
 const initialOptions = {
   assignMode: "auto",
   unevenMode: "balanced",
@@ -96,6 +102,14 @@ function getAdminTournamentPhase({ startDate, endDate, launched = false, paused 
   return basePhase;
 }
 
+function getSelectedExistingAdminValue(admin, existingTournamentAdmins) {
+  const username = String(admin?.username || "").trim();
+
+  return existingTournamentAdmins.some((existingAdmin) => existingAdmin.username === username)
+    ? username
+    : "";
+}
+
 export default function CreateTournamentWizard({ adminSession = null }) {
   const [activeTab, setActiveTab] = useState("setup");
   const [isStarted, setIsStarted] = useState(false);
@@ -114,6 +128,8 @@ export default function CreateTournamentWizard({ adminSession = null }) {
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
   const [isUploadingTournamentLogo, setIsUploadingTournamentLogo] = useState(false);
   const [uploadingTeamIndex, setUploadingTeamIndex] = useState(null);
+  const [tournamentAdmins, setTournamentAdmins] = useState([initialTournamentAdmin]);
+  const [existingTournamentAdmins, setExistingTournamentAdmins] = useState([]);
 
   const groupCountValue = Number.parseInt(form.groupCount, 10) || 0;
   const totalSteps = form.tournamentType === "league" ? 3 : 5;
@@ -133,6 +149,12 @@ export default function CreateTournamentWizard({ adminSession = null }) {
   useEffect(() => {
     loadSavedTournaments();
   }, []);
+
+  useEffect(() => {
+    if (adminSession?.role === "master_admin") {
+      loadExistingTournamentAdmins();
+    }
+  }, [adminSession?.role]);
 
   function hydrateTournamentRecord(tournament) {
     const startDate = tournament.startDate || tournament.tournamentDate || "";
@@ -167,8 +189,75 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     }
   }
 
+  async function loadExistingTournamentAdmins() {
+    try {
+      const response = await fetch("/api/admin/tournament-admins", {
+        cache: "no-store",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        setExistingTournamentAdmins([]);
+        return;
+      }
+
+      setExistingTournamentAdmins(result.admins || []);
+    } catch {
+      setExistingTournamentAdmins([]);
+    }
+  }
+
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function addTournamentAdminRow() {
+    setTournamentAdmins((current) => [
+      ...current,
+      {
+        id: Date.now() + current.length,
+        username: "",
+        password: "",
+      },
+    ]);
+  }
+
+  function removeTournamentAdminRow(adminId) {
+    setTournamentAdmins((current) => {
+      const nextAdmins = current.filter((admin) => admin.id !== adminId);
+
+      return nextAdmins.length ? nextAdmins : [initialTournamentAdmin];
+    });
+  }
+
+  function updateTournamentAdmin(index, field, value) {
+    setTournamentAdmins((current) =>
+      current.map((admin, adminIndex) =>
+        adminIndex === index ? { ...admin, [field]: value } : admin
+      )
+    );
+  }
+
+  function selectExistingTournamentAdmin(index, username) {
+    const selectedAdmin = existingTournamentAdmins.find((admin) => admin.username === username);
+
+    if (!selectedAdmin) {
+      updateTournamentAdmin(index, "username", "");
+      updateTournamentAdmin(index, "password", "");
+      return;
+    }
+
+    setTournamentAdmins((current) =>
+      current.map((admin, adminIndex) =>
+        adminIndex === index
+          ? {
+              ...admin,
+              username: selectedAdmin.username,
+              password: selectedAdmin.password,
+            }
+          : admin
+      )
+    );
   }
 
   function updateOption(field, value) {
@@ -528,6 +617,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     setGroups([]);
     setFixtures(null);
     setEditingTournamentId(null);
+    setTournamentAdmins([initialTournamentAdmin]);
     setStatusMessage(message);
   }
 
@@ -1012,6 +1102,12 @@ export default function CreateTournamentWizard({ adminSession = null }) {
             publicId: form.logoPublicId || "",
           }
         : null,
+      tournamentAdmins: tournamentAdmins
+        .map((admin) => ({
+          username: String(admin.username || "").trim(),
+          password: String(admin.password || ""),
+        }))
+        .filter((admin) => admin.username || admin.password),
       groups: form.tournamentType === "group" ? groups : [],
       fixtures: form.tournamentType === "group" ? fixtures : null,
       leagueFixtures: form.tournamentType === "league" ? fixtures : null,
@@ -1046,6 +1142,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       launched: existingTournament?.launched || false,
       paused: existingTournament?.paused || false,
       launchedAt: existingTournament?.launchedAt || null,
+      tournamentAdmins: payload.tournamentAdmins,
       savedAt: new Date().toISOString(),
       data: payload,
     };
@@ -1248,6 +1345,15 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     setTeamEntries(nextTeamEntries);
     setGroups(savedGroups);
     setFixtures(payload.fixtures || payload.leagueFixtures || null);
+    setTournamentAdmins(
+      Array.isArray(tournament.tournamentAdmins) && tournament.tournamentAdmins.length
+        ? tournament.tournamentAdmins.map((admin, index) => ({
+            id: Date.now() + index,
+            username: admin.username || "",
+            password: admin.password || "",
+          }))
+        : [initialTournamentAdmin]
+    );
     setActiveTab("setup");
     setIsStarted(true);
     setStep(1);
@@ -1317,6 +1423,11 @@ export default function CreateTournamentWizard({ adminSession = null }) {
         ) : null}
         {adminSession?.role === "master_admin" && tournament.ownerUsername ? (
           <p className={styles.resultMeta}>Owner: {tournament.ownerUsername}</p>
+        ) : null}
+        {adminSession?.role === "master_admin" && tournament.tournamentAdmins?.length ? (
+          <p className={styles.resultMeta}>
+            Tournament admins: {tournament.tournamentAdmins.map((admin) => admin.username).join(", ")}
+          </p>
         ) : null}
         <p className={styles.resultMeta}>Saved: {new Date(tournament.savedAt).toLocaleString()}</p>
         <div className={styles.savedActions}>
@@ -1437,6 +1548,109 @@ export default function CreateTournamentWizard({ adminSession = null }) {
                   value={form.startDate}
                 />
               </div>
+
+              {adminSession?.role === "master_admin" ? (
+                <div className={styles.stepBlock}>
+                  <h3 className={styles.optionTitle}>Tournament Admin Accounts</h3>
+                  <p className={styles.helper}>
+                    Create one or more tournament admin accounts for this tournament. Each admin gets
+                    a separate username and password.
+                  </p>
+
+                  <div className={styles.adminList}>
+                    {tournamentAdmins.map((admin, index) => (
+                      <div className={styles.adminCard} key={admin.id}>
+                        <div className={styles.doubleGrid}>
+                          <div className={styles.field}>
+                            <label
+                              className={styles.fieldLabel}
+                              htmlFor={`tournament-admin-select-${admin.id}`}
+                            >
+                              Existing tournament admins
+                            </label>
+                            <select
+                              className={styles.input}
+                              id={`tournament-admin-select-${admin.id}`}
+                              onChange={(event) =>
+                                selectExistingTournamentAdmin(index, event.target.value)
+                              }
+                              value={getSelectedExistingAdminValue(admin, existingTournamentAdmins)}
+                            >
+                              <option value="">Select existing admin</option>
+                              {existingTournamentAdmins.map((existingAdmin) => (
+                                <option
+                                  key={`${admin.id}-${existingAdmin.username}`}
+                                  value={existingAdmin.username}
+                                >
+                                  {existingAdmin.username}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className={styles.doubleGrid}>
+                          <div className={styles.field}>
+                            <label
+                              className={styles.fieldLabel}
+                              htmlFor={`tournament-admin-username-${admin.id}`}
+                            >
+                              Tournament admin username
+                            </label>
+                            <input
+                              className={styles.input}
+                              id={`tournament-admin-username-${admin.id}`}
+                              onChange={(event) =>
+                                updateTournamentAdmin(index, "username", event.target.value)
+                              }
+                              placeholder="Enter username"
+                              type="text"
+                              value={admin.username}
+                            />
+                          </div>
+
+                          <div className={styles.field}>
+                            <label
+                              className={styles.fieldLabel}
+                              htmlFor={`tournament-admin-password-${admin.id}`}
+                            >
+                              Password
+                            </label>
+                            <input
+                              className={styles.input}
+                              id={`tournament-admin-password-${admin.id}`}
+                              onChange={(event) =>
+                                updateTournamentAdmin(index, "password", event.target.value)
+                              }
+                              placeholder="Enter password"
+                              type="text"
+                              value={admin.password}
+                            />
+                          </div>
+                        </div>
+
+                        <div className={styles.adminActions}>
+                          <button
+                            className={styles.linkButton}
+                            onClick={() => removeTournamentAdminRow(admin.id)}
+                            type="button"
+                          >
+                            Remove tournament admin
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    className={styles.secondaryButton}
+                    onClick={addTournamentAdminRow}
+                    type="button"
+                  >
+                    Add more tournament admin
+                  </button>
+                </div>
+              ) : null}
 
               <div className={styles.field}>
                 <label className={styles.fieldLabel} htmlFor="tournament-logo">

@@ -1,175 +1,122 @@
-import Navbar from "../../../components/Navbar";
-import SectionContainer from "../../../components/SectionContainer";
+import MatchPageClient from "./MatchPageClient";
 import { getMatchBySlug } from "../../../data/matches";
-import styles from "./page.module.css";
+import {
+  buildAbsoluteUrl,
+  getNormalizedLaunchedMatchBySlug,
+} from "../../../lib/site";
+
+function buildStaticInitialMatch(match) {
+  if (!match) {
+    return null;
+  }
+
+  return {
+    source: "static",
+    slug: match.slug,
+    tournamentName: match.tournament,
+    sectionTitle: match.tournament,
+    homeTeam: match.homeTeam,
+    awayTeam: match.awayTeam,
+    homeLogo: "",
+    awayLogo: "",
+    score: {
+      home: match.homeScore,
+      away: match.awayScore,
+    },
+    status: match.status,
+    phaseLabel: "",
+    clockText: match.minute || "",
+    statusRecord: null,
+    date: match.date || "TBD",
+    time: "TBD",
+    venue: match.venue || "",
+    lineups: {
+      home: [],
+      away: [],
+    },
+    timelineEntries: match.events || [],
+    telecast: null,
+  };
+}
+
+function buildLaunchedInitialMatch(launchedMatch, slug) {
+  if (!launchedMatch?.tournament || !launchedMatch?.fixture) {
+    return null;
+  }
+
+  return {
+    source: "launched",
+    slug,
+    tournamentId: launchedMatch.tournament.id,
+    fixtureKey: launchedMatch.fixture.fixtureKey,
+    tournamentName: launchedMatch.tournament.name,
+    sectionTitle: launchedMatch.fixture.sectionTitle || launchedMatch.tournament.name,
+    homeTeam: launchedMatch.fixture.homeTeam,
+    awayTeam: launchedMatch.fixture.awayTeam,
+    homeLogo: launchedMatch.fixture.homeLogo || "",
+    awayLogo: launchedMatch.fixture.awayLogo || "",
+    score: launchedMatch.fixture.score || { home: 0, away: 0 },
+    status: launchedMatch.fixture.status,
+    phaseLabel: launchedMatch.fixture.phaseLabel || "",
+    clockText: launchedMatch.fixture.clockText || "",
+    statusRecord: launchedMatch.fixture.statusRecord || null,
+    date: launchedMatch.fixture.date || "TBD",
+    time: launchedMatch.fixture.time || "TBD",
+    venue: "",
+    lineups: launchedMatch.fixture.lineup || { home: [], away: [] },
+    timelineEntries: launchedMatch.fixture.timelineEntries || [],
+    telecast: launchedMatch.fixture.telecast || null,
+  };
+}
+
+export async function generateMetadata({ params }) {
+  const { slug } = await params;
+  const launchedMatch = await getNormalizedLaunchedMatchBySlug(slug);
+  const fixture = launchedMatch?.fixture || null;
+  const staticMatch = fixture ? null : getMatchBySlug(slug);
+  const match = fixture || staticMatch;
+
+  if (!match) {
+    return {
+      title: "Match not found",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const title = `${match.homeTeam} vs ${match.awayTeam}`;
+  const description = `${
+    launchedMatch?.tournament?.name || staticMatch?.tournament || "Football"
+  } match on ${match.date || "TBD"}${match.time ? ` at ${match.time}` : ""}.`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `/match/${slug}`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: buildAbsoluteUrl(`/match/${slug}`),
+      type: "article",
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
+    },
+  };
+}
 
 export default async function MatchPage({ params }) {
   const { slug } = await params;
-  const match = getMatchBySlug(slug);
+  const launchedMatch = await getNormalizedLaunchedMatchBySlug(slug);
+  const initialMatch = launchedMatch
+    ? buildLaunchedInitialMatch(launchedMatch, slug)
+    : buildStaticInitialMatch(getMatchBySlug(slug));
 
-  if (!match) {
-    return (
-      <main className={styles.page}>
-        <Navbar />
-        <div className={styles.container}>
-          <section className={styles.notFoundCard}>
-            <h1 className={styles.heading}>Match not found</h1>
-            <p className={styles.notFoundText}>
-              The match you are looking for does not exist in the current mock data.
-            </p>
-          </section>
-        </div>
-      </main>
-    );
-  }
-
-  const score = `${match.homeScore} - ${match.awayScore}`;
-  const liveMinute = match.status === "LIVE" && match.minute ? match.minute : null;
-  const homeLineup = [
-    "Goalkeeper",
-    "Right Back",
-    "Center Back",
-    "Center Back",
-    "Left Back",
-    "Midfielder",
-    "Midfielder",
-    "Midfielder",
-    "Right Wing",
-    "Striker",
-    "Left Wing",
-  ];
-  const awayLineup = [
-    "Goalkeeper",
-    "Right Back",
-    "Center Back",
-    "Center Back",
-    "Left Back",
-    "Midfielder",
-    "Midfielder",
-    "Midfielder",
-    "Right Wing",
-    "Striker",
-    "Left Wing",
-  ];
-
-  return (
-    <main className={styles.page}>
-      <Navbar />
-
-      <div className={styles.container}>
-        <section className={styles.hero}>
-          <p className={styles.eyebrow}>Match Overview</p>
-          <h1 className={styles.heading}>
-            {match.homeTeam} vs {match.awayTeam}
-          </h1>
-        </section>
-
-        <section className={styles.summaryCard}>
-          <div className={styles.scoreBlock}>
-            <p className={styles.teamLine}>{match.homeTeam}</p>
-            <p className={styles.score}>{score}</p>
-            <p className={styles.teamLine}>{match.awayTeam}</p>
-          </div>
-
-          <div className={styles.detailsGrid}>
-            <div className={styles.detailItem}>
-              <p className={styles.label}>Status</p>
-              <p className={styles.value}>{match.status}</p>
-            </div>
-            <div className={styles.detailItem}>
-              <p className={styles.label}>Minute</p>
-              <p className={styles.value}>{liveMinute ?? "Not live"}</p>
-            </div>
-            <div className={styles.detailItem}>
-              <p className={styles.label}>Tournament</p>
-              <p className={styles.value}>{match.tournament}</p>
-            </div>
-            <div className={styles.detailItem}>
-              <p className={styles.label}>Venue</p>
-              <p className={styles.value}>{match.venue}</p>
-            </div>
-            <div className={styles.detailWide}>
-              <p className={styles.label}>Date</p>
-              <p className={styles.value}>{match.date}</p>
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.lineupCard}>
-          <h2 className={styles.lineupTitle}>Team Line Up</h2>
-          <div className={styles.lineupGrid}>
-            <details className={styles.lineupColumn}>
-              <summary className={styles.lineupSummary}>{match.homeTeam} Lineup</summary>
-              <div className={styles.lineupContent}>
-                <ol className={styles.lineupList}>
-                  {homeLineup.map((player, index) => (
-                    <li className={styles.lineupItem} key={`${match.homeTeam}-${index}`}>
-                      {player}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </details>
-
-            <details className={styles.lineupColumn}>
-              <summary className={styles.lineupSummary}>{match.awayTeam} Lineup</summary>
-              <div className={styles.lineupContent}>
-                <ol className={styles.lineupList}>
-                  {awayLineup.map((player, index) => (
-                    <li className={styles.lineupItem} key={`${match.awayTeam}-${index}`}>
-                      {player}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </details>
-          </div>
-        </section>
-
-        <SectionContainer
-          title="Match Events"
-          description="Static event timeline for this match."
-        >
-          <div className={styles.eventsList}>
-            {match.events.map((event) => (
-              <article className={styles.eventCard} key={event.id}>
-                <div className={styles.eventMinute}>{event.minute}</div>
-                <div className={styles.eventContent}>
-                  {event.type === "Goal" ? (
-                    <>
-                      <p className={`${styles.eventType} ${styles.goalType}`}>Goal !!!!</p>
-                      <p className={styles.eventMeta}>
-                        {event.team} - {event.player}
-                      </p>
-                    </>
-                  ) : event.type === "Substitution" ? (
-                    <div className={styles.substitutionBlock}>
-                      <p className={styles.eventMeta}>{event.team}</p>
-                      <div className={styles.substitutionRow}>
-                        <span className={`${styles.playerTag} ${styles.playerOut}`}>
-                          <span className={styles.arrow}>↓</span>
-                          OUT {event.outPlayer}
-                        </span>
-                        <span className={`${styles.playerTag} ${styles.playerIn}`}>
-                          <span className={styles.arrow}>↑</span>
-                          IN {event.inPlayer}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className={styles.eventType}>{event.type}</p>
-                      <p className={styles.eventMeta}>
-                        {event.team} - {event.player}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
-        </SectionContainer>
-      </div>
-    </main>
-  );
+  return <MatchPageClient initialMatch={initialMatch} />;
 }

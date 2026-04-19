@@ -2,7 +2,17 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDb } from "../../../lib/mongodb";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "../../../lib/adminAuth";
-import { buildTournamentAdminFilter, sanitizeAdmin } from "../../../lib/adminAccess";
+import {
+  buildTournamentAdminFilter,
+  isMasterAdminSession,
+  sanitizeAdmin,
+} from "../../../lib/adminAccess";
+import {
+  ensureTournamentAdminAccountsAvailable,
+  sanitizeTournamentAdmins,
+  syncTournamentAdminAccounts,
+  validateTournamentAdmins,
+} from "../../../lib/tournamentAdminAccounts";
 
 function normalizeTournamentName(name) {
   return String(name || "").trim().toLowerCase();
@@ -50,9 +60,17 @@ export async function POST(request) {
     const tournament = await request.json();
     const name = String(tournament?.name || "").trim();
     const normalizedName = normalizeTournamentName(name);
+    const requestedTournamentAdmins = isMasterAdminSession(session)
+      ? tournament?.tournamentAdmins
+      : [];
+    const tournamentAdminError = validateTournamentAdmins(requestedTournamentAdmins);
 
     if (!name) {
       return NextResponse.json({ message: "Tournament name is required." }, { status: 400 });
+    }
+
+    if (tournamentAdminError) {
+      return NextResponse.json({ message: tournamentAdminError }, { status: 400 });
     }
 
     const db = await getDb();
@@ -68,22 +86,36 @@ export async function POST(request) {
     }
 
     const now = new Date().toISOString();
+    const sanitizedTournamentAdmins = sanitizeTournamentAdmins(requestedTournamentAdmins);
+    await ensureTournamentAdminAccountsAvailable(
+      db,
+      tournament.id,
+      sanitizedTournamentAdmins,
+      []
+    );
     const nextTournament = {
       ...tournament,
       name,
       normalizedName,
       ownerUsername: tournament?.ownerUsername || sessionAdmin.username,
       ownerRole: sessionAdmin.role,
+      tournamentAdmins: sanitizedTournamentAdmins,
       createdAt: now,
       updatedAt: now,
     };
 
     await collection.insertOne(nextTournament);
+    await syncTournamentAdminAccounts(
+      db,
+      nextTournament.id,
+      sanitizedTournamentAdmins,
+      []
+    );
 
     return NextResponse.json({ tournament: nextTournament }, { status: 201 });
-  } catch {
+  } catch (error) {
     return NextResponse.json(
-      { message: "Unable to save tournament right now." },
+      { message: error?.message || "Unable to save tournament right now." },
       { status: 500 }
     );
   }

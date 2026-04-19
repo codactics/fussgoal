@@ -2,11 +2,24 @@ import "./globals.css";
 import Script from "next/script";
 import favicon from "../logo/favicon.ico";
 import shareImage from "../logo/fussgoal.png";
+import { getSiteUrl } from "../lib/site";
+
+const siteUrl = getSiteUrl();
 
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://fussgoal.vercel.app"),
-  title: "FussGoal",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "FussGoal",
+    template: "%s | FussGoal",
+  },
   description: "FussGoal football tournament and scoreboard platform.",
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
   icons: {
     icon: favicon.src,
     shortcut: favicon.src,
@@ -15,7 +28,7 @@ export const metadata = {
   openGraph: {
     title: "FussGoal",
     description: "FussGoal football tournament and scoreboard platform.",
-    url: "https://fussgoal.vercel.app",
+    url: siteUrl,
     siteName: "FussGoal",
     images: [
       {
@@ -41,6 +54,19 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         {children}
+        <footer className="site-footer">
+          <p>
+            Developed and maintained by{" "}
+            <a
+              className="site-footer-link"
+              href="https://www.codactics.com/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              CODACTICS
+            </a>
+          </p>
+        </footer>
         <Script
           async
           src="https://plausible.io/js/pa-F24zV2vjtfOPZwTxsfGM5.js"

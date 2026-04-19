@@ -221,6 +221,25 @@
   background: #f8fbf9;
 }
 
+.adminList {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.adminCard {
+  padding: 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 20px;
+  background: #f8fbf9;
+}
+
+.adminActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.9rem;
+}
+
 .optionTitle,
 .resultTitle {
   margin: 0 0 0.75rem;

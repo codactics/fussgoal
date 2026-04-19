@@ -17,8 +17,9 @@ function getTournamentBucket(endDate) {
 
 function renderTournamentCard(tournament) {
   const statusLabel = tournament.bucket === "ongoing" ? "Running" : "Ended";
-
-  const tournamentLogoUrl = getStoredImageUrl(tournament.data?.tournamentLogo);
+  const tournamentLogoUrl = getStoredImageUrl(
+    tournament.tournamentLogo || tournament.data?.tournamentLogo
+  );
 
   return (
     <Link className={styles.card} href={`/tournament/${tournament.slug}`} key={tournament.id}>
@@ -62,15 +63,15 @@ function renderTournamentCard(tournament) {
 
         <div className={styles.metaBlock}>
           <p className={styles.label}>Teams</p>
-          <p className={styles.metaValue}>{tournament.teamCount}</p>
+          <p className={styles.metaValue}>{tournament.teamCount || "N/A"}</p>
         </div>
       </div>
     </Link>
   );
 }
 
-export default function LaunchedTournamentList() {
-  const [tournaments, setTournaments] = useState([]);
+export default function LaunchedTournamentList({ initialTournaments = [] }) {
+  const [tournaments, setTournaments] = useState(initialTournaments);
 
   useEffect(() => {
     async function loadTournaments() {

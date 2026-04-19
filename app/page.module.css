@@ -52,34 +52,89 @@
   display: block;
 }
 
+.socialSection {
+  padding: 0 1.5rem 1rem;
+}
+
+.socialSectionInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.socialCard {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.68rem 0.8rem;
+  border-radius: 16px;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  color: #f7fbf8;
+  box-shadow: 0 18px 32px rgba(16, 34, 27, 0.12);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.socialCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 26px 42px rgba(16, 34, 27, 0.18);
+  border-color: rgba(19, 32, 27, 0.14);
+}
+
+.facebookCard {
+  background: linear-gradient(135deg, rgba(24, 119, 242, 0.95), rgba(11, 76, 168, 0.9));
+}
+
+.instagramCard {
+  background:
+    linear-gradient(135deg, rgba(245, 96, 64, 0.95), rgba(193, 53, 132, 0.92) 52%, rgba(131, 58, 180, 0.88));
+}
+
+.youtubeCard {
+  background: linear-gradient(135deg, rgba(255, 67, 67, 0.96), rgba(186, 22, 22, 0.9));
+}
+
+.socialIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
+}
+
+.socialIcon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.socialText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.socialText strong {
+  font-size: 0.9rem;
+}
+
+.socialText span {
+  color: rgba(247, 251, 248, 0.82);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
 .content {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1.5rem 3rem;
-}
-
-.footer {
-  padding: 0 1.5rem 2.5rem;
-}
-
-.footerText {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding-top: 1.5rem;
-  border-top: 1px solid rgba(19, 32, 27, 0.1);
-  text-align: center;
-  color: #5c6d65;
-  font-size: 0.98rem;
-}
-
-.footerLink {
-  color: #db2f3e;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-}
-
-.footerLink:hover {
-  color: #b51f31;
 }
 
 .matchGrid,
@@ -110,11 +165,19 @@
     white-space: normal;
   }
 
-  .content {
-    padding: 0 1rem 2.5rem;
+  .socialSection {
+    padding: 0 1rem 0.9rem;
   }
 
-  .footer {
-    padding: 0 1rem 2rem;
+  .socialSectionInner {
+    grid-template-columns: 1fr;
+  }
+
+  .socialCard {
+    padding: 0.95rem 1rem;
+  }
+
+  .content {
+    padding: 0 1rem 2.5rem;
   }
 }

@@ -7,6 +7,13 @@ import {
   isMasterAdminSession,
   sanitizeAdmin,
 } from "../../../../lib/adminAccess";
+import {
+  deleteTournamentAdminAccounts,
+  ensureTournamentAdminAccountsAvailable,
+  sanitizeTournamentAdmins,
+  syncTournamentAdminAccounts,
+  validateTournamentAdmins,
+} from "../../../../lib/tournamentAdminAccounts";
 
 function normalizeTournamentName(name) {
   return String(name || "").trim().toLowerCase();
@@ -86,7 +93,23 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 403 });
     }
 
+    const requestedTournamentAdmins = isMasterAdminSession(session)
+      ? incomingTournament?.tournamentAdmins
+      : currentTournament?.tournamentAdmins || [];
+    const tournamentAdminError = validateTournamentAdmins(requestedTournamentAdmins);
+
+    if (tournamentAdminError) {
+      return NextResponse.json({ message: tournamentAdminError }, { status: 400 });
+    }
+
     const sessionAdmin = sanitizeAdmin(session);
+    const sanitizedTournamentAdmins = sanitizeTournamentAdmins(requestedTournamentAdmins);
+    await ensureTournamentAdminAccountsAvailable(
+      db,
+      id,
+      sanitizedTournamentAdmins,
+      currentTournament.tournamentAdmins || []
+    );
 
     const nextTournament = {
       ...currentTournament,
@@ -96,16 +119,23 @@ export async function PUT(request, { params }) {
       normalizedName,
       ownerUsername: currentTournament.ownerUsername || sessionAdmin.username,
       ownerRole: currentTournament.ownerRole || sessionAdmin.role,
+      tournamentAdmins: sanitizedTournamentAdmins,
       createdAt: currentTournament.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     await collection.replaceOne({ id }, nextTournament);
+    await syncTournamentAdminAccounts(
+      db,
+      id,
+      sanitizedTournamentAdmins,
+      currentTournament.tournamentAdmins || []
+    );
     const { _id, ...record } = nextTournament;
     return NextResponse.json({ tournament: record });
-  } catch {
+  } catch (error) {
     return NextResponse.json(
-      { message: "Unable to update the tournament right now." },
+      { message: error?.message || "Unable to update the tournament right now." },
       { status: 500 }
     );
   }
@@ -129,16 +159,24 @@ export async function DELETE(_request, { params }) {
 
     const { id } = await params;
     const db = await getDb();
+    const tournament = await db.collection("tournaments").findOne({ id });
+
+    if (!tournament) {
+      return NextResponse.json({ message: "Tournament not found." }, { status: 404 });
+    }
+
     const result = await db.collection("tournaments").deleteOne({ id });
 
     if (!result.deletedCount) {
       return NextResponse.json({ message: "Tournament not found." }, { status: 404 });
     }
 
+    await deleteTournamentAdminAccounts(db, id, tournament.tournamentAdmins || []);
+
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
     return NextResponse.json(
-      { message: "Unable to delete the tournament right now." },
+      { message: error?.message || "Unable to delete the tournament right now." },
       { status: 500 }
     );
   }

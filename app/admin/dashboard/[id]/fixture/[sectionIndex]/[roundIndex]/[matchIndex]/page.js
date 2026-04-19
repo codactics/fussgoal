@@ -28,6 +28,28 @@ const MATCH_ACTIONS = [
   { value: "other", label: "Other", emoji: "📝" },
 ];
 
+function normalizeTelecastUrl(value) {
+  const rawValue = String(value || "").trim();
+
+  if (!rawValue) {
+    return "";
+  }
+
+  const srcMatch = rawValue.match(/src\s*=\s*["']([^"']+)["']/i);
+  const candidate = srcMatch?.[1] || rawValue.match(/https?:\/\/[^\s"'<>]+/i)?.[0] || rawValue;
+
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "";
+    }
+
+    return parsed.toString();
+  } catch {
+    return "";
+  }
+}
+
 export default function AdminFixturePage({ params }) {
   const { id, sectionIndex, roundIndex, matchIndex } = use(params);
   const router = useRouter();
@@ -47,6 +69,12 @@ export default function AdminFixturePage({ params }) {
   const [scheduledTime, setScheduledTime] = useState("");
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
   const [scheduleMessage, setScheduleMessage] = useState("");
+  const [telecastUrl, setTelecastUrl] = useState("");
+  const [telecastStatus, setTelecastStatus] = useState("stopped");
+  const [telecastOverlay, setTelecastOverlay] = useState("none");
+  const [telecastBottomScore, setTelecastBottomScore] = useState(false);
+  const [isSavingTelecast, setIsSavingTelecast] = useState(false);
+  const [telecastMessage, setTelecastMessage] = useState("");
   const [draftMatchEvent, setDraftMatchEvent] = useState({
     subjectKey: "",
     action: "goal",
@@ -259,11 +287,25 @@ export default function AdminFixturePage({ params }) {
       action: "goal",
       note: "",
     });
+    const savedTelecast = tournament.data?.matchTelecasts?.[fixtureKey];
+    setTelecastUrl(String(savedTelecast?.url || ""));
+    setTelecastStatus(
+      savedTelecast?.status === "live" || savedTelecast?.status === "paused"
+        ? savedTelecast.status
+        : "stopped"
+    );
+    setTelecastOverlay(
+      savedTelecast?.overlay === "home" || savedTelecast?.overlay === "away"
+        ? savedTelecast.overlay
+        : "none"
+    );
+    setTelecastBottomScore(Boolean(savedTelecast?.bottomScore));
     setScheduledDate(String(fixture?.date || ""));
     setScheduledTime(String(fixture?.time || ""));
     setEditingMatchEventId(null);
     setMatchStatusMessage("");
     setScheduleMessage("");
+    setTelecastMessage("");
     setTimerNow(Date.now());
     hasCompletedInitialStatusSyncRef.current = false;
     setIsStatusHydrated(true);
@@ -468,6 +510,10 @@ export default function AdminFixturePage({ params }) {
       clockSeconds: pausedAt,
       goalScore: getGoalScore(),
     });
+
+    if (normalizeTelecastUrl(telecastUrl)) {
+      void saveTelecast("paused", telecastOverlay, telecastBottomScore);
+    }
   }
 
   function handleResumeClock() {
@@ -486,6 +532,10 @@ export default function AdminFixturePage({ params }) {
       clockSeconds: elapsedBeforePause,
       goalScore: getGoalScore(),
     });
+
+    if (normalizeTelecastUrl(telecastUrl)) {
+      void saveTelecast("live", telecastOverlay, telecastBottomScore);
+    }
   }
 
   function handleEndMatch() {
@@ -565,6 +615,89 @@ export default function AdminFixturePage({ params }) {
       setScheduleMessage(error.message || "Unable to save the fixture schedule.");
     } finally {
       setIsSavingSchedule(false);
+    }
+  }
+
+  async function saveTelecast(
+    nextStatus = telecastStatus,
+    nextOverlay = telecastOverlay,
+    nextBottomScore = telecastBottomScore
+  ) {
+    if (!tournamentRef.current) {
+      return;
+    }
+
+    const normalizedUrl = normalizeTelecastUrl(telecastUrl);
+
+    if (!normalizedUrl) {
+      setTelecastMessage("Paste a valid live stream embed URL before saving telecast control.");
+      return;
+    }
+
+    setIsSavingTelecast(true);
+    setTelecastMessage("");
+
+    try {
+      const currentTournament = tournamentRef.current;
+      const { _id, ...safeTournament } = currentTournament || {};
+      const nextTournament = {
+        ...safeTournament,
+        data: {
+          ...(safeTournament.data || {}),
+          matchTelecasts: {
+            ...(safeTournament.data?.matchTelecasts || {}),
+            [fixtureKey]: {
+              url: normalizedUrl,
+              status: nextStatus,
+              overlay: nextOverlay,
+              bottomScore: nextBottomScore,
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        },
+      };
+
+      const response = await fetch(`/api/tournaments/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(nextTournament),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to save the live telecast.");
+      }
+
+      setTournament(result.tournament || nextTournament);
+      setTelecastUrl(normalizedUrl);
+      setTelecastStatus(nextStatus);
+      setTelecastOverlay(nextOverlay);
+      setTelecastBottomScore(nextBottomScore);
+      let nextTelecastMessage = "Live telecast updated.";
+
+      if (nextOverlay === "home") {
+        nextTelecastMessage = `${fixture?.home || "Home team"} lineup overlay shown on telecast.`;
+      } else if (nextOverlay === "away") {
+        nextTelecastMessage = `${fixture?.away || "Away team"} lineup overlay shown on telecast.`;
+      } else if (telecastBottomScore !== nextBottomScore) {
+        nextTelecastMessage = nextBottomScore
+          ? "Bottom score overlay shown on telecast."
+          : "Bottom score overlay cleared.";
+      } else if (nextStatus === "live") {
+        nextTelecastMessage = "Live telecast started.";
+      } else if (nextStatus === "paused") {
+        nextTelecastMessage = "Live telecast paused.";
+      } else if (nextStatus === "stopped") {
+        nextTelecastMessage = "Live telecast stopped.";
+      }
+
+      setTelecastMessage(nextTelecastMessage);
+    } catch (error) {
+      setTelecastMessage(error.message || "Unable to save the live telecast.");
+    } finally {
+      setIsSavingTelecast(false);
     }
   }
 
@@ -929,6 +1062,95 @@ export default function AdminFixturePage({ params }) {
                 </button>
               </div>
               {scheduleMessage ? <p className={wizardStyles.status}>{scheduleMessage}</p> : null}
+            </div>
+
+            <div className={wizardStyles.manageSectionCard}>
+              <h4 className={wizardStyles.manageSectionTitle}>Live Match Telecast</h4>
+              <div className={wizardStyles.field}>
+                <label className={wizardStyles.fieldLabel} htmlFor="telecast-url">
+                  Admin URL entry
+                </label>
+                <input
+                  className={wizardStyles.input}
+                  id="telecast-url"
+                  onChange={(event) => setTelecastUrl(event.target.value)}
+                  placeholder="https://www.youtube.com/embed/live_stream?channel=YOUR_CHANNEL_ID&autoplay=1"
+                  type="text"
+                  value={telecastUrl}
+                />
+              </div>
+              <div className={wizardStyles.lineupActions}>
+                <button
+                  className={wizardStyles.secondaryButton}
+                  disabled={isSavingTelecast}
+                  onClick={() => void saveTelecast("live")}
+                  type="button"
+                >
+                  Start
+                </button>
+                <button
+                  className={wizardStyles.primaryButton}
+                  disabled={isSavingTelecast}
+                  onClick={() => void saveTelecast("stopped")}
+                  type="button"
+                >
+                  Stop
+                </button>
+              </div>
+              <div className={wizardStyles.lineupActions}>
+                <button
+                  className={wizardStyles.secondaryButton}
+                  disabled={isSavingTelecast}
+                  onClick={() => void saveTelecast(telecastStatus, "home")}
+                  type="button"
+                >
+                  {fixture.home} Lineup
+                </button>
+                <button
+                  className={wizardStyles.secondaryButton}
+                  disabled={isSavingTelecast}
+                  onClick={() => void saveTelecast(telecastStatus, "away")}
+                  type="button"
+                >
+                  {fixture.away} Lineup
+                </button>
+                <button
+                  className={wizardStyles.secondaryButton}
+                  disabled={isSavingTelecast}
+                  onClick={() => void saveTelecast(telecastStatus, "none")}
+                  type="button"
+                >
+                  Clear Overlay
+                </button>
+              </div>
+              <div className={wizardStyles.lineupActions}>
+                <button
+                  className={wizardStyles.secondaryButton}
+                  disabled={isSavingTelecast}
+                  onClick={() => void saveTelecast(telecastStatus, telecastOverlay, true)}
+                  type="button"
+                >
+                  Bottom Score
+                </button>
+                <button
+                  className={wizardStyles.secondaryButton}
+                  disabled={isSavingTelecast}
+                  onClick={() => void saveTelecast(telecastStatus, telecastOverlay, false)}
+                  type="button"
+                >
+                  Clear Bottom Score
+                </button>
+              </div>
+              <p className={wizardStyles.status}>
+                Current telecast status: {telecastStatus === "live" ? "Live" : telecastStatus === "paused" ? "Paused" : "Stopped"}
+              </p>
+              <p className={wizardStyles.status}>
+                Current lineup overlay: {telecastOverlay === "home" ? fixture.home : telecastOverlay === "away" ? fixture.away : "None"}
+              </p>
+              <p className={wizardStyles.status}>
+                Bottom score overlay: {telecastBottomScore ? "Shown" : "Hidden"}
+              </p>
+              {telecastMessage ? <p className={wizardStyles.status}>{telecastMessage}</p> : null}
             </div>
 
             <div className={wizardStyles.manageSectionCard}>
