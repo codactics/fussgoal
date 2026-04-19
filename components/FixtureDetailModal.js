@@ -63,6 +63,24 @@ function getGoalScorers(fixture, side) {
     }));
 }
 
+function getFixtureDisplayStatus(fixture) {
+  const matchStatus = String(fixture?.statusRecord?.matchStatus || "");
+
+  if (matchStatus === "running" || matchStatus === "paused") {
+    return "Live";
+  }
+
+  if (matchStatus === "halftime") {
+    return "HT";
+  }
+
+  if (matchStatus === "ended") {
+    return "End";
+  }
+
+  return String(fixture?.status || "Upcoming");
+}
+
 export default function FixtureDetailModal({ fixture, onClose }) {
   const [showGoalEffect, setShowGoalEffect] = useState(false);
   const [timerNow, setTimerNow] = useState(Date.now());
@@ -70,7 +88,8 @@ export default function FixtureDetailModal({ fixture, onClose }) {
   const [shareMessage, setShareMessage] = useState("");
   const previousScoreRef = useRef(`${fixture?.score?.home ?? 0}:${fixture?.score?.away ?? 0}`);
   const telecastFrameWrapRef = useRef(null);
-  const isLive = fixture?.status === "Live";
+  const displayStatus = getFixtureDisplayStatus(fixture);
+  const isLive = displayStatus === "Live";
   const isPaused = fixture?.statusRecord?.matchStatus === "paused";
 
   useEffect(() => {
@@ -270,7 +289,7 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             <div className={styles.statusRow}>
               <span className={`${styles.status} ${isLive ? styles.liveStatus : ""}`}>
                 {isLive ? <span className={styles.liveDot} aria-hidden="true" /> : null}
-                {fixture.status}
+                {displayStatus}
               </span>
               {fixture.phaseLabel ? <span className={styles.phase}>{fixture.phaseLabel}</span> : null}
             </div>
@@ -400,7 +419,7 @@ export default function FixtureDetailModal({ fixture, onClose }) {
                           isLive ? styles.telecastStatusBadgeLive : ""
                         }`}
                       >
-                        {fixture.status}
+                        {displayStatus}
                       </span>
                     )}
                     {liveClock ? <span className={styles.telecastClock}>{liveClock}</span> : null}

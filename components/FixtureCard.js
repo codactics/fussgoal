@@ -2,12 +2,31 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { formatMatchClock, getMatchClockSeconds } from "./manageTournamentUtils";
 import styles from "./FixtureCard.module.css";
 
+function getFixtureDisplayStatus(fixture) {
+  const matchStatus = String(fixture?.statusRecord?.matchStatus || "");
+
+  if (matchStatus === "running" || matchStatus === "paused") {
+    return "Live";
+  }
+
+  if (matchStatus === "halftime") {
+    return "HT";
+  }
+
+  if (matchStatus === "ended") {
+    return "End";
+  }
+
+  return String(fixture?.status || "Upcoming");
+}
+
 export default function FixtureCard({ fixture, onClick }) {
   const [timerNow, setTimerNow] = useState(Date.now());
   const [showGoalEffect, setShowGoalEffect] = useState(false);
   const [changedSide, setChangedSide] = useState("");
   const isRunning = fixture?.statusRecord?.matchStatus === "running";
-  const isLive = fixture?.status === "Live";
+  const displayStatus = getFixtureDisplayStatus(fixture);
+  const isLive = displayStatus === "Live";
   const isPaused = fixture?.statusRecord?.matchStatus === "paused";
   const previousScoreRef = useRef(`${fixture?.score?.home ?? 0}:${fixture?.score?.away ?? 0}`);
 
@@ -71,7 +90,7 @@ export default function FixtureCard({ fixture, onClick }) {
       <div className={styles.topRow}>
         <span className={`${styles.status} ${isLive ? styles.liveStatus : ""}`}>
           {isLive ? <span className={styles.liveDot} aria-hidden="true" /> : null}
-          {fixture.status}
+          {displayStatus}
         </span>
         {fixture.phaseLabel ? <span className={styles.phase}>{fixture.phaseLabel}</span> : null}
       </div>

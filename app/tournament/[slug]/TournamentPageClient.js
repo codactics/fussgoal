@@ -14,6 +14,7 @@ import {
 import styles from "./page.module.css";
 
 const SAVED_TOURNAMENTS_EVENT = "saved-tournaments-updated";
+const LAUNCHED_TOURNAMENT_REFRESH_MS = 2000;
 
 function getFixtureScheduleTimestamp(fixture) {
   const dateValue = String(fixture?.date || "").trim();
@@ -75,15 +76,11 @@ export default function TournamentPageClient({
       }
     }
 
-    if (initialLaunchedTournament) {
-      setIsLoaded(true);
-    } else {
-      loadLaunchedTournament();
-    }
+    void loadLaunchedTournament();
 
     window.addEventListener(SAVED_TOURNAMENTS_EVENT, loadLaunchedTournament);
     const intervalId = slug.startsWith("launched-")
-      ? window.setInterval(loadLaunchedTournament, 5000)
+      ? window.setInterval(loadLaunchedTournament, LAUNCHED_TOURNAMENT_REFRESH_MS)
       : null;
 
     return () => {

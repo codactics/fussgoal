@@ -8,6 +8,8 @@ import { normalizeSavedTournament } from "../../../components/launchedTournament
 import { formatMatchClock, getMatchClockSeconds } from "../../../components/manageTournamentUtils";
 import styles from "./page.module.css";
 
+const LAUNCHED_MATCH_REFRESH_MS = 2000;
+
 function getStaticLineup() {
   return [
     "Goalkeeper",
@@ -139,6 +141,24 @@ function getTelecastStatusLabel(status) {
   return "Offline";
 }
 
+function getMatchDisplayStatus(match) {
+  const matchStatus = String(match?.statusRecord?.matchStatus || "");
+
+  if (matchStatus === "running" || matchStatus === "paused") {
+    return "Live";
+  }
+
+  if (matchStatus === "halftime") {
+    return "HT";
+  }
+
+  if (matchStatus === "ended") {
+    return "End";
+  }
+
+  return String(match?.status || "Upcoming");
+}
+
 export default function MatchPageClient({ initialMatch }) {
   const [match, setMatch] = useState(() => buildMatchData(initialMatch));
   const [timerNow, setTimerNow] = useState(Date.now());
@@ -179,7 +199,7 @@ export default function MatchPageClient({ initialMatch }) {
     }
 
     refreshMatch();
-    const intervalId = window.setInterval(refreshMatch, 5000);
+    const intervalId = window.setInterval(refreshMatch, LAUNCHED_MATCH_REFRESH_MS);
 
     return () => {
       isMounted = false;
@@ -202,6 +222,7 @@ export default function MatchPageClient({ initialMatch }) {
   }, [match?.source, match?.statusRecord?.matchStatus]);
 
   const liveClock = useMemo(() => getLiveClock(match, timerNow), [match, timerNow]);
+  const displayStatus = useMemo(() => getMatchDisplayStatus(match), [match]);
   const homeGoalScorers = useMemo(() => getGoalScorers(match, "home"), [match]);
   const awayGoalScorers = useMemo(() => getGoalScorers(match, "away"), [match]);
   const homeScore = String(match?.score?.home ?? 0);
@@ -293,7 +314,7 @@ export default function MatchPageClient({ initialMatch }) {
           </div>
           <div className={styles.scorePanel}>
             <div className={styles.statusRow}>
-              <span className={styles.status}>{match.status}</span>
+              <span className={styles.status}>{displayStatus}</span>
               {match.phaseLabel ? <span className={styles.phase}>{match.phaseLabel}</span> : null}
             </div>
             <p className={styles.score}>
@@ -396,7 +417,7 @@ export default function MatchPageClient({ initialMatch }) {
                     {match.phaseLabel ? (
                       <span className={styles.telecastPhase}>{match.phaseLabel}</span>
                     ) : (
-                      <span className={styles.telecastStatusBadge}>{match.status}</span>
+                      <span className={styles.telecastStatusBadge}>{displayStatus}</span>
                     )}
                     {liveClock ? <span className={styles.telecastClock}>{liveClock}</span> : null}
                   </div>
