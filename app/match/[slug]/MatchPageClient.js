@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import codacticsGif from "../../../logo/codactics.gif";
 import Navbar from "../../../components/Navbar";
 import SectionContainer from "../../../components/SectionContainer";
 import { normalizeSavedTournament } from "../../../components/launchedTournamentUtils";
@@ -112,12 +113,30 @@ function getGoalScorers(match, side) {
   const teamName = side === "home" ? match?.homeTeam : match?.awayTeam;
   const entries = Array.isArray(match?.timelineEntries) ? match.timelineEntries : [];
 
-  return entries.filter(
-    (entry) =>
-      entry?.type === "event" &&
-      (entry?.action === "goal" || entry?.action === "penalty-goal") &&
-      String(entry?.teamName || "").trim() === String(teamName || "").trim()
-  );
+  return entries
+    .filter(
+      (entry) =>
+        entry?.type === "event" &&
+        (entry?.action === "goal" || entry?.action === "penalty-goal") &&
+        String(entry?.teamName || "").trim() === String(teamName || "").trim()
+    )
+    .map((entry) => ({
+      id: entry.id,
+      player: String(entry.subjectLabel || "").trim() || String(teamName || ""),
+      time: String(entry.displayTime || "").trim(),
+    }));
+}
+
+function getTelecastStatusLabel(status) {
+  if (status === "live") {
+    return "Live now";
+  }
+
+  if (status === "paused") {
+    return "Paused";
+  }
+
+  return "Offline";
 }
 
 export default function MatchPageClient({ initialMatch }) {
@@ -184,8 +203,11 @@ export default function MatchPageClient({ initialMatch }) {
   const liveClock = useMemo(() => getLiveClock(match, timerNow), [match, timerNow]);
   const homeGoalScorers = useMemo(() => getGoalScorers(match, "home"), [match]);
   const awayGoalScorers = useMemo(() => getGoalScorers(match, "away"), [match]);
+  const homeScore = String(match?.score?.home ?? 0);
+  const awayScore = String(match?.score?.away ?? 0);
   const telecastStatus = String(match?.telecast?.status || "stopped");
   const telecastOverlay = String(match?.telecast?.overlay || "none");
+  const showBottomScore = Boolean(match?.telecast?.bottomScore);
   const overlayPlayers =
     telecastOverlay === "home"
       ? match?.lineups?.home || []
@@ -298,11 +320,7 @@ export default function MatchPageClient({ initialMatch }) {
                 <h2 className={styles.sectionTitle}>Live Match Telecast</h2>
               </div>
               <span className={styles.telecastBadge}>
-                {telecastStatus === "live"
-                  ? "Live now"
-                  : telecastStatus === "paused"
-                    ? "Paused"
-                    : "Offline"}
+                {getTelecastStatusLabel(telecastStatus)}
               </span>
             </div>
 
@@ -317,67 +335,151 @@ export default function MatchPageClient({ initialMatch }) {
                   src={match.telecast.url}
                   title={`${match.homeTeam} vs ${match.awayTeam} live telecast`}
                 />
+                <div className={styles.telecastScoreboard}>
+                  <div className={styles.telecastScoreboardTeams}>
+                    <div className={styles.telecastTeamBlock}>
+                      {match.homeLogo ? (
+                        <img
+                          alt={`${match.homeTeam} logo`}
+                          className={styles.telecastTeamLogo}
+                          src={match.homeLogo}
+                        />
+                      ) : (
+                        <span className={styles.telecastTeamName}>{match.homeTeam}</span>
+                      )}
+                    </div>
+                    <span className={styles.telecastScoreValue}>{homeScore} - {awayScore}</span>
+                    <div className={styles.telecastTeamBlock}>
+                      {match.awayLogo ? (
+                        <img
+                          alt={`${match.awayTeam} logo`}
+                          className={styles.telecastTeamLogo}
+                          src={match.awayLogo}
+                        />
+                      ) : (
+                        <span className={styles.telecastTeamName}>{match.awayTeam}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className={styles.telecastScoreboardMeta}>
+                    {match.phaseLabel ? (
+                      <span className={styles.telecastPhase}>{match.phaseLabel}</span>
+                    ) : (
+                      <span className={styles.telecastStatusBadge}>{match.status}</span>
+                    )}
+                    {liveClock ? <span className={styles.telecastClock}>{liveClock}</span> : null}
+                  </div>
+                </div>
+
+                {showBottomScore ? (
+                  <div className={styles.bottomScoreboard}>
+                    <div className={styles.bottomScoreTopRow}>
+                      <div className={styles.bottomScoreTeamHeader}>
+                        {match.homeLogo ? (
+                          <img
+                            alt={`${match.homeTeam} logo`}
+                            className={styles.bottomScoreLogo}
+                            src={match.homeLogo}
+                          />
+                        ) : null}
+                        <span className={styles.bottomScoreTeamName}>{match.homeTeam}</span>
+                      </div>
+                      <div className={styles.bottomScoreCenter}>
+                        <span className={styles.bottomScoreValue}>{homeScore} : {awayScore}</span>
+                        {liveClock ? <span className={styles.bottomScoreClock}>{liveClock}</span> : null}
+                      </div>
+                      <div className={`${styles.bottomScoreTeamHeader} ${styles.bottomScoreTeamHeaderRight}`}>
+                        <span className={styles.bottomScoreTeamName}>{match.awayTeam}</span>
+                        {match.awayLogo ? (
+                          <img
+                            alt={`${match.awayTeam} logo`}
+                            className={styles.bottomScoreLogo}
+                            src={match.awayLogo}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className={styles.bottomScoreBottomRow}>
+                      <div className={styles.bottomScoreScorers}>
+                        {homeGoalScorers.length ? (
+                          homeGoalScorers.map((entry) => (
+                            <div className={styles.bottomScoreScorerRow} key={entry.id}>
+                              <span>{entry.player}</span>
+                              <span className={styles.bottomScoreScorerTime}>{entry.time}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <span className={styles.bottomScoreEmpty}>No scorers yet</span>
+                        )}
+                      </div>
+                      <div className={styles.bottomScoreSpacer} />
+                      <div className={styles.bottomScoreScorers}>
+                        {awayGoalScorers.length ? (
+                          awayGoalScorers.map((entry) => (
+                            <div className={styles.bottomScoreScorerRow} key={entry.id}>
+                              <span>{entry.player}</span>
+                              <span className={styles.bottomScoreScorerTime}>{entry.time}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <span className={styles.bottomScoreEmpty}>No scorers yet</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {telecastOverlay !== "none" && overlayPlayers.length ? (
+                  <div className={styles.telecastOverlay}>
+                    <div className={styles.telecastOverlayCard}>
+                      <p className={styles.telecastOverlayKicker}>Starting Lineup</p>
+                      <h3 className={styles.telecastOverlayTitle}>{overlayTeamName}</h3>
+                      <div className={styles.telecastOverlayBody}>
+                        <div className={styles.telecastOverlayLogoWrap}>
+                          {overlayTeamLogo ? (
+                            <img
+                              alt={`${overlayTeamName} logo`}
+                              className={styles.telecastOverlayLogo}
+                              src={overlayTeamLogo}
+                            />
+                          ) : (
+                            <span className={styles.telecastOverlayLogoFallback}>
+                              {overlayTeamName?.slice(0, 1) || "T"}
+                            </span>
+                          )}
+                        </div>
+                        <div className={styles.telecastOverlayList}>
+                          {overlayPlayers.map((player) => (
+                            <div
+                              className={styles.telecastOverlayRow}
+                              key={`${overlayTeamName}-${player.player}-${player.role}`}
+                            >
+                              <span>{player.player}</span>
+                              <span className={styles.telecastOverlayRole}>{formatRole(player.role)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <img alt="Codactics TV" className={styles.telecastCornerLogo} src={codacticsGif.src} />
               </div>
             ) : showPausedTelecast ? (
-              <div className={styles.telecastState}>Live telecast is paused by the admin.</div>
+              <div className={`${styles.telecastFrameWrap} ${styles.telecastFrameWrapPaused}`}>
+                <div className={styles.telecastPausedState}>
+                  <p className={styles.telecastPausedBadge}>Paused</p>
+                  <p className={styles.telecastPausedTitle}>Live telecast is paused</p>
+                  <p className={styles.telecastPausedText}>
+                    The admin paused this video. It will resume here when switched back to live.
+                  </p>
+                </div>
+                <img alt="Codactics TV" className={styles.telecastCornerLogo} src={codacticsGif.src} />
+              </div>
             ) : (
               <div className={styles.telecastState}>Telecast is offline right now.</div>
             )}
-
-            {match.telecast?.bottomScore ? (
-              <div className={styles.scorerBoard}>
-                <div className={styles.scorerColumn}>
-                  <p className={styles.scorerTitle}>{match.homeTeam}</p>
-                  {homeGoalScorers.length ? (
-                    homeGoalScorers.map((entry) => (
-                      <div className={styles.scorerRow} key={entry.id}>
-                        <span>{entry.subjectLabel || match.homeTeam}</span>
-                        <span>{entry.displayTime}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className={styles.emptyText}>No scorers yet</p>
-                  )}
-                </div>
-                <div className={styles.scorerColumn}>
-                  <p className={styles.scorerTitle}>{match.awayTeam}</p>
-                  {awayGoalScorers.length ? (
-                    awayGoalScorers.map((entry) => (
-                      <div className={styles.scorerRow} key={entry.id}>
-                        <span>{entry.subjectLabel || match.awayTeam}</span>
-                        <span>{entry.displayTime}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className={styles.emptyText}>No scorers yet</p>
-                  )}
-                </div>
-              </div>
-            ) : null}
-
-            {telecastOverlay !== "none" && overlayPlayers.length ? (
-              <div className={styles.overlayCard}>
-                <div className={styles.overlayHeader}>
-                  {overlayTeamLogo ? (
-                    <img alt={`${overlayTeamName} logo`} className={styles.overlayLogo} src={overlayTeamLogo} />
-                  ) : (
-                    <div className={styles.overlayLogoFallback}>{overlayTeamName?.slice(0, 1) || "T"}</div>
-                  )}
-                  <div>
-                    <p className={styles.kicker}>Starting Lineup</p>
-                    <h3 className={styles.overlayTitle}>{overlayTeamName}</h3>
-                  </div>
-                </div>
-                <div className={styles.overlayPlayers}>
-                  {overlayPlayers.map((player) => (
-                    <div className={styles.overlayPlayerRow} key={`${overlayTeamName}-${player.player}-${player.role}`}>
-                      <span>{player.player}</span>
-                      <span>{formatRole(player.role)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
           </section>
         ) : null}
 

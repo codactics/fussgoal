@@ -75,6 +75,7 @@ export async function generateMetadata({ params }) {
   const fixture = launchedMatch?.fixture || null;
   const staticMatch = fixture ? null : getMatchBySlug(slug);
   const match = fixture || staticMatch;
+  const imageUrl = buildAbsoluteUrl(`/match/${slug}/opengraph-image`);
 
   if (!match) {
     return {
@@ -102,11 +103,20 @@ export async function generateMetadata({ params }) {
       description,
       url: buildAbsoluteUrl(`/match/${slug}`),
       type: "article",
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title,
       description,
+      images: [imageUrl],
     },
   };
 }

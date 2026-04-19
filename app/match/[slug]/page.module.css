@@ -224,67 +224,398 @@
 }
 
 .telecastFrameWrap {
+  position: relative;
   overflow: hidden;
+  margin-top: 0.9rem;
   border-radius: 22px;
   background: #09120f;
+  padding-bottom: 56.25%;
 }
 
 .telecastFrame {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 100%;
   display: block;
+}
+
+.telecastFrameWrapPaused {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 42%),
+    linear-gradient(180deg, #101a16 0%, #09120f 100%);
+}
+
+.telecastCornerLogo {
+  position: absolute;
+  right: 0.9rem;
+  bottom: 0.85rem;
+  width: 88px;
+  height: auto;
+  z-index: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28));
+}
+
+.telecastPausedState {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.55rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.telecastPausedBadge,
+.telecastPausedTitle,
+.telecastPausedText {
+  margin: 0;
+}
+
+.telecastPausedBadge {
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(201, 137, 16, 0.16);
+  color: #ffd16b;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.telecastPausedTitle {
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.telecastPausedText {
+  max-width: 28rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.telecastScoreboard {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  display: grid;
+  gap: 0.32rem;
+  width: min(100% - 2rem, 13.75rem);
+  padding: 0.48rem 0.62rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(19, 32, 27, 0.92) 0%, rgba(9, 18, 15, 0.88) 100%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.telecastScoreboardTeams,
+.telecastScoreboardMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.44rem;
+}
+
+.telecastScoreboardTeams {
+  justify-content: center;
+  gap: 0.52rem;
+}
+
+.telecastScoreboardMeta {
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1rem;
+}
+
+.telecastTeamBlock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3rem;
+}
+
+.telecastTeamLogo {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.26);
+}
+
+.telecastTeamName,
+.telecastScoreValue,
+.telecastClock,
+.telecastPhase {
+  margin: 0;
+  color: #ffffff;
+}
+
+.telecastTeamName {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-align: center;
+  line-height: 1;
+}
+
+.telecastScoreValue {
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.telecastStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.42rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.telecastClock {
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.telecastPhase {
+  color: #ffffff;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.telecastOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  pointer-events: none;
+}
+
+.telecastOverlayCard {
+  width: min(100%, 26rem);
+  max-height: 100%;
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  background: rgba(9, 18, 15, 0.84);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.telecastOverlayKicker,
+.telecastOverlayTitle,
+.telecastOverlayRole {
+  margin: 0;
+}
+
+.telecastOverlayKicker {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.telecastOverlayTitle {
+  margin-top: 0.3rem;
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.telecastOverlayBody {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  margin-top: 0.85rem;
+}
+
+.telecastOverlayLogoWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5rem;
+}
+
+.telecastOverlayLogo,
+.telecastOverlayLogoFallback {
+  width: 74px;
+  height: 74px;
+  border-radius: 20px;
+  flex: 0 0 auto;
+}
+
+.telecastOverlayLogo {
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #ffffff;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
+.telecastOverlayLogoFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f6a4c 0%, #13201b 100%);
+  color: #ffffff;
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+
+.telecastOverlayList {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.telecastOverlayRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.telecastOverlayRole {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.84rem;
+}
+
+.bottomScoreboard {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 3;
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(94, 7, 56, 0.92) 0%, rgba(31, 7, 27, 0.92) 100%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.bottomScoreTopRow,
+.bottomScoreBottomRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.bottomScoreTeamHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.bottomScoreTeamHeaderRight {
+  justify-content: flex-end;
+}
+
+.bottomScoreLogo {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.bottomScoreTeamName,
+.bottomScoreValue,
+.bottomScoreClock,
+.bottomScoreEmpty,
+.bottomScoreScorerTime {
+  margin: 0;
+  color: #ffffff;
+}
+
+.bottomScoreTeamName {
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.bottomScoreScorers {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.bottomScoreScorerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.bottomScoreScorerTime {
+  color: #ffd873;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.bottomScoreEmpty {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.bottomScoreCenter {
+  display: grid;
+  justify-items: center;
+  gap: 0.18rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.26);
+}
+
+.bottomScoreValue {
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.bottomScoreClock {
+  color: #ffe17f;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.bottomScoreSpacer {
+  width: 100%;
 }
 
 .telecastState {
   font-size: 1rem;
   font-weight: 700;
   color: #13201b;
-}
-
-.scorerBoard {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.scorerTitle,
-.overlayTitle {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: #10241d;
-}
-
-.scorerColumn {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.scorerRow,
-.overlayPlayerRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  color: #41524b;
-}
-
-.overlayCard {
-  margin-top: 1rem;
-  display: grid;
-  gap: 1rem;
-}
-
-.overlayHeader {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-}
-
-.overlayPlayers {
-  display: grid;
-  gap: 0.65rem;
 }
 
 .lineupGrid {
@@ -381,7 +712,6 @@
 @media (max-width: 900px) {
   .summaryCard,
   .detailsGrid,
-  .scorerBoard,
   .lineupGrid {
     grid-template-columns: 1fr;
   }
@@ -390,6 +720,36 @@
 @media (max-width: 768px) {
   .telecastHeader {
     display: grid;
+  }
+
+  .telecastScoreStrip {
+    grid-template-columns: 1fr;
+  }
+
+  .telecastScoreTeam,
+  .telecastScoreTeam:last-child {
+    text-align: center;
+  }
+
+  .telecastOverlayBody {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .bottomScoreboard {
+    padding: 0.6rem 0.75rem;
+  }
+
+  .bottomScoreTopRow,
+  .bottomScoreBottomRow {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .bottomScoreTeamHeader,
+  .bottomScoreTeamHeaderRight {
+    justify-content: center;
   }
 }
 
