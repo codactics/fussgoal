@@ -90,7 +90,6 @@ export default function AdminFixturePage({ params }) {
   });
   const [isStatusHydrated, setIsStatusHydrated] = useState(false);
   const lastSavedStatusRef = useRef("");
-  const hasCompletedInitialStatusSyncRef = useRef(false);
   const hydratedFixtureKeyRef = useRef("");
   const tournamentRef = useRef(null);
   const statusSaveInFlightRef = useRef(false);
@@ -307,7 +306,40 @@ export default function AdminFixturePage({ params }) {
     setScheduleMessage("");
     setTelecastMessage("");
     setTimerNow(Date.now());
-    hasCompletedInitialStatusSyncRef.current = false;
+    lastSavedStatusRef.current = JSON.stringify({
+      homeTeam: fixture.home,
+      awayTeam: fixture.away,
+      selectedHalf: savedStatus?.selectedHalf === "second" ? "second" : "first",
+      halfDurationMinutes: Number.isFinite(savedStatus?.halfDurationMinutes)
+        ? savedStatus.halfDurationMinutes
+        : 10,
+      matchStatus: String(savedStatus?.matchStatus || "idle"),
+      elapsedBeforePause: Number.isFinite(savedStatus?.elapsedBeforePause)
+        ? savedStatus.elapsedBeforePause
+        : 0,
+      runningStartedAt: Number.isFinite(savedStatus?.runningStartedAt)
+        ? savedStatus.runningStartedAt
+        : null,
+      clockSeconds: Number.isFinite(savedStatus?.clockSeconds) ? savedStatus.clockSeconds : 0,
+      goalScore:
+        Number.isFinite(savedStatus?.goalScore?.home) &&
+        Number.isFinite(savedStatus?.goalScore?.away)
+          ? savedStatus.goalScore
+          : { home: 0, away: 0 },
+      events: Array.isArray(savedStatus?.events) ? savedStatus.events : [],
+      systemMoments: {
+        kickoff: Number.isFinite(savedStatus?.systemMoments?.kickoff)
+          ? savedStatus.systemMoments.kickoff
+          : null,
+        halftime: Number.isFinite(savedStatus?.systemMoments?.halftime)
+          ? savedStatus.systemMoments.halftime
+          : null,
+        fulltime: Number.isFinite(savedStatus?.systemMoments?.fulltime)
+          ? savedStatus.systemMoments.fulltime
+          : null,
+      },
+      updatedAt: String(savedStatus?.updatedAt || ""),
+    });
     setIsStatusHydrated(true);
   }, [fixture, fixtureKey, tournament]);
 
@@ -354,14 +386,10 @@ export default function AdminFixturePage({ params }) {
     return score;
   }
 
-  async function persistMatchStatusSnapshot(snapshotOverride = {}) {
-    if (!tournamentRef.current || !fixture) {
-      return;
-    }
-
-    const snapshot = {
-      homeTeam: fixture.home,
-      awayTeam: fixture.away,
+  function buildMatchStatusSnapshot(snapshotOverride = {}) {
+    return {
+      homeTeam: fixture?.home || "",
+      awayTeam: fixture?.away || "",
       selectedHalf,
       halfDurationMinutes,
       matchStatus,
@@ -374,6 +402,16 @@ export default function AdminFixturePage({ params }) {
       updatedAt: new Date().toISOString(),
       ...snapshotOverride,
     };
+  }
+
+  async function persistMatchStatusSnapshot(snapshotOverride = {}) {
+    const currentTournament = tournamentRef.current || tournament;
+
+    if (!currentTournament || !fixture) {
+      return;
+    }
+
+    const snapshot = buildMatchStatusSnapshot(snapshotOverride);
     const snapshotKey = JSON.stringify(snapshot);
 
     if (lastSavedStatusRef.current === snapshotKey) {
@@ -389,7 +427,6 @@ export default function AdminFixturePage({ params }) {
     statusSaveInFlightRef.current = true;
 
     try {
-      const currentTournament = tournamentRef.current;
       const { _id, ...safeTournament } = currentTournament || {};
       const nextTournament = {
         ...safeTournament,
@@ -703,11 +740,6 @@ export default function AdminFixturePage({ params }) {
 
   useEffect(() => {
     if (!isStatusHydrated || !fixture) {
-      return;
-    }
-
-    if (!hasCompletedInitialStatusSyncRef.current) {
-      hasCompletedInitialStatusSyncRef.current = true;
       return;
     }
 
