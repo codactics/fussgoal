@@ -427,24 +427,15 @@ export default function AdminFixturePage({ params }) {
     statusSaveInFlightRef.current = true;
 
     try {
-      const { _id, ...safeTournament } = currentTournament || {};
-      const nextTournament = {
-        ...safeTournament,
-        data: {
-          ...(safeTournament.data || {}),
-          matchStatuses: {
-            ...(safeTournament.data?.matchStatuses || {}),
-            [fixtureKey]: snapshot,
-          },
-        },
-      };
-
       const response = await fetch(`/api/tournaments/${id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(nextTournament),
+        body: JSON.stringify({
+          fixtureKey,
+          snapshot,
+        }),
       });
       const result = await response.json();
 
@@ -452,7 +443,7 @@ export default function AdminFixturePage({ params }) {
         throw new Error(result.message || "Unable to save the live match status.");
       }
 
-      setTournament(result.tournament || nextTournament);
+      setTournament(result.tournament || currentTournament);
     } catch (error) {
       setMatchStatusMessage(error.message || "Unable to save the live match status.");
       lastSavedStatusRef.current = "";

@@ -141,6 +141,69 @@ export async function PUT(request, { params }) {
   }
 }
 
+export async function PATCH(request, { params }) {
+  try {
+    const cookieStore = await cookies();
+    const session = verifyAdminSessionToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
+
+    if (!session) {
+      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const payload = await request.json();
+    const fixtureKey = String(payload?.fixtureKey || "").trim();
+    const snapshot = payload?.snapshot;
+
+    if (!fixtureKey || !snapshot || typeof snapshot !== "object") {
+      return NextResponse.json(
+        { message: "Fixture key and snapshot are required." },
+        { status: 400 }
+      );
+    }
+
+    const db = await getDb();
+    const collection = db.collection("tournaments");
+    const currentTournament = await collection.findOne({ id });
+
+    if (!currentTournament) {
+      return NextResponse.json({ message: "Tournament not found." }, { status: 404 });
+    }
+
+    if (!canAdminAccessTournament(session, currentTournament)) {
+      return NextResponse.json({ message: "Unauthorized." }, { status: 403 });
+    }
+
+    const updatedAt = new Date().toISOString();
+    await collection.updateOne(
+      { id },
+      {
+        $set: {
+          [`data.matchStatuses.${fixtureKey}`]: snapshot,
+          updatedAt,
+        },
+      }
+    );
+
+    const updatedTournament = await collection.findOne({ id });
+
+    if (!updatedTournament) {
+      return NextResponse.json(
+        { message: "Unable to load the updated tournament." },
+        { status: 500 }
+      );
+    }
+
+    const { _id, ...record } = updatedTournament;
+    return NextResponse.json({ tournament: record });
+  } catch (error) {
+    return NextResponse.json(
+      { message: error?.message || "Unable to update the live match status right now." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(_request, { params }) {
   try {
     const cookieStore = await cookies();
