@@ -122,7 +122,10 @@ export default async function HomePage() {
       <section className={styles.hero}>
         <div className={styles.heroContent}>
           <p className={styles.heroEyebrow}>Fuss Goal</p>
-          <h1 className={styles.heroTitle}>Live Football Scores, Fixtures and Tournament Tables</h1>
+          <h1 className={styles.heroTitle}>
+            <span className={styles.heroTitleLine}>Live Football</span>
+            <span className={styles.heroTitleLine}>Scores, Fixtures, Standing</span>
+          </h1>
           <p className={styles.heroText}>
             Follow live football scores, explore tournaments, track standings, and never miss a match.
             <span className={styles.heroTextBreak}>
@@ -134,18 +137,34 @@ export default async function HomePage() {
 
       <section className={styles.introSection} aria-labelledby="homepage-intro-title">
         <div className={styles.introCard}>
-          <h2 id="homepage-intro-title" className={styles.sectionTitle}>
-            Track football tournaments in one place
-          </h2>
-          <p className={styles.introText}>
-            FussGoal is a football scoreboard platform built for following matches, fixtures, standings,
-            and tournament progress across competitions. Use it to check upcoming games, monitor live
-            score updates, and review results from finished matches.
-          </p>
-          <p className={styles.introText}>
-            Whether you want a quick football live score view or a full tournament overview with points
-            tables and match pages, FussGoal keeps the essential information easy to browse.
-          </p>
+          <div className={styles.introHeader}>
+            <p className={styles.introEyebrow}>Overview</p>
+            <h2 id="homepage-intro-title" className={styles.sectionTitle}>
+              Track football tournaments in one place
+            </h2>
+            <p className={styles.introLead}>
+              Follow fixtures, standings, results, and tournament progress from one clean football
+              scoreboard.
+            </p>
+          </div>
+
+          <div className={styles.introBody}>
+            <p className={styles.introText}>
+              FussGoal is built for following matches, fixtures, standings, and tournament progress
+              across competitions. Use it to check upcoming games, monitor live score updates, and
+              review results from finished matches.
+            </p>
+            <p className={styles.introText}>
+              Whether you want a quick football live score view or a full tournament overview with
+              points tables and match pages, FussGoal keeps the essential information easy to browse.
+            </p>
+          </div>
+
+          <div className={styles.introHighlights} aria-label="Homepage highlights">
+            <span className={styles.introHighlight}>Live score updates</span>
+            <span className={styles.introHighlight}>Tournament standings</span>
+            <span className={styles.introHighlight}>Upcoming fixtures</span>
+          </div>
         </div>
       </section>
 
