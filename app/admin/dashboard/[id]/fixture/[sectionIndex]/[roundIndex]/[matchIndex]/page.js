@@ -16,6 +16,7 @@ import {
 
 const MATCH_ACTIONS = [
   { value: "goal", label: "Goal", emoji: "⚽" },
+  { value: "assist", label: "Assist", emoji: "🅰️" },
   { value: "red", label: "Red Card", emoji: "🟥" },
   { value: "yellow", label: "Yellow Card", emoji: "🟨" },
   { value: "sub-in", label: "Sub In", emoji: "🟢↑" },

@@ -390,3 +390,113 @@ export function buildTournamentTables(tournament) {
     };
   });
 }
+
+function getSummarySubjectLabel(event, fallbackTeamName = "") {
+  const subjectLabel = String(event?.subjectLabel || "").trim();
+  const teamName = String(event?.teamName || event?.subjectTeamName || fallbackTeamName || "").trim();
+
+  if (subjectLabel && teamName && subjectLabel !== teamName) {
+    return {
+      label: subjectLabel,
+      team: teamName,
+    };
+  }
+
+  return {
+    label: subjectLabel || teamName || "Unknown",
+    team: teamName,
+  };
+}
+
+function incrementSummaryStat(map, key, data) {
+  if (!key) {
+    return;
+  }
+
+  const current = map.get(key) || {
+    label: data.label,
+    team: data.team,
+    value: 0,
+  };
+
+  current.value += 1;
+  map.set(key, current);
+}
+
+function sortSummaryRows(map) {
+  return Array.from(map.values()).sort((left, right) => {
+    if (right.value !== left.value) {
+      return right.value - left.value;
+    }
+
+    const leftLabel = `${left.label} ${left.team}`.trim();
+    const rightLabel = `${right.label} ${right.team}`.trim();
+
+    return leftLabel.localeCompare(rightLabel);
+  });
+}
+
+export function buildTournamentSummaryTables(tournament) {
+  const payload = tournament?.data || {};
+  const fixtureSections = getTournamentFixtureSections(tournament);
+  const matchStatuses = payload.matchStatuses || {};
+  const scorers = new Map();
+  const assists = new Map();
+  const yellowCards = new Map();
+  const redCards = new Map();
+  const cleanSheets = new Map();
+
+  fixtureSections.forEach((section, sectionIndex) => {
+    section.matches.forEach((match) => {
+      const fixtureKey = getFixtureKey(sectionIndex, match.roundIndex, match.matchIndex);
+      const statusRecord = matchStatuses[fixtureKey];
+
+      if (!getMatchStatusHasStarted(statusRecord)) {
+        return;
+      }
+
+      const score = getMatchScore(statusRecord);
+      if (String(match.home || "").trim() && score.away === 0) {
+        incrementSummaryStat(cleanSheets, match.home, {
+          label: match.home,
+          team: "",
+        });
+      }
+      if (String(match.away || "").trim() && score.home === 0) {
+        incrementSummaryStat(cleanSheets, match.away, {
+          label: match.away,
+          team: "",
+        });
+      }
+
+      (statusRecord?.events || []).forEach((event) => {
+        const subject = getSummarySubjectLabel(event, getMatchEventTeamName(event));
+        const subjectKey = `${subject.team}::${subject.label}`;
+
+        if (event.action === "goal" || event.action === "penalty-goal") {
+          incrementSummaryStat(scorers, subjectKey, subject);
+        }
+
+        if (event.action === "assist") {
+          incrementSummaryStat(assists, subjectKey, subject);
+        }
+
+        if (event.action === "yellow") {
+          incrementSummaryStat(yellowCards, subjectKey, subject);
+        }
+
+        if (event.action === "red") {
+          incrementSummaryStat(redCards, subjectKey, subject);
+        }
+      });
+    });
+  });
+
+  return [
+    { key: "topScorer", title: "Top Scorer", valueLabel: "Goals", rows: sortSummaryRows(scorers) },
+    { key: "cleanSheet", title: "Clean Sheet", valueLabel: "Clean Sheets", rows: sortSummaryRows(cleanSheets) },
+    { key: "mostAssist", title: "Most Assist", valueLabel: "Assists", rows: sortSummaryRows(assists) },
+    { key: "yellowCard", title: "Yellow Card", valueLabel: "Cards", rows: sortSummaryRows(yellowCards) },
+    { key: "redCard", title: "Red Card", valueLabel: "Cards", rows: sortSummaryRows(redCards) },
+  ];
+}

@@ -12,6 +12,7 @@ import {
 
 const ACTION_LABELS = {
   goal: "Goal",
+  assist: "Assist",
   red: "Red Card",
   yellow: "Yellow Card",
   "sub-in": "Sub In",

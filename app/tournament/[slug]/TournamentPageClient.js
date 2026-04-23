@@ -15,6 +15,13 @@ import styles from "./page.module.css";
 
 const SAVED_TOURNAMENTS_EVENT = "saved-tournaments-updated";
 const LAUNCHED_TOURNAMENT_REFRESH_MS = 2000;
+const SUMMARY_ACTIONS = [
+  { key: "topScorer", title: "Top Scorer", valueLabel: "Goals", accent: "#0f6a4c" },
+  { key: "assist", title: "Assist", valueLabel: "Assists", accent: "#6f42c1" },
+  { key: "cleanSheet", title: "Clean Sheet", valueLabel: "Clean Sheets", accent: "#1967d2" },
+  { key: "yellowCard", title: "Yellow Card", valueLabel: "Cards", accent: "#b7791f" },
+  { key: "redCard", title: "Red Card", valueLabel: "Cards", accent: "#c62828" },
+];
 
 function getFixtureScheduleTimestamp(fixture) {
   const dateValue = String(fixture?.date || "").trim();
@@ -42,6 +49,111 @@ function buildTournamentSeoSummary(tournament, fixtureCount) {
   return `${tournamentName} tournament hub with ${matchesLabel}, live scores, fixtures, standings, and results on FussGoal.`;
 }
 
+function hasMatchStarted(statusRecord) {
+  return Boolean(
+    statusRecord &&
+      (["running", "paused", "halftime", "ended"].includes(String(statusRecord.matchStatus || "")) ||
+        Number.isFinite(statusRecord?.systemMoments?.kickoff) ||
+        (Array.isArray(statusRecord.events) && statusRecord.events.length))
+  );
+}
+
+function getSummarySubject(event, fallbackTeam = "") {
+  const player = String(event?.subjectLabel || "").trim();
+  const team = String(event?.teamName || fallbackTeam || "").trim();
+
+  return {
+    label: player || team || "Unknown",
+    team,
+  };
+}
+
+function incrementSummary(map, key, row) {
+  if (!key) {
+    return;
+  }
+
+  const current = map.get(key) || {
+    label: row.label,
+    team: row.team,
+    value: 0,
+  };
+
+  current.value += 1;
+  map.set(key, current);
+}
+
+function getSortedSummaryRows(map) {
+  return Array.from(map.values()).sort((left, right) => {
+    if (right.value !== left.value) {
+      return right.value - left.value;
+    }
+
+    return `${left.label} ${left.team}`.localeCompare(`${right.label} ${right.team}`);
+  });
+}
+
+function buildPublicSummaryTables(tournament) {
+  const scorers = new Map();
+  const cleanSheets = new Map();
+  const redCards = new Map();
+  const yellowCards = new Map();
+  const assists = new Map();
+  const fixtures = tournament?.fixtureSections?.length
+    ? tournament.fixtureSections.flatMap((section) => section.matches || [])
+    : tournament?.fixtures || [];
+
+  fixtures.forEach((fixture) => {
+    const statusRecord = fixture?.statusRecord;
+
+    if (!hasMatchStarted(statusRecord)) {
+      return;
+    }
+
+    const homeTeam = String(fixture.homeTeam || fixture.home || "").trim();
+    const awayTeam = String(fixture.awayTeam || fixture.away || "").trim();
+    const score = fixture.score || { home: 0, away: 0 };
+
+    if (homeTeam && Number(score.away) === 0) {
+      incrementSummary(cleanSheets, homeTeam, { label: homeTeam, team: "" });
+    }
+    if (awayTeam && Number(score.home) === 0) {
+      incrementSummary(cleanSheets, awayTeam, { label: awayTeam, team: "" });
+    }
+
+    (statusRecord?.events || []).forEach((event) => {
+      const subject = getSummarySubject(event);
+      const subjectKey = `${subject.team}::${subject.label}`;
+
+      if (event.action === "goal" || event.action === "penalty-goal") {
+        incrementSummary(scorers, subjectKey, subject);
+      }
+      if (event.action === "assist") {
+        incrementSummary(assists, subjectKey, subject);
+      }
+      if (event.action === "red") {
+        incrementSummary(redCards, subjectKey, subject);
+      }
+      if (event.action === "yellow") {
+        incrementSummary(yellowCards, subjectKey, subject);
+      }
+    });
+  });
+
+  const rowMaps = {
+    topScorer: scorers,
+    cleanSheet: cleanSheets,
+    redCard: redCards,
+    yellowCard: yellowCards,
+    assist: assists,
+  };
+
+  return SUMMARY_ACTIONS.map((summary) => ({
+    ...summary,
+    rows: getSortedSummaryRows(rowMaps[summary.key]),
+  }));
+}
+
 export default function TournamentPageClient({
   slug,
   staticTournament,
@@ -51,6 +163,7 @@ export default function TournamentPageClient({
   const [launchedTournament, setLaunchedTournament] = useState(initialLaunchedTournament);
   const [isLoaded, setIsLoaded] = useState(!slug.startsWith("launched-") || Boolean(initialLaunchedTournament));
   const [selectedFixture, setSelectedFixture] = useState(null);
+  const [activeSummaryKey, setActiveSummaryKey] = useState(null);
 
   useEffect(() => {
     async function loadLaunchedTournament() {
@@ -140,6 +253,10 @@ export default function TournamentPageClient({
       `${tournament.name} live scores and match results`,
     ],
     [tournament.name]
+  );
+  const tournamentSummaryTables = useMemo(
+    () => buildPublicSummaryTables(tournament),
+    [tournament]
   );
 
   useEffect(() => {
@@ -237,6 +354,76 @@ export default function TournamentPageClient({
         </section>
 
         <TournamentPanels tournament={tournament} onFixtureSelect={setSelectedFixture} />
+
+        <SectionContainer
+          title="Tournament Summery"
+          description="Tap a row to open one tournament summary table at a time."
+        >
+          <div className={styles.summaryAccordion}>
+            {tournamentSummaryTables.map((summaryTable) => {
+              const isOpen = activeSummaryKey === summaryTable.key;
+
+              return (
+                <article
+                  className={`${styles.summaryAccordionRow} ${isOpen ? styles.summaryAccordionRowOpen : ""}`}
+                  key={summaryTable.key}
+                  style={{ "--summary-accent": summaryTable.accent }}
+                >
+                  <button
+                    aria-expanded={isOpen}
+                    className={styles.summaryAccordionButton}
+                    onClick={() => setActiveSummaryKey(isOpen ? null : summaryTable.key)}
+                    type="button"
+                  >
+                    <span className={styles.summaryAccent} aria-hidden="true" />
+                    <span className={styles.summaryAccordionTitle}>{summaryTable.title}</span>
+                    <span className={styles.summaryAccordionCount}>{summaryTable.rows.length}</span>
+                    <span className={styles.summaryAccordionIcon}>{isOpen ? "-" : "+"}</span>
+                  </button>
+
+                </article>
+              );
+            })}
+          </div>
+          {tournamentSummaryTables.map((summaryTable) =>
+            activeSummaryKey === summaryTable.key ? (
+              <div
+                className={styles.summaryTableWrap}
+                key={`table-${summaryTable.key}`}
+                style={{ "--summary-accent": summaryTable.accent }}
+              >
+                {summaryTable.rows.length ? (
+                  <table className={styles.summaryTable}>
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Player / Team</th>
+                        <th>Team</th>
+                        <th>{summaryTable.valueLabel}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summaryTable.rows.map((row, index) => (
+                        <tr key={`${summaryTable.key}-${row.team}-${row.label}`}>
+                          <td>{index + 1}</td>
+                          <td>{row.label}</td>
+                          <td>{row.team || "-"}</td>
+                          <td>{row.value}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className={styles.emptyCard}>
+                    <p className={styles.notFoundText}>
+                      No {summaryTable.title.toLowerCase()} data yet.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : null
+          )}
+        </SectionContainer>
 
         {liveFixtures.length ? (
           <SectionContainer

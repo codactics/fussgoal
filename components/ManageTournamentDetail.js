@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import styles from "./CreateTournamentWizard.module.css";
 import { getStoredImageUrl } from "./launchedTournamentUtils";
 import {
+  buildTournamentSummaryTables,
   buildTournamentTables,
   buildTeamLogoMap,
   formatMatchClock,
@@ -19,6 +20,7 @@ import {
 
 const MAX_SQUAD_ROWS = 30;
 const MIN_VISIBLE_ROWS = 5;
+const SUMMARY_TABLE_KEYS = ["topScorer", "cleanSheet", "mostAssist", "yellowCard", "redCard"];
 const PLAYER_POSITIONS = [
   "Goalkeeper",
   "Center Back",
@@ -94,6 +96,12 @@ export default function ManageTournamentDetail({ tournament }) {
   const [isUploadingPlayerPhoto, setIsUploadingPlayerPhoto] = useState(false);
   const [squadMessage, setSquadMessage] = useState("");
   const [timerNow, setTimerNow] = useState(Date.now());
+  const [hiddenSummaryTables, setHiddenSummaryTables] = useState(() =>
+    SUMMARY_TABLE_KEYS.reduce((accumulator, key) => {
+      accumulator[key] = true;
+      return accumulator;
+    }, {})
+  );
 
   useEffect(() => {
     setCurrentTournament(tournament);
@@ -143,6 +151,16 @@ export default function ManageTournamentDetail({ tournament }) {
     () => buildTournamentTables(currentTournament),
     [currentTournament]
   );
+  const tournamentSummaryTables = useMemo(
+    () => buildTournamentSummaryTables(currentTournament),
+    [currentTournament]
+  );
+  function toggleSummaryTable(summaryKey) {
+    setHiddenSummaryTables((current) => ({
+      ...current,
+      [summaryKey]: !current[summaryKey],
+    }));
+  }
 
   function getTeamSquadRecord(teamName) {
     const record = squadData?.[teamName];
@@ -721,6 +739,52 @@ export default function ManageTournamentDetail({ tournament }) {
           Create custom knockout matches like Quarter Final, Semi Final, or Final. Saved matches
           appear automatically inside Section 2: Match Fixtures.
         </p>
+      </div>
+
+      <div className={styles.manageSectionCard}>
+        <h4 className={styles.manageSectionTitle}>Section 5 Tournament Summary</h4>
+        <div className={styles.tournamentSummaryStack}>
+          {tournamentSummaryTables.map((summaryTable) => (
+            <div className={styles.manageFixtureCard} key={`${currentTournament.id}-${summaryTable.key}`}>
+              <div className={styles.tournamentSummaryHeader}>
+                <h5 className={styles.manageFixtureTitle}>{summaryTable.title}</h5>
+                <button
+                  aria-expanded={!hiddenSummaryTables[summaryTable.key]}
+                  className={styles.secondaryButton}
+                  onClick={() => toggleSummaryTable(summaryTable.key)}
+                  type="button"
+                >
+                  {hiddenSummaryTables[summaryTable.key] ? "Show" : "Hide"}
+                </button>
+              </div>
+              {!hiddenSummaryTables[summaryTable.key] && summaryTable.rows.length ? (
+                <div className={styles.tournamentTableWrap}>
+                  <table className={`${styles.tournamentTable} ${styles.tournamentSummaryTable}`}>
+                    <thead>
+                      <tr>
+                        <th>Player / Team</th>
+                        <th>Team</th>
+                        <th>{summaryTable.valueLabel}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summaryTable.rows.map((row) => (
+                        <tr key={`${summaryTable.key}-${row.team}-${row.label}`}>
+                          <td>{row.label}</td>
+                          <td>{row.team || "-"}</td>
+                          <td>{row.value}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+              {!hiddenSummaryTables[summaryTable.key] && !summaryTable.rows.length ? (
+                <div className={styles.savedEmpty}>No {summaryTable.title.toLowerCase()} data yet.</div>
+              ) : null}
+            </div>
+          ))}
+        </div>
       </div>
 
       {activeTeam ? (

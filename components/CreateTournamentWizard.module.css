@@ -1076,6 +1076,27 @@
   border-collapse: collapse;
 }
 
+.tournamentSummaryStack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.tournamentSummaryTable {
+  min-width: 0;
+}
+
+.tournamentSummaryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.tournamentSummaryHeader .manageFixtureTitle {
+  margin-bottom: 0;
+}
+
 .tournamentTable th,
 .tournamentTable td {
   padding: 0.8rem 0.75rem;
