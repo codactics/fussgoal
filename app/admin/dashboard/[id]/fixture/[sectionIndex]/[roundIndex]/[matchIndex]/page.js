@@ -81,10 +81,17 @@ export default function AdminFixturePage({ params }) {
     action: "goal",
     note: "",
   });
+  const [manualMatchEvent, setManualMatchEvent] = useState({
+    subjectKey: "",
+    action: "goal",
+    note: "",
+    clock: "",
+  });
   const [savedMatchEvents, setSavedMatchEvents] = useState([]);
   const [editingMatchEventId, setEditingMatchEventId] = useState(null);
   const [matchStatusMessage, setMatchStatusMessage] = useState("");
-  const [statusDebugInfo, setStatusDebugInfo] = useState(null);
+  const [isResettingMatch, setIsResettingMatch] = useState(false);
+  const [isSavingManualEvent, setIsSavingManualEvent] = useState(false);
   const [systemMoments, setSystemMoments] = useState({
     kickoff: null,
     halftime: null,
@@ -288,6 +295,12 @@ export default function AdminFixturePage({ params }) {
       action: "goal",
       note: "",
     });
+    setManualMatchEvent({
+      subjectKey: "",
+      action: "goal",
+      note: "",
+      clock: "",
+    });
     const savedTelecast = tournament.data?.matchTelecasts?.[fixtureKey];
     setTelecastUrl(String(savedTelecast?.url || ""));
     setTelecastStatus(
@@ -371,7 +384,7 @@ export default function AdminFixturePage({ params }) {
     const score = { home: 0, away: 0 };
 
     events.forEach((event) => {
-      if (event.action !== "goal") {
+      if (event.action !== "goal" && event.action !== "penalty-goal") {
         return;
       }
 
@@ -436,15 +449,6 @@ export default function AdminFixturePage({ params }) {
 
     lastSavedStatusRef.current = snapshotKey;
     statusSaveInFlightRef.current = true;
-    setStatusDebugInfo({
-      stage: "sending",
-      fixtureKey,
-      requestedAt: new Date().toISOString(),
-      snapshot,
-      responseMatchStatus: "",
-      responseUpdatedAt: "",
-      error: "",
-    });
 
     try {
       const response = await fetch(`/api/tournaments/${id}`, {
@@ -464,29 +468,9 @@ export default function AdminFixturePage({ params }) {
       }
 
       setTournament(result.tournament || currentTournament);
-      setStatusDebugInfo({
-        stage: "success",
-        fixtureKey,
-        requestedAt: new Date().toISOString(),
-        snapshot,
-        responseMatchStatus:
-          result?.tournament?.data?.matchStatuses?.[fixtureKey]?.matchStatus || "",
-        responseUpdatedAt:
-          result?.tournament?.data?.matchStatuses?.[fixtureKey]?.updatedAt || "",
-        error: "",
-      });
     } catch (error) {
       setMatchStatusMessage(error.message || "Unable to save the live match status.");
       lastSavedStatusRef.current = "";
-      setStatusDebugInfo({
-        stage: "error",
-        fixtureKey,
-        requestedAt: new Date().toISOString(),
-        snapshot,
-        responseMatchStatus: "",
-        responseUpdatedAt: "",
-        error: error.message || "Unable to save the live match status.",
-      });
     } finally {
       statusSaveInFlightRef.current = false;
 
@@ -866,6 +850,73 @@ export default function AdminFixturePage({ params }) {
     return seconds;
   }
 
+  function parseManualClock(value) {
+    const trimmedValue = String(value || "").trim();
+
+    if (!trimmedValue) {
+      return null;
+    }
+
+    const clockMatch = trimmedValue.match(/^(\d{1,3}):([0-5]\d)$/);
+
+    if (!clockMatch) {
+      return null;
+    }
+
+    const minutes = Number(clockMatch[1]);
+    const seconds = Number(clockMatch[2]);
+
+    if (!Number.isFinite(minutes) || !Number.isFinite(seconds)) {
+      return null;
+    }
+
+    return minutes * 60 + seconds;
+  }
+
+  function formatManualClock(seconds) {
+    const safeSeconds = Math.max(0, Number(seconds) || 0);
+    const minutes = Math.floor(safeSeconds / 60);
+    const remainingSeconds = safeSeconds % 60;
+
+    return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+  }
+
+  function getHalfForSeconds(seconds) {
+    return seconds > halfDurationSeconds ? "second" : "first";
+  }
+
+  async function verifyAdminPassword(action) {
+    const password = window.prompt(`Enter admin password to ${action}:`);
+
+    if (password === null) {
+      return false;
+    }
+
+    const trimmedPassword = password.trim();
+
+    if (!trimmedPassword) {
+      throw new Error("Admin password is required.");
+    }
+
+    const verifyResponse = await fetch("/api/admin/verify-password", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        password: trimmedPassword,
+        action,
+      }),
+    });
+    const verifyResult = await verifyResponse.json();
+
+    if (!verifyResponse.ok) {
+      throw new Error(verifyResult.message || "Invalid admin password.");
+    }
+
+    return true;
+  }
+
   function getSubjectMeta(subjectKey) {
     return lineupPlayerOptions.all.find((player) => player.key === subjectKey) || null;
   }
@@ -969,12 +1020,20 @@ export default function AdminFixturePage({ params }) {
       return;
     }
 
+    if (editingMatchEventId) {
+      setMatchStatusMessage("Use Manual Match Event to update the selected event.");
+      return;
+    }
+
     if (matchStatus !== "running") {
       setMatchStatusMessage("Start the match clock before adding match events.");
       return;
     }
 
     const subjectMeta = getSubjectMeta(draftMatchEvent.subjectKey);
+    const existingEvent = editingMatchEventId
+      ? savedMatchEvents.find((event) => event.id === editingMatchEventId) || null
+      : null;
 
     if (!subjectMeta) {
       setMatchStatusMessage("Select a player or team from the saved match line up.");
@@ -990,8 +1049,8 @@ export default function AdminFixturePage({ params }) {
       teamName: subjectMeta.teamName,
       action: draftMatchEvent.action,
       note: draftMatchEvent.note.trim(),
-      seconds: currentSeconds,
-      half: selectedHalf,
+      seconds: existingEvent?.seconds ?? currentSeconds,
+      half: existingEvent?.half || selectedHalf,
     };
 
     setSavedMatchEvents((currentEvents) => {
@@ -1013,6 +1072,160 @@ export default function AdminFixturePage({ params }) {
     setMatchStatusMessage("Match event saved.");
   }
 
+  async function saveManualMatchEvent() {
+    if (!isTournamentLaunched) {
+      setMatchStatusMessage("Launch the tournament before controlling live match events.");
+      return;
+    }
+
+    if (isSavingManualEvent) {
+      return;
+    }
+
+    const subjectMeta = getSubjectMeta(manualMatchEvent.subjectKey);
+
+    if (!subjectMeta) {
+      setMatchStatusMessage("Select a player or team for the manual match event.");
+      return;
+    }
+
+    const parsedSeconds = parseManualClock(manualMatchEvent.clock);
+
+    if (parsedSeconds === null) {
+      setMatchStatusMessage("Enter the manual match time as MM:SS, for example 10:00.");
+      return;
+    }
+
+    const clampedSeconds = Math.max(0, getClampedTime(parsedSeconds));
+
+    setIsSavingManualEvent(true);
+    setMatchStatusMessage("");
+
+    try {
+      if (matchStatus === "ended") {
+        const isVerified = await verifyAdminPassword(
+          editingMatchEventId
+            ? "edit a match event after full time"
+            : "add a manual event after full time"
+        );
+
+        if (!isVerified) {
+          return;
+        }
+      }
+
+      const nextEvent = {
+        id: editingMatchEventId || `event-${Date.now()}`,
+        subjectKey: manualMatchEvent.subjectKey,
+        subjectLabel: subjectMeta.playerName,
+        subjectType: subjectMeta.type,
+        teamName: subjectMeta.teamName,
+        action: manualMatchEvent.action,
+        note: manualMatchEvent.note.trim(),
+        seconds: clampedSeconds,
+        half: getHalfForSeconds(clampedSeconds),
+      };
+
+      setSavedMatchEvents((currentEvents) => {
+        if (!editingMatchEventId) {
+          return [...currentEvents, nextEvent];
+        }
+
+        return currentEvents.map((event) =>
+          event.id === editingMatchEventId ? nextEvent : event
+        );
+      });
+      setManualMatchEvent({
+        subjectKey: "",
+        action: "goal",
+        note: "",
+        clock: "",
+      });
+      setEditingMatchEventId(null);
+      setMatchStatusMessage(
+        editingMatchEventId ? "Match event updated from the manual section." : "Manual match event saved."
+      );
+    } catch (error) {
+      setMatchStatusMessage(error.message || "Unable to save the manual match event.");
+    } finally {
+      setIsSavingManualEvent(false);
+    }
+  }
+
+  async function handleResetMatch() {
+    if (!isTournamentLaunched || !fixture || isResettingMatch) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Reset the full live match? This will clear the clock, score, and all saved match events."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsResettingMatch(true);
+    setMatchStatusMessage("");
+
+    try {
+      const isVerified = await verifyAdminPassword("reset this match");
+
+      if (!isVerified) {
+        return;
+      }
+
+      const resetSystemMoments = {
+        kickoff: null,
+        halftime: null,
+        fulltime: null,
+      };
+      const resetSnapshot = {
+        homeTeam: fixture.home,
+        awayTeam: fixture.away,
+        selectedHalf: "first",
+        halfDurationMinutes,
+        matchStatus: "idle",
+        elapsedBeforePause: 0,
+        runningStartedAt: null,
+        clockSeconds: 0,
+        goalScore: { home: 0, away: 0 },
+        events: [],
+        systemMoments: resetSystemMoments,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setSelectedHalf("first");
+      setMatchStatus("idle");
+      setElapsedBeforePause(0);
+      setRunningStartedAt(null);
+      setTimerNow(Date.now());
+      setSavedMatchEvents([]);
+      setSystemMoments(resetSystemMoments);
+      setDraftMatchEvent({
+        subjectKey: "",
+        action: "goal",
+        note: "",
+      });
+      setManualMatchEvent({
+        subjectKey: "",
+        action: "goal",
+        note: "",
+        clock: "",
+      });
+      setEditingMatchEventId(null);
+      lastSavedStatusRef.current = "";
+      pendingSnapshotRef.current = null;
+
+      await persistMatchStatusSnapshot(resetSnapshot);
+      setMatchStatusMessage("Full match reset completed.");
+    } catch (error) {
+      setMatchStatusMessage(error.message || "Unable to reset the match.");
+    } finally {
+      setIsResettingMatch(false);
+    }
+  }
+
   function editMatchEvent(eventId) {
     const currentEvent = savedMatchEvents.find((event) => event.id === eventId);
 
@@ -1020,13 +1233,19 @@ export default function AdminFixturePage({ params }) {
       return;
     }
 
-    setDraftMatchEvent({
+    setManualMatchEvent({
       subjectKey: currentEvent.subjectKey,
       action: currentEvent.action,
       note: currentEvent.note || "",
+      clock: formatManualClock(currentEvent.seconds),
+    });
+    setDraftMatchEvent({
+      subjectKey: "",
+      action: "goal",
+      note: "",
     });
     setEditingMatchEventId(eventId);
-    setMatchStatusMessage("Edit the event row and tick to update it.");
+    setMatchStatusMessage("Event loaded into Manual Match Event. Update it there and save.");
   }
 
   function deleteMatchEvent(eventId) {
@@ -1039,6 +1258,12 @@ export default function AdminFixturePage({ params }) {
         subjectKey: "",
         action: "goal",
         note: "",
+      });
+      setManualMatchEvent({
+        subjectKey: "",
+        action: "goal",
+        note: "",
+        clock: "",
       });
       setEditingMatchEventId(null);
     }
@@ -1144,7 +1369,9 @@ export default function AdminFixturePage({ params }) {
               </div>
               <div className={wizardStyles.lineupActions}>
                 <button
-                  className={wizardStyles.secondaryButton}
+                  className={`${wizardStyles.secondaryButton} ${
+                    telecastStatus === "live" ? wizardStyles.telecastActiveButton : ""
+                  }`}
                   disabled={isSavingTelecast}
                   onClick={() => void saveTelecast("live")}
                   type="button"
@@ -1152,7 +1379,9 @@ export default function AdminFixturePage({ params }) {
                   Start
                 </button>
                 <button
-                  className={wizardStyles.primaryButton}
+                  className={`${wizardStyles.secondaryButton} ${
+                    telecastStatus === "stopped" ? wizardStyles.telecastActiveButton : ""
+                  }`}
                   disabled={isSavingTelecast}
                   onClick={() => void saveTelecast("stopped")}
                   type="button"
@@ -1162,7 +1391,9 @@ export default function AdminFixturePage({ params }) {
               </div>
               <div className={wizardStyles.lineupActions}>
                 <button
-                  className={wizardStyles.secondaryButton}
+                  className={`${wizardStyles.secondaryButton} ${
+                    telecastOverlay === "home" ? wizardStyles.telecastActiveButton : ""
+                  }`}
                   disabled={isSavingTelecast}
                   onClick={() => void saveTelecast(telecastStatus, "home")}
                   type="button"
@@ -1170,7 +1401,9 @@ export default function AdminFixturePage({ params }) {
                   {fixture.home} Lineup
                 </button>
                 <button
-                  className={wizardStyles.secondaryButton}
+                  className={`${wizardStyles.secondaryButton} ${
+                    telecastOverlay === "away" ? wizardStyles.telecastActiveButton : ""
+                  }`}
                   disabled={isSavingTelecast}
                   onClick={() => void saveTelecast(telecastStatus, "away")}
                   type="button"
@@ -1178,7 +1411,9 @@ export default function AdminFixturePage({ params }) {
                   {fixture.away} Lineup
                 </button>
                 <button
-                  className={wizardStyles.secondaryButton}
+                  className={`${wizardStyles.secondaryButton} ${
+                    telecastOverlay === "none" ? wizardStyles.telecastActiveButton : ""
+                  }`}
                   disabled={isSavingTelecast}
                   onClick={() => void saveTelecast(telecastStatus, "none")}
                   type="button"
@@ -1188,7 +1423,9 @@ export default function AdminFixturePage({ params }) {
               </div>
               <div className={wizardStyles.lineupActions}>
                 <button
-                  className={wizardStyles.secondaryButton}
+                  className={`${wizardStyles.secondaryButton} ${
+                    telecastBottomScore ? wizardStyles.telecastActiveButton : ""
+                  }`}
                   disabled={isSavingTelecast}
                   onClick={() => void saveTelecast(telecastStatus, telecastOverlay, true)}
                   type="button"
@@ -1196,7 +1433,9 @@ export default function AdminFixturePage({ params }) {
                   Bottom Score
                 </button>
                 <button
-                  className={wizardStyles.secondaryButton}
+                  className={`${wizardStyles.secondaryButton} ${
+                    !telecastBottomScore ? wizardStyles.telecastActiveButton : ""
+                  }`}
                   disabled={isSavingTelecast}
                   onClick={() => void saveTelecast(telecastStatus, telecastOverlay, false)}
                   type="button"
@@ -1204,15 +1443,6 @@ export default function AdminFixturePage({ params }) {
                   Clear Bottom Score
                 </button>
               </div>
-              <p className={wizardStyles.status}>
-                Current telecast status: {telecastStatus === "live" ? "Live" : telecastStatus === "paused" ? "Paused" : "Stopped"}
-              </p>
-              <p className={wizardStyles.status}>
-                Current lineup overlay: {telecastOverlay === "home" ? fixture.home : telecastOverlay === "away" ? fixture.away : "None"}
-              </p>
-              <p className={wizardStyles.status}>
-                Bottom score overlay: {telecastBottomScore ? "Shown" : "Hidden"}
-              </p>
               {telecastMessage ? <p className={wizardStyles.status}>{telecastMessage}</p> : null}
             </div>
 
@@ -1296,7 +1526,17 @@ export default function AdminFixturePage({ params }) {
             </div>
 
             <div className={wizardStyles.manageSectionCard}>
-              <h4 className={wizardStyles.manageSectionTitle}>Section 2: Live Scoreboard</h4>
+              <div className={wizardStyles.manageSectionHeader}>
+                <h4 className={wizardStyles.manageSectionTitle}>Section 2: Live Scoreboard</h4>
+                <button
+                  className={wizardStyles.secondaryButton}
+                  disabled={!isTournamentLaunched || isResettingMatch}
+                  onClick={handleResetMatch}
+                  type="button"
+                >
+                  {isResettingMatch ? "Resetting..." : "Reset Match"}
+                </button>
+              </div>
               {!isTournamentLaunched ? (
                 <p className={wizardStyles.notice}>
                   Launch this tournament first. Live scoreboard controls stay locked until the
@@ -1509,26 +1749,99 @@ export default function AdminFixturePage({ params }) {
               </div>
 
               {matchStatusMessage ? <p className={wizardStyles.status}>{matchStatusMessage}</p> : null}
-              <div
-                className={wizardStyles.status}
-                style={{ marginTop: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-              >
-                <strong>Debug</strong>
-                {"\n"}fixtureKey: {fixtureKey}
-                {"\n"}local matchStatus: {matchStatus}
-                {"\n"}selectedHalf: {selectedHalf}
-                {"\n"}elapsedBeforePause: {elapsedBeforePause}
-                {"\n"}runningStartedAt: {runningStartedAt ?? "null"}
-                {"\n"}kickoff: {systemMoments.kickoff ?? "null"}
-                {"\n"}halftime: {systemMoments.halftime ?? "null"}
-                {"\n"}fulltime: {systemMoments.fulltime ?? "null"}
-                {"\n"}save stage: {statusDebugInfo?.stage || "idle"}
-                {"\n"}save time: {statusDebugInfo?.requestedAt || "-"}
-                {"\n"}api matchStatus: {statusDebugInfo?.responseMatchStatus || "-"}
-                {"\n"}api updatedAt: {statusDebugInfo?.responseUpdatedAt || "-"}
-                {"\n"}api error: {statusDebugInfo?.error || "-"}
-                {"\n"}snapshot:
-                {"\n"}{JSON.stringify(statusDebugInfo?.snapshot || null, null, 2)}
+              <div className={wizardStyles.manualEventCard}>
+                <h5 className={wizardStyles.manualEventTitle}>Manual Match Event</h5>
+                <div className={wizardStyles.matchStatusManualGrid}>
+                  <div className={wizardStyles.matchStatusHead}>Player / Team</div>
+                  <div className={wizardStyles.matchStatusHead}>Action</div>
+                  <div className={wizardStyles.matchStatusHead}>Note</div>
+                  <div className={wizardStyles.matchStatusHead}>Timing</div>
+                  <div className={wizardStyles.matchStatusHead}>Add</div>
+
+                  <select
+                    className={wizardStyles.select}
+                    disabled={!isTournamentLaunched || isSavingManualEvent}
+                    onChange={(event) =>
+                      setManualMatchEvent((current) => ({
+                        ...current,
+                        subjectKey: event.target.value,
+                      }))
+                    }
+                    value={manualMatchEvent.subjectKey}
+                  >
+                    <option value="">Select player or team</option>
+                    <optgroup label={fixture.home}>
+                      {lineupPlayerOptions.homeOptions.map((player) => (
+                        <option key={`manual-${player.key}`} value={player.key}>
+                          {player.type === "team" ? `${player.teamName} (Team)` : player.playerName}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label={fixture.away}>
+                      {lineupPlayerOptions.awayOptions.map((player) => (
+                        <option key={`manual-${player.key}`} value={player.key}>
+                          {player.type === "team" ? `${player.teamName} (Team)` : player.playerName}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  <select
+                    className={wizardStyles.select}
+                    disabled={!isTournamentLaunched || isSavingManualEvent}
+                    onChange={(event) =>
+                      setManualMatchEvent((current) => ({
+                        ...current,
+                        action: event.target.value,
+                      }))
+                    }
+                    value={manualMatchEvent.action}
+                  >
+                    {MATCH_ACTIONS.map((action) => (
+                      <option key={`manual-action-${action.value}`} value={action.value}>
+                        {action.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className={wizardStyles.input}
+                    disabled={!isTournamentLaunched || isSavingManualEvent}
+                    onChange={(event) =>
+                      setManualMatchEvent((current) => ({
+                        ...current,
+                        note: event.target.value,
+                      }))
+                    }
+                    placeholder="Small comment"
+                    type="text"
+                    value={manualMatchEvent.note}
+                  />
+                  <input
+                    className={wizardStyles.input}
+                    disabled={!isTournamentLaunched || isSavingManualEvent}
+                    onChange={(event) =>
+                      setManualMatchEvent((current) => ({
+                        ...current,
+                        clock: event.target.value,
+                      }))
+                    }
+                    placeholder="10:00"
+                    type="text"
+                    value={manualMatchEvent.clock}
+                  />
+                  <button
+                    className={wizardStyles.eventActionButton}
+                    disabled={!isTournamentLaunched || isSavingManualEvent}
+                    onClick={saveManualMatchEvent}
+                    type="button"
+                  >
+                    {isSavingManualEvent ? "..." : editingMatchEventId ? "↻" : "✓"}
+                  </button>
+                </div>
+                <p className={wizardStyles.status}>
+                  {editingMatchEventId
+                    ? "This event is in edit mode here. After full time, saving the update requires the admin password."
+                    : "Use this row to add a past match moment at any time. After full time, every manual entry requires the admin password."}
+                </p>
               </div>
 
               <div className={wizardStyles.matchTimeline}>
