@@ -6,6 +6,7 @@ import { buildAbsoluteUrl, getLaunchedTournamentRecords, getSiteUrl } from "../l
 import { createLaunchedTournamentSlug, getTournamentDisplayStatus } from "../components/launchedTournamentUtils";
 
 const siteUrl = getSiteUrl();
+const socialImageUrl = buildAbsoluteUrl("/opengraph-image");
 const homepageTitle = "Live Football Scores, Fixtures and Tournament Tables";
 const homepageDescription =
   "FussGoal helps fans follow live football scores, fixtures, standings, tournament brackets, and match updates in one football scoreboard platform.";
@@ -21,10 +22,20 @@ export const metadata = {
     description: homepageDescription,
     url: siteUrl,
     type: "website",
+    images: [
+      {
+        url: socialImageUrl,
+        width: 1200,
+        height: 630,
+        alt: "FussGoal live football scores, fixtures and tournament tables",
+      },
+    ],
   },
   twitter: {
+    card: "summary_large_image",
     title: `FussGoal | ${homepageTitle}`,
     description: homepageDescription,
+    images: [socialImageUrl],
   },
 };
 
@@ -117,7 +128,7 @@ export default async function HomePage() {
             name: "Football tournament standings",
           },
         ],
-        primaryImageOfPage: buildAbsoluteUrl("/opengraph-image"),
+        primaryImageOfPage: socialImageUrl,
       },
     ],
   };
