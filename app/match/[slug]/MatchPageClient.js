@@ -225,8 +225,13 @@ export default function MatchPageClient({ initialMatch }) {
   const displayStatus = useMemo(() => getMatchDisplayStatus(match), [match]);
   const homeGoalScorers = useMemo(() => getGoalScorers(match, "home"), [match]);
   const awayGoalScorers = useMemo(() => getGoalScorers(match, "away"), [match]);
+  const timelineEntries = Array.isArray(match?.timelineEntries) ? match.timelineEntries : [];
+  const mvpEntries = timelineEntries.filter((entry) => entry?.action === "mvp");
+  const matchEventEntries = timelineEntries.filter((entry) => entry?.action !== "mvp");
   const homeScore = String(match?.score?.home ?? 0);
   const awayScore = String(match?.score?.away ?? 0);
+  const penaltyScore = match?.penaltyScore || { home: 0, away: 0 };
+  const penaltyWinnerSide = String(match?.penaltyWinnerSide || "");
   const telecastUrl = String(match?.telecast?.url || "").trim();
   const telecastStatus = String(match?.telecast?.status || "stopped");
   const telecastOverlay = String(match?.telecast?.overlay || "none");
@@ -310,7 +315,7 @@ export default function MatchPageClient({ initialMatch }) {
             ) : (
               <div className={styles.teamLogoFallback}>{match.homeTeam?.slice(0, 1) || "H"}</div>
             )}
-            <p className={styles.teamLine}>{match.homeTeam}</p>
+            <p className={styles.teamLine}>{match.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}</p>
           </div>
           <div className={styles.scorePanel}>
             <div className={styles.statusRow}>
@@ -320,6 +325,9 @@ export default function MatchPageClient({ initialMatch }) {
             <p className={styles.score}>
               {match.score.home} - {match.score.away}
             </p>
+            {penaltyWinnerSide ? (
+              <p className={styles.liveClock}>({penaltyScore.home}:{penaltyScore.away})</p>
+            ) : null}
             <p className={styles.liveClock}>{liveClock || "Not live"}</p>
           </div>
           <div className={styles.teamPanel}>
@@ -328,7 +336,7 @@ export default function MatchPageClient({ initialMatch }) {
             ) : (
               <div className={styles.teamLogoFallback}>{match.awayTeam?.slice(0, 1) || "A"}</div>
             )}
-            <p className={styles.teamLine}>{match.awayTeam}</p>
+            <p className={styles.teamLine}>{match.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}</p>
           </div>
         </section>
 
@@ -535,6 +543,31 @@ export default function MatchPageClient({ initialMatch }) {
           </section>
         ) : null}
 
+        {mvpEntries.length ? (
+          <section className={styles.mvpCard}>
+            <h2 className={styles.sectionTitle}>MVP</h2>
+            <div className={styles.mvpList}>
+              {mvpEntries.map((entry) => {
+                const playerName = String(entry.subjectLabel || "").trim();
+                const teamName = String(entry.teamName || "").trim();
+
+                return (
+                  <div className={styles.mvpRow} key={entry.id}>
+                    <span className={styles.mvpBadge}>MVP</span>
+                    <span className={styles.mvpName}>
+                      {playerName || teamName || "Selected player"}
+                    </span>
+                    {teamName && playerName !== teamName ? (
+                      <span className={styles.mvpTeam}>{teamName}</span>
+                    ) : null}
+                    {entry.note ? <span className={styles.mvpNote}>{entry.note}</span> : null}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
         <section className={styles.lineupCard}>
           <h2 className={styles.sectionTitle}>Team Line Up</h2>
           <div className={styles.lineupGrid}>
@@ -589,8 +622,8 @@ export default function MatchPageClient({ initialMatch }) {
           }
         >
           <div className={styles.eventsList}>
-            {match.timelineEntries.length ? (
-              match.timelineEntries.map((entry) => (
+            {matchEventEntries.length ? (
+              matchEventEntries.map((entry) => (
                 <article className={styles.eventCard} key={entry.id}>
                   <div className={styles.eventMinute}>{entry.displayTime || "--"}</div>
                   <div className={styles.eventContent}>

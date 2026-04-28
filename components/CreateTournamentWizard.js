@@ -15,6 +15,7 @@ import {
 
 const initialForm = {
   name: "",
+  description: "",
   startDate: "",
   logoName: "",
   logoDataUrl: "",
@@ -1067,6 +1068,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       },
       settings: {
         name: form.name,
+        description: form.description.trim(),
         startDate: form.startDate,
         endDate: existingTournament?.endDate || "",
         logoName: form.logoName,
@@ -1128,6 +1130,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     const record = {
       id: editingTournamentId || `${Date.now()}`,
       name: form.name,
+      description: payload.settings.description,
       startDate: form.startDate,
       endDate: existingTournament?.endDate || "",
       phase: getAdminTournamentPhase({
@@ -1320,6 +1323,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
 
     setForm({
       name: settings.name || tournament.name || "",
+      description: settings.description || tournament.description || "",
       startDate: settings.startDate || tournament.startDate || "",
       logoName: settings.logoName || payload.tournamentLogo?.name || "",
       logoDataUrl: getStoredImageUrl(payload.tournamentLogo),
@@ -1534,6 +1538,21 @@ export default function CreateTournamentWizard({ adminSession = null }) {
                 type="text"
                 value={form.name}
               />
+
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="tournament-description">
+                  Description
+                </label>
+                <p className={styles.helper}>Optional. Leave this empty to hide description from users.</p>
+                <textarea
+                  className={`${styles.input} ${styles.textarea}`}
+                  id="tournament-description"
+                  onChange={(event) => updateField("description", event.target.value)}
+                  placeholder="Enter tournament description"
+                  rows={4}
+                  value={form.description}
+                />
+              </div>
 
               <div className={styles.field}>
                 <label className={styles.fieldLabel} htmlFor="tournament-start-date">

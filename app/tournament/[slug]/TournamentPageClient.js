@@ -37,18 +37,6 @@ function getFixtureScheduleTimestamp(fixture) {
   return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
 }
 
-function buildTournamentSeoSummary(tournament, fixtureCount) {
-  const tournamentName = String(tournament?.name || "This tournament").trim();
-  const description = String(tournament?.description || "").trim();
-  const matchesLabel = fixtureCount === 1 ? "1 match" : `${fixtureCount} matches`;
-
-  if (description) {
-    return `${tournamentName} tournament hub with ${matchesLabel}, live scores, fixtures, standings, and results. ${description}`;
-  }
-
-  return `${tournamentName} tournament hub with ${matchesLabel}, live scores, fixtures, standings, and results on FussGoal.`;
-}
-
 function hasMatchStarted(statusRecord) {
   return Boolean(
     statusRecord &&
@@ -77,9 +65,13 @@ function incrementSummary(map, key, row) {
     label: row.label,
     team: row.team,
     value: 0,
+    penaltyGoals: 0,
   };
 
   current.value += 1;
+  if (row.penaltyGoal) {
+    current.penaltyGoals += 1;
+  }
   map.set(key, current);
 }
 
@@ -121,12 +113,16 @@ function buildPublicSummaryTables(tournament) {
       incrementSummary(cleanSheets, awayTeam, { label: awayTeam, team: "" });
     }
 
+    const subjectYellowCounts = new Map();
     (statusRecord?.events || []).forEach((event) => {
       const subject = getSummarySubject(event);
       const subjectKey = `${subject.team}::${subject.label}`;
 
       if (event.action === "goal" || event.action === "penalty-goal") {
-        incrementSummary(scorers, subjectKey, subject);
+        incrementSummary(scorers, subjectKey, {
+          ...subject,
+          penaltyGoal: event.action === "penalty-goal",
+        });
       }
       if (event.action === "assist") {
         incrementSummary(assists, subjectKey, subject);
@@ -136,6 +132,11 @@ function buildPublicSummaryTables(tournament) {
       }
       if (event.action === "yellow") {
         incrementSummary(yellowCards, subjectKey, subject);
+        const nextYellowCount = (subjectYellowCounts.get(subjectKey) || 0) + 1;
+        subjectYellowCounts.set(subjectKey, nextYellowCount);
+        if (nextYellowCount === 2) {
+          incrementSummary(redCards, subjectKey, subject);
+        }
       }
     });
   });
@@ -152,6 +153,133 @@ function buildPublicSummaryTables(tournament) {
     ...summary,
     rows: getSortedSummaryRows(rowMaps[summary.key]),
   }));
+}
+
+function formatSummaryValue(summaryKey, row) {
+  if (summaryKey === "topScorer" && row?.penaltyGoals) {
+    return `${row.value}(${row.penaltyGoals})`;
+  }
+
+  return row?.value ?? 0;
+}
+
+function formatPlayerKey(playerKey) {
+  const [teamName, ...playerParts] = String(playerKey || "").split("::");
+  const playerName = playerParts.join("::").trim();
+  const team = String(teamName || "").trim();
+
+  if (playerName && team) {
+    return `${playerName} (${team})`;
+  }
+
+  return playerName || team || "";
+}
+
+function getSummaryLeader(summaryTables, summaryKey) {
+  const leader = summaryTables.find((table) => table.key === summaryKey)?.rows?.[0] || null;
+
+  if (!leader) {
+    return "";
+  }
+
+  return leader.team ? `${leader.label} (${leader.team})` : leader.label;
+}
+
+function getFixtureWinnerSide(fixture) {
+  const score = fixture?.score || {};
+  const homeScore = Number(score.home) || 0;
+  const awayScore = Number(score.away) || 0;
+
+  if (homeScore > awayScore) {
+    return "home";
+  }
+
+  if (awayScore > homeScore) {
+    return "away";
+  }
+
+  const penaltyWinnerSide = String(fixture?.penaltyWinnerSide || "");
+  return penaltyWinnerSide === "home" || penaltyWinnerSide === "away" ? penaltyWinnerSide : "";
+}
+
+function getOverallKnockoutTeam(tournament, matchIndex, resultKind) {
+  const targetMatchIndex = String(matchIndex || "");
+  if (!targetMatchIndex) {
+    return "";
+  }
+
+  const fixture =
+    (tournament?.fixtureSections || [])
+      .filter((section) => section.kind === "knockout")
+      .flatMap((section) => section.matches || [])
+      .find((match) => {
+        const fixtureParts = String(match?.fixtureKey || "").split("-");
+        return fixtureParts[2] === targetMatchIndex;
+      }) || null;
+
+  if (!fixture) {
+    return "";
+  }
+
+  const winnerSide = getFixtureWinnerSide(fixture);
+  if (!winnerSide) {
+    return "";
+  }
+
+  const targetSide =
+    resultKind === "loser" ? (winnerSide === "home" ? "away" : "home") : winnerSide;
+
+  return targetSide === "home" ? fixture.homeTeam : fixture.awayTeam;
+}
+
+function buildOverallSummaryRows(tournament, summaryTables) {
+  const summary = tournament?.overallSummary;
+
+  if (!summary || typeof summary !== "object") {
+    return [];
+  }
+
+  const rows = [
+    {
+      key: "champion",
+      label: "Champion",
+      value:
+        summary.champion?.mode === "auto"
+          ? getOverallKnockoutTeam(tournament, summary.champion?.knockoutMatchIndex, "winner")
+          : String(summary.champion?.team || "").trim(),
+    },
+    {
+      key: "runnerUp",
+      label: "Runners Up",
+      value:
+        summary.runnerUp?.mode === "auto"
+          ? getOverallKnockoutTeam(tournament, summary.runnerUp?.knockoutMatchIndex, "loser")
+          : String(summary.runnerUp?.team || "").trim(),
+    },
+    {
+      key: "bestGoalkeeper",
+      label: "Best Goalkeeper",
+      value:
+        summary.bestGoalkeeper?.mode === "auto"
+          ? getSummaryLeader(summaryTables, "cleanSheet")
+          : formatPlayerKey(summary.bestGoalkeeper?.playerKey),
+    },
+    {
+      key: "topScorer",
+      label: "Top Scorer",
+      value:
+        summary.topScorer?.mode === "auto"
+          ? getSummaryLeader(summaryTables, "topScorer")
+          : formatPlayerKey(summary.topScorer?.playerKey),
+    },
+    {
+      key: "bestPlayer",
+      label: "Best Player",
+      value: formatPlayerKey(summary.bestPlayer?.playerKey),
+    },
+  ];
+
+  return rows.filter((row) => row.value);
 }
 
 export default function TournamentPageClient({
@@ -242,21 +370,14 @@ export default function TournamentPageClient({
 
   const tournamentMatches = slug.startsWith("launched-") ? [] : staticMatches;
   const tournamentLogoUrl = getStoredImageUrl(tournament?.tournamentLogo);
-  const seoSummary = useMemo(
-    () => buildTournamentSeoSummary(tournament, fixtureList.length),
-    [fixtureList.length, tournament]
-  );
-  const seoHighlights = useMemo(
-    () => [
-      `${tournament.name} fixtures and schedule`,
-      `${tournament.name} standings and points table`,
-      `${tournament.name} live scores and match results`,
-    ],
-    [tournament.name]
-  );
+  const tournamentDescription = String(tournament?.description || "").trim();
   const tournamentSummaryTables = useMemo(
     () => buildPublicSummaryTables(tournament),
     [tournament]
+  );
+  const overallSummaryRows = useMemo(
+    () => buildOverallSummaryRows(tournament, tournamentSummaryTables),
+    [tournament, tournamentSummaryTables]
   );
 
   useEffect(() => {
@@ -322,22 +443,6 @@ export default function TournamentPageClient({
           </div>
         </section>
 
-        <section className={styles.seoIntroCard} aria-labelledby="tournament-seo-title">
-          <h2 id="tournament-seo-title" className={styles.seoTitle}>
-            {tournament.name} tournament overview
-          </h2>
-          <p className={styles.seoText}>{seoSummary}</p>
-          <p className={styles.seoText}>
-            Use this page to follow the {tournament.name} tournament schedule, upcoming matches,
-            current standings, and latest results in one place.
-          </p>
-          <ul className={styles.seoList}>
-            {seoHighlights.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </section>
-
         <section className={styles.summaryCard}>
           <div className={styles.summaryItem}>
             <p className={styles.label}>Status</p>
@@ -347,11 +452,30 @@ export default function TournamentPageClient({
             <p className={styles.label}>Matches</p>
             <p className={styles.value}>{tournament.matches}</p>
           </div>
-          <div className={styles.summaryWide}>
-            <p className={styles.label}>Description</p>
-            <p className={styles.description}>{tournament.description}</p>
-          </div>
+          {tournamentDescription ? (
+            <div className={styles.summaryWide}>
+              <p className={styles.label}>Description</p>
+              <p className={styles.description}>{tournamentDescription}</p>
+            </div>
+          ) : null}
         </section>
+
+        {overallSummaryRows.length ? (
+          <section className={styles.overallSummaryCard}>
+            <div className={styles.overallSummaryHeader}>
+              <p className={styles.eyebrow}>Overall Summary</p>
+              <h2 className={styles.overallSummaryTitle}>Tournament Honors</h2>
+            </div>
+            <div className={styles.overallSummaryGrid}>
+              {overallSummaryRows.map((row) => (
+                <article className={styles.overallSummaryItem} key={row.key}>
+                  <p className={styles.overallSummaryLabel}>{row.label}</p>
+                  <p className={styles.overallSummaryValue}>{row.value}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <TournamentPanels tournament={tournament} onFixtureSelect={setSelectedFixture} />
 
@@ -408,7 +532,7 @@ export default function TournamentPageClient({
                           <td>{index + 1}</td>
                           <td>{row.label}</td>
                           <td>{row.team || "-"}</td>
-                          <td>{row.value}</td>
+                          <td>{formatSummaryValue(summaryTable.key, row)}</td>
                         </tr>
                       ))}
                     </tbody>

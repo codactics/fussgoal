@@ -153,6 +153,8 @@ export default function FixtureDetailModal({ fixture, onClose }) {
   }, [fixture, timerNow]);
   const homeScore = String(fixture?.score?.home ?? 0);
   const awayScore = String(fixture?.score?.away ?? 0);
+  const penaltyScore = fixture?.penaltyScore || { home: 0, away: 0 };
+  const penaltyWinnerSide = String(fixture?.penaltyWinnerSide || "");
   const telecastUrl = String(fixture?.telecast?.url || "").trim();
   const telecastEmbedUrl = telecastUrl;
   const telecastStatus = String(fixture?.telecast?.status || "stopped");
@@ -178,6 +180,9 @@ export default function FixtureDetailModal({ fixture, onClose }) {
   const homeGoalScorers = getGoalScorers(fixture, "home");
   const awayGoalScorers = getGoalScorers(fixture, "away");
   const canShareMatch = Boolean(fixture?.matchSlug);
+  const timelineEntries = Array.isArray(fixture?.timelineEntries) ? fixture.timelineEntries : [];
+  const mvpEntries = timelineEntries.filter((entry) => entry?.action === "mvp");
+  const matchHistoryEntries = timelineEntries.filter((entry) => entry?.action !== "mvp");
 
   async function handleTelecastFullscreen() {
     const telecastFrameWrap = telecastFrameWrapRef.current;
@@ -282,7 +287,9 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             ) : (
               <span className={styles.teamLogoFallback}>{fixture.homeTeam?.slice(0, 1) || "H"}</span>
             )}
-            <span className={styles.teamName}>{fixture.homeTeam}</span>
+            <span className={styles.teamName}>
+              {fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}
+            </span>
           </div>
           <div className={styles.centerBlock}>
             {showGoalEffect ? <div className={styles.goalBanner}>GOAL!</div> : null}
@@ -300,6 +307,11 @@ export default function FixtureDetailModal({ fixture, onClose }) {
                 <ScoreDigit animate={changedSide === "away"} value={awayScore} />
               </div>
             </div>
+            {penaltyWinnerSide ? (
+              <div className={styles.clockMeta}>
+                <div className={styles.clock}>({penaltyScore.home}:{penaltyScore.away})</div>
+              </div>
+            ) : null}
             <div className={styles.clockMeta}>
               {liveClock ? <div className={styles.clock}>{liveClock}</div> : null}
               {isPaused ? <div className={styles.interruption}>Interruption</div> : null}
@@ -315,7 +327,9 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             ) : (
               <span className={styles.teamLogoFallback}>{fixture.awayTeam?.slice(0, 1) || "A"}</span>
             )}
-            <span className={styles.teamName}>{fixture.awayTeam}</span>
+            <span className={styles.teamName}>
+              {fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}
+            </span>
           </div>
         </div>
 
@@ -545,6 +559,31 @@ export default function FixtureDetailModal({ fixture, onClose }) {
           </section>
         ) : null}
 
+        {mvpEntries.length ? (
+          <section className={`${styles.card} ${styles.mvpCard}`}>
+            <h3 className={styles.sectionTitle}>MVP</h3>
+            <div className={styles.mvpList}>
+              {mvpEntries.map((entry) => {
+                const playerName = String(entry.subjectLabel || "").trim();
+                const teamName = String(entry.teamName || "").trim();
+
+                return (
+                  <div className={styles.mvpRow} key={entry.id}>
+                    <span className={styles.mvpBadge}>MVP</span>
+                    <span className={styles.mvpName}>
+                      {playerName || teamName || "Selected player"}
+                    </span>
+                    {teamName && playerName !== teamName ? (
+                      <span className={styles.mvpTeam}>{teamName}</span>
+                    ) : null}
+                    {entry.note ? <span className={styles.mvpNote}>{entry.note}</span> : null}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
         <div className={styles.contentGrid}>
           <section className={styles.card}>
             <h3 className={styles.sectionTitle}>Line Up</h3>
@@ -592,9 +631,9 @@ export default function FixtureDetailModal({ fixture, onClose }) {
 
           <section className={styles.card}>
             <h3 className={styles.sectionTitle}>Match History</h3>
-            {fixture.timelineEntries?.length ? (
+            {matchHistoryEntries.length ? (
               <div className={styles.timeline}>
-                {fixture.timelineEntries.map((entry) => (
+                {matchHistoryEntries.map((entry) => (
                   <div className={styles.timelineRow} key={entry.id}>
                     <span className={styles.timelineTime}>{entry.displayTime}</span>
                     <div className={styles.timelineTextWrap}>

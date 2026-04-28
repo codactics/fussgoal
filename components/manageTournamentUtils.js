@@ -19,6 +19,7 @@ export function getTournamentFixtureSections(tournament) {
   const tournamentFixtures = payload.fixtures || payload.leagueFixtures || null;
   const knockoutMatches = Array.isArray(payload.knockoutMatches) ? payload.knockoutMatches : [];
   const fixtureSchedules = payload.fixtureSchedules || {};
+  const matchStatuses = payload.matchStatuses || {};
   const sections = [];
 
   if (tournamentFixtures.scope === "same" && Array.isArray(tournamentFixtures.groups)) {
@@ -68,14 +69,31 @@ export function getTournamentFixtureSections(tournament) {
   }
 
   if (knockoutMatches.length) {
+    const knockoutStartSectionIndex = sections.length;
     sections.push(
       ...knockoutMatches.map((match, matchIndex) => ({
         title: String(match?.title || `Knockout Match ${matchIndex + 1}`),
         kind: "knockout",
         matches: [
           {
-            home: String(match?.home || ""),
-            away: String(match?.away || ""),
+            home: resolveKnockoutTeamSource({
+              fallback: match?.home,
+              groups: payload.groups,
+              matchStatuses,
+              knockoutMatches,
+              knockoutStartSectionIndex,
+              sections,
+              source: match?.homeSource,
+            }),
+            away: resolveKnockoutTeamSource({
+              fallback: match?.away,
+              groups: payload.groups,
+              matchStatuses,
+              knockoutMatches,
+              knockoutStartSectionIndex,
+              sections,
+              source: match?.awaySource,
+            }),
             includeInTable: Boolean(match?.includeInTable),
             roundIndex: 0,
             matchIndex,
@@ -98,6 +116,159 @@ export function getTournamentFixtureSections(tournament) {
       };
     }),
   }));
+}
+
+function resolveKnockoutTeamSource({
+  fallback,
+  groups,
+  matchStatuses,
+  knockoutMatches,
+  knockoutStartSectionIndex,
+  sections,
+  source,
+}) {
+  const fallbackValue = String(fallback || "").trim();
+
+  if (source?.type === "groupPosition") {
+    return (
+      resolveGroupPositionTeam({
+        fallback: source.team || fallbackValue,
+        groups,
+        matchStatuses,
+        rowIndex: source.rowIndex,
+        sectionList: sections,
+        groupIndex: source.groupIndex,
+      }) || fallbackValue
+    );
+  }
+
+  if (source?.type !== "knockoutWinner") {
+    return fallbackValue;
+  }
+
+  const sourceMatchIndex = Number.parseInt(source.matchIndex, 10);
+  const sourceMatch = knockoutMatches[sourceMatchIndex];
+
+  if (!sourceMatch || sourceMatchIndex < 0) {
+    return fallbackValue;
+  }
+
+  const fixtureKey = getFixtureKey(knockoutStartSectionIndex + sourceMatchIndex, 0, sourceMatchIndex);
+  const statusRecord = matchStatuses[fixtureKey];
+  const winnerSide = getMatchWinnerSide(statusRecord);
+
+  if (winnerSide === "home") {
+    return String(statusRecord?.homeTeam || sourceMatch.home || "").trim() || fallbackValue;
+  }
+
+  if (winnerSide === "away") {
+    return String(statusRecord?.awayTeam || sourceMatch.away || "").trim() || fallbackValue;
+  }
+
+  return fallbackValue || `Winner of ${sourceMatch.title || `Knockout Match ${sourceMatchIndex + 1}`}`;
+}
+
+function resolveGroupPositionTeam({
+  fallback,
+  groups,
+  groupIndex,
+  matchStatuses,
+  rowIndex,
+  sectionList,
+}) {
+  const groupTeams = Array.isArray(groups?.[groupIndex]) ? groups[groupIndex] : [];
+  const positionIndex = Number.parseInt(rowIndex, 10);
+
+  if (!groupTeams.length || !Number.isFinite(positionIndex) || positionIndex < 0) {
+    return String(fallback || "").trim();
+  }
+
+  const groupSet = new Set(groupTeams);
+  const teamStats = new Map(
+    groupTeams.map((teamName) => [
+      teamName,
+      {
+        team: teamName,
+        points: 0,
+        scored: 0,
+        contained: 0,
+        difference: 0,
+      },
+    ])
+  );
+
+  sectionList.forEach((section, sectionIndex) => {
+    if (section.kind === "knockout") {
+      return;
+    }
+
+    section.matches.forEach((match) => {
+      const homeInGroup = groupSet.has(match.home);
+      const awayInGroup = groupSet.has(match.away);
+
+      if (!homeInGroup && !awayInGroup) {
+        return;
+      }
+
+      const fixtureKey = getFixtureKey(sectionIndex, match.roundIndex, match.matchIndex);
+      const statusRecord = matchStatuses[fixtureKey];
+      if (!getMatchStatusHasStarted(statusRecord)) {
+        return;
+      }
+
+      const score = getMatchScore(statusRecord);
+      const homeStats = teamStats.get(match.home);
+      const awayStats = teamStats.get(match.away);
+
+      if (homeStats) {
+        homeStats.scored += score.home;
+        homeStats.contained += score.away;
+      }
+
+      if (awayStats) {
+        awayStats.scored += score.away;
+        awayStats.contained += score.home;
+      }
+
+      const winnerSide = getMatchWinnerSide(statusRecord);
+      if (winnerSide === "home") {
+        if (homeStats) {
+          homeStats.points += 3;
+        }
+      } else if (winnerSide === "away") {
+        if (awayStats) {
+          awayStats.points += 3;
+        }
+      } else {
+        if (homeStats) {
+          homeStats.points += 1;
+        }
+        if (awayStats) {
+          awayStats.points += 1;
+        }
+      }
+    });
+  });
+
+  const rows = Array.from(teamStats.values())
+    .map((team) => ({
+      ...team,
+      difference: team.scored - team.contained,
+    }))
+    .sort((left, right) => {
+      if (right.points !== left.points) {
+        return right.points - left.points;
+      }
+      if (right.difference !== left.difference) {
+        return right.difference - left.difference;
+      }
+      if (right.scored !== left.scored) {
+        return right.scored - left.scored;
+      }
+      return left.team.localeCompare(right.team);
+    });
+
+  return rows[positionIndex]?.team || String(fallback || "").trim();
 }
 
 export function getFixtureKey(sectionIndex, roundIndex, matchIndex) {
@@ -166,6 +337,57 @@ export function getMatchScore(statusRecord) {
   });
 
   return score;
+}
+
+export function getPenaltyShootoutScore(statusRecord) {
+  const score = { home: 0, away: 0 };
+  const entries = Array.isArray(statusRecord?.penaltyShootout?.entries)
+    ? statusRecord.penaltyShootout.entries
+    : [];
+  const homeTeam = String(statusRecord?.homeTeam || "");
+  const awayTeam = String(statusRecord?.awayTeam || "");
+
+  entries.forEach((entry) => {
+    if (entry?.action !== "goal") {
+      return;
+    }
+
+    const teamName = String(entry.teamName || "");
+    if (teamName === homeTeam) {
+      score.home += 1;
+    }
+    if (teamName === awayTeam) {
+      score.away += 1;
+    }
+  });
+
+  return score;
+}
+
+export function getPenaltyShootoutWinnerSide(statusRecord) {
+  if (!statusRecord?.penaltyShootout?.finished) {
+    return "";
+  }
+
+  const penaltyScore = getPenaltyShootoutScore(statusRecord);
+  if (penaltyScore.home > penaltyScore.away) {
+    return "home";
+  }
+  if (penaltyScore.away > penaltyScore.home) {
+    return "away";
+  }
+  return "";
+}
+
+export function getMatchWinnerSide(statusRecord) {
+  const score = getMatchScore(statusRecord);
+  if (score.home > score.away) {
+    return "home";
+  }
+  if (score.away > score.home) {
+    return "away";
+  }
+  return getPenaltyShootoutWinnerSide(statusRecord);
 }
 
 export function getMatchClockSeconds(statusRecord, now = Date.now()) {
@@ -306,7 +528,8 @@ export function buildTournamentTables(tournament) {
           awayStats.contained += score.home;
         }
 
-        if (score.home > score.away) {
+        const winnerSide = getMatchWinnerSide(statusRecord);
+        if (winnerSide === "home") {
           if (homeStats) {
             homeStats.wins += 1;
             homeStats.points += 3;
@@ -314,7 +537,7 @@ export function buildTournamentTables(tournament) {
           if (awayStats) {
             awayStats.losses += 1;
           }
-        } else if (score.home < score.away) {
+        } else if (winnerSide === "away") {
           if (awayStats) {
             awayStats.wins += 1;
             awayStats.points += 3;
@@ -417,9 +640,13 @@ function incrementSummaryStat(map, key, data) {
     label: data.label,
     team: data.team,
     value: 0,
+    penaltyGoals: 0,
   };
 
   current.value += 1;
+  if (data.penaltyGoal) {
+    current.penaltyGoals += 1;
+  }
   map.set(key, current);
 }
 
@@ -469,12 +696,16 @@ export function buildTournamentSummaryTables(tournament) {
         });
       }
 
+      const subjectYellowCounts = new Map();
       (statusRecord?.events || []).forEach((event) => {
         const subject = getSummarySubjectLabel(event, getMatchEventTeamName(event));
         const subjectKey = `${subject.team}::${subject.label}`;
 
         if (event.action === "goal" || event.action === "penalty-goal") {
-          incrementSummaryStat(scorers, subjectKey, subject);
+          incrementSummaryStat(scorers, subjectKey, {
+            ...subject,
+            penaltyGoal: event.action === "penalty-goal",
+          });
         }
 
         if (event.action === "assist") {
@@ -483,6 +714,11 @@ export function buildTournamentSummaryTables(tournament) {
 
         if (event.action === "yellow") {
           incrementSummaryStat(yellowCards, subjectKey, subject);
+          const nextYellowCount = (subjectYellowCounts.get(subjectKey) || 0) + 1;
+          subjectYellowCounts.set(subjectKey, nextYellowCount);
+          if (nextYellowCount === 2) {
+            incrementSummaryStat(redCards, subjectKey, subject);
+          }
         }
 
         if (event.action === "red") {

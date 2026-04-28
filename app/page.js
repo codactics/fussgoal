@@ -135,39 +135,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className={styles.introSection} aria-labelledby="homepage-intro-title">
-        <div className={styles.introCard}>
-          <div className={styles.introHeader}>
-            <p className={styles.introEyebrow}>Overview</p>
-            <h2 id="homepage-intro-title" className={styles.sectionTitle}>
-              Track football tournaments in one place
-            </h2>
-            <p className={styles.introLead}>
-              Follow fixtures, standings, results, and tournament progress from one clean football
-              scoreboard.
-            </p>
-          </div>
-
-          <div className={styles.introBody}>
-            <p className={styles.introText}>
-              FussGoal is built for following matches, fixtures, standings, and tournament progress
-              across competitions. Use it to check upcoming games, monitor live score updates, and
-              review results from finished matches.
-            </p>
-            <p className={styles.introText}>
-              Whether you want a quick football live score view or a full tournament overview with
-              points tables and match pages, FussGoal keeps the essential information easy to browse.
-            </p>
-          </div>
-
-          <div className={styles.introHighlights} aria-label="Homepage highlights">
-            <span className={styles.introHighlight}>Live score updates</span>
-            <span className={styles.introHighlight}>Tournament standings</span>
-            <span className={styles.introHighlight}>Upcoming fixtures</span>
-          </div>
-        </div>
-      </section>
-
       <section className={styles.socialSection} aria-label="CODACTICS social media">
         <div className={styles.socialSectionInner}>
           <a
@@ -221,27 +188,6 @@ export default async function HomePage() {
         <LaunchedTournamentList initialTournaments={initialTournaments} />
       </div>
 
-      <section className={styles.featuresSection} aria-labelledby="homepage-features-title">
-        <div className={styles.featuresCard}>
-          <h2 id="homepage-features-title" className={styles.sectionTitle}>
-            What you can follow on FussGoal
-          </h2>
-          <div className={styles.featureGrid}>
-            <article className={styles.featureItem}>
-              <h3>Live scores</h3>
-              <p>Follow football scores as matches progress and review final results after full time.</p>
-            </article>
-            <article className={styles.featureItem}>
-              <h3>Fixtures and schedules</h3>
-              <p>Browse upcoming fixtures to see who is playing next and when tournaments continue.</p>
-            </article>
-            <article className={styles.featureItem}>
-              <h3>Standings and tables</h3>
-              <p>Check points tables, group standings, and tournament positions in a single dashboard.</p>
-            </article>
-          </div>
-        </div>
-      </section>
     </main>
   );
 }

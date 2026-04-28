@@ -813,6 +813,55 @@
   margin-top: 0.9rem;
 }
 
+.mvpCard {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mvpCard .sectionTitle {
+  margin-bottom: 0;
+}
+
+.mvpList {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.mvpRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(15, 106, 76, 0.12);
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.mvpBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(15, 106, 76, 0.12);
+  color: #0d6b4d;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.mvpName {
+  color: #10241d;
+  font-weight: 900;
+}
+
+.mvpTeam,
+.mvpNote {
+  color: #4d5c55;
+  font-weight: 700;
+}
+
 .lineupTeamCard {
   display: grid;
   gap: 0.75rem;

@@ -46,40 +46,12 @@
 }
 
 .summaryCard,
-.notFoundCard,
-.seoIntroCard {
+.notFoundCard {
   padding: 1.5rem;
   border: 1px solid rgba(19, 32, 27, 0.08);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 16px 34px rgba(16, 34, 27, 0.08);
-}
-
-.seoIntroCard {
-  margin-bottom: 1.5rem;
-}
-
-.seoTitle {
-  margin: 0;
-  font-size: 1.25rem;
-  line-height: 1.25;
-  color: #13201b;
-}
-
-.seoText {
-  margin: 0.85rem 0 0;
-  color: #41524b;
-  line-height: 1.75;
-}
-
-.seoList {
-  margin: 1rem 0 0;
-  padding-left: 1.2rem;
-  color: #0b4f39;
-}
-
-.seoList li + li {
-  margin-top: 0.45rem;
 }
 
 .summaryCard {
@@ -97,6 +69,76 @@
 
 .summaryWide {
   grid-column: 1 / -1;
+}
+
+.overallSummaryCard {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  border: 1px solid rgba(15, 106, 76, 0.12);
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(15, 106, 76, 0.1), rgba(255, 255, 255, 0.92) 38%),
+    #ffffff;
+  box-shadow: 0 18px 38px rgba(16, 34, 27, 0.09);
+}
+
+.overallSummaryHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.overallSummaryHeader .eyebrow {
+  margin-bottom: 0.35rem;
+}
+
+.overallSummaryTitle {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  color: #10241d;
+}
+
+.overallSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.overallSummaryItem {
+  min-height: 112px;
+  display: grid;
+  align-content: space-between;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 18px;
+  background: rgba(245, 248, 246, 0.92);
+}
+
+.overallSummaryItem:first-child {
+  grid-column: span 2;
+  background:
+    linear-gradient(135deg, rgba(15, 106, 76, 0.16), rgba(245, 248, 246, 0.96)),
+    #f5f8f6;
+}
+
+.overallSummaryLabel {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #62736b;
+}
+
+.overallSummaryValue {
+  margin: 0;
+  color: #0b4f39;
+  font-size: clamp(1.1rem, 2vw, 1.45rem);
+  font-weight: 900;
+  line-height: 1.2;
 }
 
 .label {
@@ -295,6 +337,19 @@
 
   .summaryCard {
     grid-template-columns: 1fr;
+  }
+
+  .overallSummaryHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .overallSummaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .overallSummaryItem:first-child {
+    grid-column: auto;
   }
 
   .heroRow {

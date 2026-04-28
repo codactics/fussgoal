@@ -77,6 +77,8 @@ export default function FixtureCard({ fixture, onClick }) {
     return undefined;
   }, [fixture?.score?.away, fixture?.score?.home, isLive]);
 
+  const penaltyScore = fixture?.penaltyScore || { home: 0, away: 0 };
+  const penaltyWinnerSide = String(fixture?.penaltyWinnerSide || "");
   const CardTag = onClick ? "button" : "article";
 
   return (
@@ -101,7 +103,7 @@ export default function FixtureCard({ fixture, onClick }) {
             {fixture.homeLogo ? (
               <img alt={`${fixture.homeTeam} logo`} className={styles.teamLogo} src={fixture.homeLogo} />
             ) : null}
-            <p className={styles.team}>{fixture.homeTeam}</p>
+            <p className={styles.team}>{fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}</p>
           </div>
           <div className={styles.liveBoardCenter}>
             <div className={`${styles.scoreRow} ${styles.liveScoreRow}`}>
@@ -128,7 +130,7 @@ export default function FixtureCard({ fixture, onClick }) {
             </div>
           </div>
           <div className={`${styles.liveTeamSide} ${styles.liveTeamSideRight}`}>
-            <p className={styles.team}>{fixture.awayTeam}</p>
+            <p className={styles.team}>{fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}</p>
             {fixture.awayLogo ? (
               <img alt={`${fixture.awayTeam} logo`} className={styles.teamLogo} src={fixture.awayLogo} />
             ) : null}
@@ -140,14 +142,14 @@ export default function FixtureCard({ fixture, onClick }) {
             {fixture.homeLogo ? (
               <img alt={`${fixture.homeTeam} logo`} className={styles.teamLogo} src={fixture.homeLogo} />
             ) : null}
-            <p className={styles.team}>{fixture.homeTeam}</p>
+            <p className={styles.team}>{fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}</p>
           </div>
           <p className={styles.vs}>vs</p>
           <div className={styles.teamRow}>
             {fixture.awayLogo ? (
               <img alt={`${fixture.awayTeam} logo`} className={styles.teamLogo} src={fixture.awayLogo} />
             ) : null}
-            <p className={styles.team}>{fixture.awayTeam}</p>
+            <p className={styles.team}>{fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}</p>
           </div>
         </div>
       )}
@@ -158,6 +160,9 @@ export default function FixtureCard({ fixture, onClick }) {
           <p className={`${styles.scoreValue} ${isLive ? styles.liveScoreValue : ""}`}>
             {fixture.score.home}:{fixture.score.away}
           </p>
+          {penaltyWinnerSide ? (
+            <p className={styles.clock}>({penaltyScore.home}:{penaltyScore.away})</p>
+          ) : null}
           {liveClock ? <p className={`${styles.clock} ${isLive ? styles.liveClock : ""}`}>{liveClock}</p> : null}
         </div>
       ) : null}

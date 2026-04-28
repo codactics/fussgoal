@@ -60,91 +60,11 @@
   padding: 0 1.5rem 1rem;
 }
 
-.introSection,
-.featuresSection {
-  padding: 0 1.5rem 1rem;
-}
-
-.introCard,
-.featuresCard {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1.7rem 1.7rem 1.55rem;
-  border: 1px solid rgba(19, 32, 27, 0.08);
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 251, 248, 0.92)),
-    rgba(255, 255, 255, 0.76);
-  box-shadow: 0 16px 34px rgba(17, 37, 30, 0.08);
-}
-
 .sectionTitle {
   margin: 0;
   font-size: clamp(1.3rem, 2vw, 1.75rem);
   line-height: 1.2;
   color: #13201b;
-}
-
-.introHeader {
-  max-width: 760px;
-}
-
-.introEyebrow {
-  display: inline-flex;
-  align-items: center;
-  margin: 0 0 0.8rem;
-  padding: 0.35rem 0.7rem;
-  border-radius: 999px;
-  background: rgba(23, 93, 72, 0.1);
-  color: #175d48;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.introLead {
-  max-width: 650px;
-  margin: 0.9rem 0 0;
-  font-size: 1.06rem;
-  line-height: 1.7;
-  color: rgba(19, 32, 27, 0.78);
-}
-
-.introBody {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem 1.2rem;
-  margin-top: 1.2rem;
-  padding-top: 1.2rem;
-  border-top: 1px solid rgba(19, 32, 27, 0.08);
-}
-
-.introText {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.8;
-  color: rgba(19, 32, 27, 0.8);
-}
-
-.introHighlights {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.7rem;
-  margin-top: 1.25rem;
-}
-
-.introHighlight {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.6rem;
-  padding: 0.65rem 0.9rem;
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(233, 243, 238, 0.96), rgba(223, 236, 229, 0.94));
-  border: 1px solid rgba(23, 93, 72, 0.12);
-  color: #17352c;
-  font-size: 0.92rem;
-  font-weight: 700;
 }
 
 .socialSectionInner {
@@ -228,33 +148,6 @@
   padding: 0 1.5rem 3rem;
 }
 
-.featureGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.9rem;
-  margin-top: 1rem;
-}
-
-.featureItem {
-  padding: 1rem 1.05rem;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(244, 249, 246, 0.95), rgba(232, 240, 235, 0.92));
-  border: 1px solid rgba(19, 32, 27, 0.08);
-}
-
-.featureItem h3 {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.25;
-}
-
-.featureItem p {
-  margin: 0.55rem 0 0;
-  font-size: 0.95rem;
-  line-height: 1.65;
-  color: rgba(19, 32, 27, 0.78);
-}
-
 .matchGrid,
 .tournamentGrid {
   display: grid;
@@ -287,24 +180,6 @@
     padding: 0 1rem 0.9rem;
   }
 
-  .introSection,
-  .featuresSection {
-    padding: 0 1rem 0.9rem;
-  }
-
-  .introCard,
-  .featuresCard {
-    padding: 1.2rem;
-    border-radius: 20px;
-  }
-
-  .introBody {
-    grid-template-columns: 1fr;
-    gap: 0.85rem;
-    margin-top: 1rem;
-    padding-top: 1rem;
-  }
-
   .socialSectionInner {
     grid-template-columns: 1fr;
   }
@@ -317,7 +192,4 @@
     padding: 0 1rem 2.5rem;
   }
 
-  .featureGrid {
-    grid-template-columns: 1fr;
-  }
 }

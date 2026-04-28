@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 function buildTournamentMetadata(tournament, slug) {
   const tournamentName = String(tournament?.name || "Football Tournament").trim();
   const customDescription = String(tournament?.description || "").trim();
+  const imageUrl = buildAbsoluteUrl(`/tournament/${slug}/opengraph-image`);
   const description = customDescription
     ? `${tournamentName} tournament on FussGoal. ${customDescription} Follow fixtures, standings, live scores, and results.`
     : `${tournamentName} tournament page on FussGoal with fixtures, live scores, standings, match schedule, and results.`;
@@ -24,11 +25,20 @@ function buildTournamentMetadata(tournament, slug) {
       description,
       url: buildAbsoluteUrl(`/tournament/${slug}`),
       type: "website",
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${tournamentName} tournament on FussGoal`,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: `${tournamentName} Tournament Fixtures, Standings and Live Scores`,
       description,
+      images: [imageUrl],
     },
   };
 }

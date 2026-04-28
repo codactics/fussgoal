@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, use, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../../../../../../../../components/Navbar";
 import styles from "../../../../../page.module.css";
@@ -12,6 +12,8 @@ import {
   formatMatchClock,
   getFixtureByIndexes,
   getFixtureKey,
+  getPenaltyShootoutScore,
+  getPenaltyShootoutWinnerSide,
 } from "../../../../../../../../components/manageTournamentUtils";
 
 const MATCH_ACTIONS = [
@@ -28,6 +30,16 @@ const MATCH_ACTIONS = [
   { value: "corner", label: "Corner", emoji: "🚩" },
   { value: "other", label: "Other", emoji: "📝" },
 ];
+const MVP_ACTION = { value: "mvp", label: "MVP", emoji: "⭐" };
+const MANUAL_MATCH_ACTIONS = [...MATCH_ACTIONS, MVP_ACTION];
+
+const PENALTY_ACTIONS = [
+  { value: "", label: "---" },
+  { value: "goal", label: "Goal" },
+  { value: "miss", label: "Miss" },
+];
+
+const INITIAL_PENALTY_ROWS = 2;
 
 function normalizeTelecastUrl(value) {
   const rawValue = String(value || "").trim();
@@ -49,6 +61,19 @@ function normalizeTelecastUrl(value) {
   } catch {
     return "";
   }
+}
+
+function createEmptyPenaltyRow() {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    subjectKey: "",
+    action: "",
+    note: "",
+  };
+}
+
+function createInitialPenaltyRows() {
+  return Array.from({ length: INITIAL_PENALTY_ROWS }, createEmptyPenaltyRow);
 }
 
 export default function AdminFixturePage({ params }) {
@@ -88,6 +113,9 @@ export default function AdminFixturePage({ params }) {
     clock: "",
   });
   const [savedMatchEvents, setSavedMatchEvents] = useState([]);
+  const [penaltyRows, setPenaltyRows] = useState(() => createInitialPenaltyRows());
+  const [isPenaltyShootoutFinished, setIsPenaltyShootoutFinished] = useState(false);
+  const [isSavingPenaltyShootout, setIsSavingPenaltyShootout] = useState(false);
   const [editingMatchEventId, setEditingMatchEventId] = useState(null);
   const [matchStatusMessage, setMatchStatusMessage] = useState("");
   const [isResettingMatch, setIsResettingMatch] = useState(false);
@@ -279,6 +307,20 @@ export default function AdminFixturePage({ params }) {
       Number.isFinite(savedStatus?.runningStartedAt) ? savedStatus.runningStartedAt : null
     );
     setSavedMatchEvents(Array.isArray(savedStatus?.events) ? savedStatus.events : []);
+    const savedPenaltyEntries = Array.isArray(savedStatus?.penaltyShootout?.entries)
+      ? savedStatus.penaltyShootout.entries
+      : [];
+    const nextPenaltyRows = savedPenaltyEntries.map((entry, entryIndex) => ({
+      id: String(entry?.id || `penalty-${entryIndex + 1}`),
+      subjectKey: String(entry?.subjectKey || ""),
+      action: entry?.action === "goal" || entry?.action === "miss" ? entry.action : "",
+      note: String(entry?.note || ""),
+    }));
+    while (nextPenaltyRows.length < INITIAL_PENALTY_ROWS) {
+      nextPenaltyRows.push(createEmptyPenaltyRow());
+    }
+    setPenaltyRows(nextPenaltyRows.slice(0, 30));
+    setIsPenaltyShootoutFinished(Boolean(savedStatus?.penaltyShootout?.finished));
     setSystemMoments({
       kickoff: Number.isFinite(savedStatus?.systemMoments?.kickoff)
         ? savedStatus.systemMoments.kickoff
@@ -342,6 +384,10 @@ export default function AdminFixturePage({ params }) {
           ? savedStatus.goalScore
           : { home: 0, away: 0 },
       events: Array.isArray(savedStatus?.events) ? savedStatus.events : [],
+      penaltyShootout: {
+        entries: savedPenaltyEntries,
+        finished: Boolean(savedStatus?.penaltyShootout?.finished),
+      },
       systemMoments: {
         kickoff: Number.isFinite(savedStatus?.systemMoments?.kickoff)
           ? savedStatus.systemMoments.kickoff
@@ -401,6 +447,31 @@ export default function AdminFixturePage({ params }) {
     return score;
   }
 
+  function getPreparedPenaltyEntries(rows = penaltyRows) {
+    return rows
+      .map((row, rowIndex) => {
+        const meta = getSubjectMeta(row.subjectKey);
+        return {
+          id: String(row.id || `penalty-${rowIndex + 1}`),
+          subjectKey: String(row.subjectKey || ""),
+          subjectLabel: meta?.playerName || "",
+          teamName: meta?.teamName || "",
+          action: row.action === "goal" || row.action === "miss" ? row.action : "",
+          note: String(row.note || "").trim(),
+          order: rowIndex + 1,
+        };
+      })
+      .filter((entry) => entry.subjectKey && entry.teamName && entry.action);
+  }
+
+  function buildPenaltyShootoutSnapshot(override = {}) {
+    return {
+      entries: getPreparedPenaltyEntries(),
+      finished: isPenaltyShootoutFinished,
+      ...override,
+    };
+  }
+
   function buildMatchStatusSnapshot(snapshotOverride = {}) {
     return {
       homeTeam: fixture?.home || "",
@@ -413,6 +484,7 @@ export default function AdminFixturePage({ params }) {
       clockSeconds: getCurrentElapsedSeconds(),
       goalScore: getGoalScore(),
       events: savedMatchEvents,
+      penaltyShootout: buildPenaltyShootoutSnapshot(),
       systemMoments,
       updatedAt: new Date().toISOString(),
       ...snapshotOverride,
@@ -591,7 +663,12 @@ export default function AdminFixturePage({ params }) {
   }
 
   function handleEndMatch() {
-    if (!isTournamentLaunched) {
+    if (!isTournamentLaunched || matchStatus === "ended") {
+      return;
+    }
+
+    const confirmed = window.confirm("Do you really want to End the match?");
+    if (!confirmed) {
       return;
     }
 
@@ -612,6 +689,57 @@ export default function AdminFixturePage({ params }) {
     });
   }
 
+  function updatePenaltyRow(rowId, field, value) {
+    setPenaltyRows((currentRows) =>
+      currentRows.map((row) => (row.id === rowId ? { ...row, [field]: value } : row))
+    );
+    if (isPenaltyShootoutFinished) {
+      setIsPenaltyShootoutFinished(false);
+    }
+  }
+
+  function addPenaltyRow() {
+    setPenaltyRows((currentRows) =>
+      currentRows.length >= 30 ? currentRows : [...currentRows, createEmptyPenaltyRow()]
+    );
+    if (isPenaltyShootoutFinished) {
+      setIsPenaltyShootoutFinished(false);
+    }
+  }
+
+  async function savePenaltyShootout(finished = false) {
+    if (!isTournamentLaunched || !fixture) {
+      return;
+    }
+
+    const entries = getPreparedPenaltyEntries();
+    if (!entries.length) {
+      setMatchStatusMessage("Add at least one penalty shootout entry.");
+      return;
+    }
+
+    const nextPenaltyShootout = {
+      entries,
+      finished,
+    };
+    const nextPenaltyRows = entries.map((entry) => ({
+      id: entry.id,
+      subjectKey: entry.subjectKey,
+      action: entry.action,
+      note: entry.note,
+    }));
+
+    setIsSavingPenaltyShootout(true);
+    setMatchStatusMessage("");
+    setPenaltyRows(nextPenaltyRows.length >= 5 ? nextPenaltyRows : [...nextPenaltyRows, ...createInitialPenaltyRows()].slice(0, 5));
+    setIsPenaltyShootoutFinished(finished);
+    await persistMatchStatusSnapshot({
+      penaltyShootout: nextPenaltyShootout,
+      goalScore: getGoalScore(),
+    });
+    setIsSavingPenaltyShootout(false);
+  }
+
   const displayedClock = useMemo(() => {
     if (matchStatus === "ended") {
       return formatMatchClock(totalDurationSeconds);
@@ -622,6 +750,26 @@ export default function AdminFixturePage({ params }) {
   const displayScheduledDate =
     scheduledDate || fixture?.date || tournament?.data?.settings?.startDate || tournament?.startDate || "TBD";
   const displayScheduledTime = scheduledTime || fixture?.time || "TBD";
+  const goalScore = useMemo(
+    () => getGoalScore(savedMatchEvents),
+    [fixture?.away, fixture?.home, savedMatchEvents]
+  );
+  const isFullTimeDraw = matchStatus === "ended" && goalScore.home === goalScore.away;
+  const currentPenaltyShootout = useMemo(
+    () => ({
+      homeTeam: fixture?.home || "",
+      awayTeam: fixture?.away || "",
+      penaltyShootout: buildPenaltyShootoutSnapshot(),
+    }),
+    [fixture?.away, fixture?.home, isPenaltyShootoutFinished, penaltyRows]
+  );
+  const penaltyScore = useMemo(
+    () => getPenaltyShootoutScore(currentPenaltyShootout),
+    [currentPenaltyShootout]
+  );
+  const penaltyWinnerSide = getPenaltyShootoutWinnerSide(currentPenaltyShootout);
+  const draftPenaltyWinnerSide =
+    penaltyScore.home > penaltyScore.away ? "home" : penaltyScore.away > penaltyScore.home ? "away" : "";
 
   async function saveFixtureSchedule() {
     if (!tournamentRef.current) {
@@ -934,7 +1082,7 @@ export default function AdminFixturePage({ params }) {
       return "Full Time";
     }
 
-    const actionMeta = MATCH_ACTIONS.find((action) => action.value === entry.action);
+    const actionMeta = MANUAL_MATCH_ACTIONS.find((action) => action.value === entry.action);
     const subjectMeta = getSubjectMeta(entry.subjectKey);
     const playerName = String(entry.subjectLabel || subjectMeta?.playerName || "");
     const teamName = String(entry.teamName || subjectMeta?.teamName || "");
@@ -964,11 +1112,6 @@ export default function AdminFixturePage({ params }) {
 
     return `${actionMeta.emoji} ${actionMeta.label.toUpperCase()} ${playerName} ${teamName}`;
   }
-
-  const goalScore = useMemo(
-    () => getGoalScore(savedMatchEvents),
-    [fixture?.away, fixture?.home, savedMatchEvents, lineupPlayerOptions]
-  );
 
   const timelineEntries = useMemo(() => {
     const systemEntries = [
@@ -1089,14 +1232,23 @@ export default function AdminFixturePage({ params }) {
       return;
     }
 
-    const parsedSeconds = parseManualClock(manualMatchEvent.clock);
+    const isMvpEvent = manualMatchEvent.action === MVP_ACTION.value;
 
-    if (parsedSeconds === null) {
+    if (isMvpEvent && matchStatus !== "ended") {
+      setMatchStatusMessage("MVP can be added after full time.");
+      return;
+    }
+
+    const parsedSeconds = isMvpEvent ? totalDurationSeconds : parseManualClock(manualMatchEvent.clock);
+
+    if (!isMvpEvent && parsedSeconds === null) {
       setMatchStatusMessage("Enter the manual match time as MM:SS, for example 10:00.");
       return;
     }
 
-    const clampedSeconds = Math.max(0, getClampedTime(parsedSeconds));
+    const clampedSeconds = isMvpEvent
+      ? totalDurationSeconds
+      : Math.max(0, getClampedTime(parsedSeconds));
 
     setIsSavingManualEvent(true);
     setMatchStatusMessage("");
@@ -1123,7 +1275,7 @@ export default function AdminFixturePage({ params }) {
         action: manualMatchEvent.action,
         note: manualMatchEvent.note.trim(),
         seconds: clampedSeconds,
-        half: getHalfForSeconds(clampedSeconds),
+        half: isMvpEvent ? "second" : getHalfForSeconds(clampedSeconds),
       };
 
       setSavedMatchEvents((currentEvents) => {
@@ -1191,6 +1343,10 @@ export default function AdminFixturePage({ params }) {
         clockSeconds: 0,
         goalScore: { home: 0, away: 0 },
         events: [],
+        penaltyShootout: {
+          entries: [],
+          finished: false,
+        },
         systemMoments: resetSystemMoments,
         updatedAt: new Date().toISOString(),
       };
@@ -1201,6 +1357,8 @@ export default function AdminFixturePage({ params }) {
       setRunningStartedAt(null);
       setTimerNow(Date.now());
       setSavedMatchEvents([]);
+      setPenaltyRows(createInitialPenaltyRows());
+      setIsPenaltyShootoutFinished(false);
       setSystemMoments(resetSystemMoments);
       setDraftMatchEvent({
         subjectKey: "",
@@ -1588,7 +1746,7 @@ export default function AdminFixturePage({ params }) {
                 </button>
                 <button
                   className={wizardStyles.pauseButton}
-                  disabled={!isTournamentLaunched}
+                  disabled={!isTournamentLaunched || matchStatus === "ended"}
                   onClick={handleEndMatch}
                   type="button"
                 >
@@ -1608,7 +1766,9 @@ export default function AdminFixturePage({ params }) {
                       {fixture.home.slice(0, 1)}
                     </div>
                   )}
-                  <span className={wizardStyles.liveScoreTeamName}>{fixture.home}</span>
+                  <span className={wizardStyles.liveScoreTeamName}>
+                    {fixture.home}{penaltyWinnerSide === "home" ? " *" : ""}
+                  </span>
                 </div>
 
                 <div className={wizardStyles.liveScoreCenterBlock}>
@@ -1629,6 +1789,11 @@ export default function AdminFixturePage({ params }) {
                   <div className={wizardStyles.liveGoalScoreValue}>
                     {goalScore.home}:{goalScore.away}
                   </div>
+                  {isPenaltyShootoutFinished ? (
+                    <div className={wizardStyles.resultMeta}>
+                      ({penaltyScore.home}:{penaltyScore.away})
+                    </div>
+                  ) : null}
                   <div className={wizardStyles.halfSlider} role="tablist" aria-label="Match half">
                     <button
                       aria-selected={selectedHalf === "first"}
@@ -1652,7 +1817,9 @@ export default function AdminFixturePage({ params }) {
                 </div>
 
                 <div className={wizardStyles.liveTeamBlock}>
-                  <span className={wizardStyles.liveScoreTeamName}>{fixture.away}</span>
+                  <span className={wizardStyles.liveScoreTeamName}>
+                    {fixture.away}{penaltyWinnerSide === "away" ? " *" : ""}
+                  </span>
                   {teamLogoMap[fixture.away] ? (
                     <img
                       alt={`${fixture.away} logo`}
@@ -1792,11 +1959,12 @@ export default function AdminFixturePage({ params }) {
                       setManualMatchEvent((current) => ({
                         ...current,
                         action: event.target.value,
+                        clock: event.target.value === MVP_ACTION.value ? "" : current.clock,
                       }))
                     }
                     value={manualMatchEvent.action}
                   >
-                    {MATCH_ACTIONS.map((action) => (
+                    {MANUAL_MATCH_ACTIONS.map((action) => (
                       <option key={`manual-action-${action.value}`} value={action.value}>
                         {action.label}
                       </option>
@@ -1804,7 +1972,11 @@ export default function AdminFixturePage({ params }) {
                   </select>
                   <input
                     className={wizardStyles.input}
-                    disabled={!isTournamentLaunched || isSavingManualEvent}
+                    disabled={
+                      !isTournamentLaunched ||
+                      isSavingManualEvent ||
+                      manualMatchEvent.action === MVP_ACTION.value
+                    }
                     onChange={(event) =>
                       setManualMatchEvent((current) => ({
                         ...current,
@@ -1824,7 +1996,7 @@ export default function AdminFixturePage({ params }) {
                         clock: event.target.value,
                       }))
                     }
-                    placeholder="10:00"
+                    placeholder={manualMatchEvent.action === MVP_ACTION.value ? "Full time" : "10:00"}
                     type="text"
                     value={manualMatchEvent.clock}
                   />
@@ -1840,7 +2012,7 @@ export default function AdminFixturePage({ params }) {
                 <p className={wizardStyles.status}>
                   {editingMatchEventId
                     ? "This event is in edit mode here. After full time, saving the update requires the admin password."
-                    : "Use this row to add a past match moment at any time. After full time, every manual entry requires the admin password."}
+                    : "Use this row to add a past match moment at any time. MVP can be saved after full time without a timing value."}
                 </p>
               </div>
 
@@ -1880,6 +2052,103 @@ export default function AdminFixturePage({ params }) {
                 ))}
               </div>
             </div>
+
+            {isFullTimeDraw ? (
+              <div className={wizardStyles.manageSectionCard}>
+                <h4 className={wizardStyles.manageSectionTitle}>Section 4: Penalty Shootout</h4>
+                <p className={wizardStyles.status}>
+                  Shootout score: {penaltyScore.home}:{penaltyScore.away}
+                  {draftPenaltyWinnerSide
+                    ? ` | Winner: ${draftPenaltyWinnerSide === "home" ? fixture.home : fixture.away}`
+                    : ""}
+                </p>
+                <div className={wizardStyles.penaltyShootoutGrid}>
+                  <div className={wizardStyles.matchStatusHead}>Player / Team</div>
+                  <div className={wizardStyles.matchStatusHead}>Action</div>
+                  <div className={wizardStyles.matchStatusHead}>Note</div>
+
+                  {penaltyRows.map((row) => (
+                    <Fragment key={row.id}>
+                      <select
+                        className={wizardStyles.select}
+                        disabled={!isTournamentLaunched || isSavingPenaltyShootout}
+                        onChange={(event) => updatePenaltyRow(row.id, "subjectKey", event.target.value)}
+                        value={row.subjectKey}
+                      >
+                        <option value="">Select player or team</option>
+                        <optgroup label={fixture.home}>
+                          {lineupPlayerOptions.homeOptions.map((player) => (
+                            <option key={`penalty-${row.id}-${player.key}`} value={player.key}>
+                              {player.type === "team" ? `${player.teamName} (Team)` : player.playerName}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label={fixture.away}>
+                          {lineupPlayerOptions.awayOptions.map((player) => (
+                            <option key={`penalty-${row.id}-${player.key}`} value={player.key}>
+                              {player.type === "team" ? `${player.teamName} (Team)` : player.playerName}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </select>
+                      <select
+                        className={wizardStyles.select}
+                        disabled={!isTournamentLaunched || isSavingPenaltyShootout}
+                        onChange={(event) => updatePenaltyRow(row.id, "action", event.target.value)}
+                        value={row.action}
+                      >
+                        {PENALTY_ACTIONS.map((action) => (
+                          <option key={`penalty-action-${row.id}-${action.value}`} value={action.value}>
+                            {action.label}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className={wizardStyles.input}
+                        disabled={!isTournamentLaunched || isSavingPenaltyShootout}
+                        onChange={(event) => updatePenaltyRow(row.id, "note", event.target.value)}
+                        placeholder="Small comment"
+                        type="text"
+                        value={row.note}
+                      />
+                    </Fragment>
+                  ))}
+                </div>
+                <div className={wizardStyles.lineupActions}>
+                  <button
+                    className={wizardStyles.secondaryButton}
+                    disabled={
+                      !isTournamentLaunched || isSavingPenaltyShootout || penaltyRows.length >= 30
+                    }
+                    onClick={addPenaltyRow}
+                    type="button"
+                  >
+                    Add shootout
+                  </button>
+                  <button
+                    className={wizardStyles.secondaryButton}
+                    disabled={!isTournamentLaunched || isSavingPenaltyShootout}
+                    onClick={() => void savePenaltyShootout(false)}
+                    type="button"
+                  >
+                    {isSavingPenaltyShootout ? "Saving..." : "Save Shootout"}
+                  </button>
+                  <button
+                    className={wizardStyles.primaryButton}
+                    disabled={
+                      !isTournamentLaunched ||
+                      isSavingPenaltyShootout ||
+                      !draftPenaltyWinnerSide ||
+                      isPenaltyShootoutFinished
+                    }
+                    onClick={() => void savePenaltyShootout(true)}
+                    type="button"
+                  >
+                    {isPenaltyShootoutFinished ? "Finished" : "Finish Shootout"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : !errorMessage ? (
           <div className={styles.headerCard}>

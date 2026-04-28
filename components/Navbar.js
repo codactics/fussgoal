@@ -10,6 +10,7 @@ import styles from "./Navbar.module.css";
 export default function Navbar() {
   const router = useRouter();
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
 
   useEffect(() => {
     async function loadAdminSession() {
@@ -31,6 +32,7 @@ export default function Navbar() {
         method: "POST",
       });
     } finally {
+      setIsAdminMenuOpen(false);
       setIsAdminAuthenticated(false);
       router.push("/admin");
       router.refresh();
@@ -50,20 +52,40 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {isAdminAuthenticated ? (
-          <div className={styles.adminActions}>
-            <Link className={styles.adminPanelButton} href="/admin/dashboard">
-              Admin Panel
-            </Link>
-            <button className={styles.loginButton} onClick={handleAdminLogout} type="button">
-              Admin Logout
-            </button>
-          </div>
-        ) : (
-          <Link className={styles.loginButton} href="/admin">
-            Admin Login
-          </Link>
-        )}
+        <div className={`${styles.adminMenu} ${isAdminMenuOpen ? styles.adminMenuOpen : ""}`}>
+          <button
+            aria-expanded={isAdminMenuOpen}
+            aria-label="Toggle admin menu"
+            className={styles.adminMenuToggle}
+            onClick={() => setIsAdminMenuOpen((current) => !current)}
+            type="button"
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+
+          {isAdminAuthenticated ? (
+            <div className={styles.adminActions}>
+              <Link
+                className={styles.adminPanelButton}
+                href="/admin/dashboard"
+                onClick={() => setIsAdminMenuOpen(false)}
+              >
+                Admin Panel
+              </Link>
+              <button className={styles.loginButton} onClick={handleAdminLogout} type="button">
+                Admin Logout
+              </button>
+            </div>
+          ) : (
+            <div className={styles.adminActions}>
+              <Link className={styles.loginButton} href="/admin" onClick={() => setIsAdminMenuOpen(false)}>
+                Admin Login
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

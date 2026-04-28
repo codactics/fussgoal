@@ -7,6 +7,8 @@ import {
   getFixtureStatusLabel,
   getMatchClockSeconds,
   getMatchScore,
+  getPenaltyShootoutScore,
+  getPenaltyShootoutWinnerSide,
   getTournamentFixtureSections,
 } from "./manageTournamentUtils";
 
@@ -22,6 +24,7 @@ const ACTION_LABELS = {
   "penalty-missed": "Penalty Missed",
   "free-kick": "Free Kick",
   corner: "Corner",
+  mvp: "MVP",
   other: "Other",
 };
 
@@ -228,6 +231,8 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
       const lineupRecord = matchLineups[fixtureKey] || null;
       const telecastRecord = matchTelecasts[fixtureKey] || null;
       const score = getMatchScore(statusRecord);
+      const penaltyScore = getPenaltyShootoutScore(statusRecord);
+      const penaltyWinnerSide = getPenaltyShootoutWinnerSide(statusRecord);
       const clockSeconds = statusRecord ? getMatchClockSeconds(statusRecord) : 0;
 
       return {
@@ -247,6 +252,8 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
         status: getFixtureStatusLabel(statusRecord) || "Upcoming",
         phaseLabel: getFixturePhaseLabel(statusRecord),
         score,
+        penaltyScore,
+        penaltyWinnerSide,
         clockSeconds,
         clockText: statusRecord ? formatMatchClock(clockSeconds) : "",
         statusRecord,
@@ -318,6 +325,9 @@ export function normalizeSavedTournament(record) {
     })),
   }));
   const normalizedFixtures = fixtureSections.flatMap((section) => section.matches);
+  const description = String(
+    record.description || payload.settings?.description || payload.description || ""
+  ).trim();
 
   return {
     id: record.id,
@@ -325,14 +335,12 @@ export function normalizeSavedTournament(record) {
     name: record.name,
     status: getTournamentDisplayStatus(startDate, endDate),
     matches: normalizedFixtures.length,
-    description:
-      record.tournamentType === "league"
-        ? "League tournament launched by the admin."
-        : "Group tournament launched by the admin.",
+    description,
     fixtures: normalizedFixtures,
     fixtureSections,
     groups: normalizedGroups,
     pointsTables: normalizedPointsTables,
+    overallSummary: payload.overallSummary || null,
     startDate,
     endDate,
     tournamentType: record.tournamentType,

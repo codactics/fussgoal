@@ -52,6 +52,7 @@
 .summaryCard,
 .detailsCard,
 .telecastCard,
+.mvpCard,
 .lineupCard,
 .notFoundCard,
 .eventCard {
@@ -70,6 +71,7 @@
 
 .detailsCard,
 .telecastCard,
+.mvpCard,
 .lineupCard {
   margin-top: 1.5rem;
   padding: 1.5rem;
@@ -648,6 +650,54 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.mvpCard {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mvpCard .sectionTitle {
+  margin-bottom: 0;
+}
+
+.mvpList {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mvpRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  background: #f5f8f6;
+}
+
+.mvpBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(15, 106, 76, 0.12);
+  color: #0d6b4d;
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.mvpName {
+  color: #10241d;
+  font-weight: 900;
+}
+
+.mvpTeam,
+.mvpNote {
+  color: #41524b;
+  font-weight: 700;
 }
 
 .lineupColumn {
