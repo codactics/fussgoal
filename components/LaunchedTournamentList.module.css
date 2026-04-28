@@ -115,6 +115,11 @@
   color: #0d6b4d;
 }
 
+.statusUpcoming {
+  background: rgba(25, 103, 210, 0.12);
+  color: #174ea6;
+}
+
 .statusPast {
   background: rgba(219, 47, 62, 0.12);
   color: #b51f31;

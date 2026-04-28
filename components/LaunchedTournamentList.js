@@ -11,12 +11,27 @@ import {
 
 const SAVED_TOURNAMENTS_EVENT = "saved-tournaments-updated";
 
-function getTournamentBucket(endDate) {
-  return getTournamentDisplayStatus("", endDate) === "Past" ? "past" : "ongoing";
+function getTournamentBucket(startDate, endDate) {
+  const displayStatus = getTournamentDisplayStatus(startDate, endDate);
+
+  if (displayStatus === "Past") {
+    return "past";
+  }
+
+  if (displayStatus === "Upcoming") {
+    return "upcoming";
+  }
+
+  return "ongoing";
 }
 
 function renderTournamentCard(tournament) {
-  const statusLabel = tournament.bucket === "ongoing" ? "Running" : "Ended";
+  const statusLabel =
+    tournament.bucket === "ongoing"
+      ? "Running"
+      : tournament.bucket === "upcoming"
+        ? "Upcoming"
+        : "Ended";
   const tournamentLogoUrl = getStoredImageUrl(
     tournament.tournamentLogo || tournament.data?.tournamentLogo
   );
@@ -36,7 +51,11 @@ function renderTournamentCard(tournament) {
         </div>
         <span
           className={`${styles.statusPill} ${
-            tournament.bucket === "ongoing" ? styles.statusLive : styles.statusPast
+            tournament.bucket === "ongoing"
+              ? styles.statusLive
+              : tournament.bucket === "upcoming"
+                ? styles.statusUpcoming
+                : styles.statusPast
           }`}
         >
           {statusLabel}
@@ -91,7 +110,7 @@ export default function LaunchedTournamentList({ initialTournaments = [] }) {
           .map((tournament) => ({
             ...tournament,
             slug: createLaunchedTournamentSlug(tournament.id),
-            bucket: getTournamentBucket(tournament.endDate),
+            bucket: getTournamentBucket(tournament.startDate, tournament.endDate),
           }));
         setTournaments(launchedTournaments);
       } catch {
@@ -108,9 +127,10 @@ export default function LaunchedTournamentList({ initialTournaments = [] }) {
   }, []);
 
   const ongoingTournaments = tournaments.filter((tournament) => tournament.bucket === "ongoing");
+  const upcomingTournaments = tournaments.filter((tournament) => tournament.bucket === "upcoming");
   const pastTournaments = tournaments.filter((tournament) => tournament.bucket === "past");
 
-  if (!ongoingTournaments.length && !pastTournaments.length) {
+  if (!ongoingTournaments.length && !upcomingTournaments.length && !pastTournaments.length) {
     return null;
   }
 
@@ -129,6 +149,22 @@ export default function LaunchedTournamentList({ initialTournaments = [] }) {
           </div>
 
           <div className={styles.grid}>{ongoingTournaments.map(renderTournamentCard)}</div>
+        </section>
+      ) : null}
+
+      {upcomingTournaments.length ? (
+        <section className={styles.section}>
+          <div className={styles.header}>
+            <div>
+              <p className={styles.eyebrow}>Visible Soon</p>
+              <h2 className={styles.heading}>Upcoming Tournaments</h2>
+            </div>
+            <p className={styles.description}>
+              Tournaments launched by admin but scheduled for a future start date.
+            </p>
+          </div>
+
+          <div className={styles.grid}>{upcomingTournaments.map(renderTournamentCard)}</div>
         </section>
       ) : null}
 

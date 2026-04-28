@@ -356,7 +356,14 @@ export default function AdminFixturePage({ params }) {
         : "none"
     );
     setTelecastBottomScore(Boolean(savedTelecast?.bottomScore));
-    setScheduledDate(String(fixture?.date || ""));
+    setScheduledDate(
+      String(
+        fixture?.date ||
+          tournament?.data?.settings?.startDate ||
+          tournament?.startDate ||
+          ""
+      )
+    );
     setScheduledTime(String(fixture?.time || ""));
     setEditingMatchEventId(null);
     setMatchStatusMessage("");

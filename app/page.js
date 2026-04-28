@@ -28,8 +28,18 @@ export const metadata = {
   },
 };
 
-function getTournamentBucket(endDate) {
-  return getTournamentDisplayStatus("", endDate) === "Past" ? "past" : "ongoing";
+function getTournamentBucket(startDate, endDate) {
+  const displayStatus = getTournamentDisplayStatus(startDate, endDate);
+
+  if (displayStatus === "Past") {
+    return "past";
+  }
+
+  if (displayStatus === "Upcoming") {
+    return "upcoming";
+  }
+
+  return "ongoing";
 }
 
 function SocialIcon({ platform }) {
@@ -70,7 +80,7 @@ export default async function HomePage() {
   const initialTournaments = launchedTournaments.map((tournament) => ({
     ...tournament,
     slug: createLaunchedTournamentSlug(tournament.id),
-    bucket: getTournamentBucket(tournament.endDate),
+    bucket: getTournamentBucket(tournament.startDate, tournament.endDate),
   }));
   const structuredData = {
     "@context": "https://schema.org",
