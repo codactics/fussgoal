@@ -10,6 +10,7 @@ import {
 } from "./launchedTournamentUtils";
 
 const SAVED_TOURNAMENTS_EVENT = "saved-tournaments-updated";
+const LAUNCHED_TOURNAMENT_LIST_REFRESH_MS = 2000;
 
 function getTournamentBucket(startDate, endDate) {
   const displayStatus = getTournamentDisplayStatus(startDate, endDate);
@@ -93,12 +94,18 @@ export default function LaunchedTournamentList({ initialTournaments = [] }) {
   const [tournaments, setTournaments] = useState(initialTournaments);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function loadTournaments() {
       try {
         const response = await fetch("/api/tournaments?launchedOnly=true", {
           cache: "no-store",
         });
         const result = await response.json();
+
+        if (!isMounted) {
+          return;
+        }
 
         if (!response.ok) {
           setTournaments([]);
@@ -114,15 +121,23 @@ export default function LaunchedTournamentList({ initialTournaments = [] }) {
           }));
         setTournaments(launchedTournaments);
       } catch {
-        setTournaments([]);
+        if (isMounted) {
+          setTournaments([]);
+        }
       }
     }
 
     loadTournaments();
     window.addEventListener(SAVED_TOURNAMENTS_EVENT, loadTournaments);
+    const intervalId = window.setInterval(
+      loadTournaments,
+      LAUNCHED_TOURNAMENT_LIST_REFRESH_MS
+    );
 
     return () => {
+      isMounted = false;
       window.removeEventListener(SAVED_TOURNAMENTS_EVENT, loadTournaments);
+      window.clearInterval(intervalId);
     };
   }, []);
 

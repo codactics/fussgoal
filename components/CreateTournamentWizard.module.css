@@ -1406,6 +1406,44 @@
   margin-top: 1rem;
 }
 
+.confirmCancelButton,
+.confirmOkButton {
+  min-height: 48px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.9rem 1.3rem;
+  color: #ffffff;
+  font-size: 0.98rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.confirmCancelButton {
+  background: #db2f3e;
+  box-shadow: 0 12px 24px rgba(219, 47, 62, 0.24);
+}
+
+.confirmCancelButton:hover {
+  transform: translateY(-2px);
+  background: #b51f31;
+  box-shadow: 0 16px 28px rgba(181, 31, 49, 0.28);
+}
+
+.confirmOkButton {
+  background: #0f8f63;
+  box-shadow: 0 12px 24px rgba(15, 143, 99, 0.24);
+}
+
+.confirmOkButton:hover {
+  transform: translateY(-2px);
+  background: #0a7350;
+  box-shadow: 0 16px 28px rgba(10, 115, 80, 0.28);
+}
+
 @media (max-width: 640px) {
   .emptyCard,
   .formCard,
