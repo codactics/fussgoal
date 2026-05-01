@@ -1,6 +1,6 @@
 import styles from "./GroupCard.module.css";
 
-export default function GroupCard({ group }) {
+export default function GroupCard({ group, onTeamSelect }) {
   return (
     <article className={styles.card}>
       <h3 className={styles.name}>{group.name}</h3>
@@ -14,7 +14,17 @@ export default function GroupCard({ group }) {
                 {team.logo ? (
                   <img alt={`${team.name} logo`} className={styles.teamLogo} src={team.logo} />
                 ) : null}
-                <span>{team.name}</span>
+                {onTeamSelect ? (
+                  <button
+                    className={styles.teamButton}
+                    onClick={() => onTeamSelect(team)}
+                    type="button"
+                  >
+                    {team.name}
+                  </button>
+                ) : (
+                  <span>{team.name}</span>
+                )}
               </div>
             )}
           </li>

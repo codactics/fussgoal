@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import codacticsGif from "../logo/codactics.gif";
+import TeamSquadModal from "./TeamSquadModal";
 import { formatMatchClock, getMatchClockSeconds } from "./manageTournamentUtils";
 import styles from "./FixtureDetailModal.module.css";
 
@@ -86,6 +87,7 @@ export default function FixtureDetailModal({ fixture, onClose }) {
   const [timerNow, setTimerNow] = useState(Date.now());
   const [changedSide, setChangedSide] = useState("");
   const [shareMessage, setShareMessage] = useState("");
+  const [activeSquadSide, setActiveSquadSide] = useState("");
   const previousScoreRef = useRef(`${fixture?.score?.home ?? 0}:${fixture?.score?.away ?? 0}`);
   const telecastFrameWrapRef = useRef(null);
   const displayStatus = getFixtureDisplayStatus(fixture);
@@ -183,6 +185,16 @@ export default function FixtureDetailModal({ fixture, onClose }) {
   const timelineEntries = Array.isArray(fixture?.timelineEntries) ? fixture.timelineEntries : [];
   const mvpEntries = timelineEntries.filter((entry) => entry?.action === "mvp");
   const matchHistoryEntries = timelineEntries.filter((entry) => entry?.action !== "mvp");
+  const activeSquad =
+    activeSquadSide === "home"
+      ? fixture?.teamSquads?.home
+      : activeSquadSide === "away"
+        ? fixture?.teamSquads?.away
+        : null;
+  const activeSquadTeamName =
+    activeSquadSide === "home" ? fixture?.homeTeam : activeSquadSide === "away" ? fixture?.awayTeam : "";
+  const activeSquadLogo =
+    activeSquadSide === "home" ? fixture?.homeLogo : activeSquadSide === "away" ? fixture?.awayLogo : "";
 
   async function handleTelecastFullscreen() {
     const telecastFrameWrap = telecastFrameWrapRef.current;
@@ -241,6 +253,10 @@ export default function FixtureDetailModal({ fixture, onClose }) {
     setShareMessage("");
   }, [fixture?.id]);
 
+  useEffect(() => {
+    setActiveSquadSide("");
+  }, [fixture?.id]);
+
   if (!fixture) {
     return null;
   }
@@ -287,9 +303,13 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             ) : (
               <span className={styles.teamLogoFallback}>{fixture.homeTeam?.slice(0, 1) || "H"}</span>
             )}
-            <span className={styles.teamName}>
+            <button
+              className={styles.teamNameButton}
+              onClick={() => setActiveSquadSide("home")}
+              type="button"
+            >
               {fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}
-            </span>
+            </button>
           </div>
           <div className={styles.centerBlock}>
             {showGoalEffect ? <div className={styles.goalBanner}>GOAL!</div> : null}
@@ -327,9 +347,13 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             ) : (
               <span className={styles.teamLogoFallback}>{fixture.awayTeam?.slice(0, 1) || "A"}</span>
             )}
-            <span className={styles.teamName}>
+            <button
+              className={styles.teamNameButton}
+              onClick={() => setActiveSquadSide("away")}
+              type="button"
+            >
               {fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}
-            </span>
+            </button>
           </div>
         </div>
 
@@ -590,7 +614,13 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             <div className={styles.lineupGrid}>
               <div className={styles.lineupTeamCard}>
                 <div className={styles.lineupTeamHeader}>
-                  <p className={styles.lineupTitle}>{fixture.homeTeam}</p>
+                  <button
+                    className={styles.lineupTitleButton}
+                    onClick={() => setActiveSquadSide("home")}
+                    type="button"
+                  >
+                    {fixture.homeTeam}
+                  </button>
                 </div>
                 <div className={styles.lineupTeamBody}>
                   <div className={styles.lineupPlayersList}>
@@ -609,7 +639,13 @@ export default function FixtureDetailModal({ fixture, onClose }) {
               </div>
               <div className={styles.lineupTeamCard}>
                 <div className={styles.lineupTeamHeader}>
-                  <p className={styles.lineupTitle}>{fixture.awayTeam}</p>
+                  <button
+                    className={styles.lineupTitleButton}
+                    onClick={() => setActiveSquadSide("away")}
+                    type="button"
+                  >
+                    {fixture.awayTeam}
+                  </button>
                 </div>
                 <div className={styles.lineupTeamBody}>
                   <div className={styles.lineupPlayersList}>
@@ -648,6 +684,14 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             )}
           </section>
         </div>
+        {activeSquadSide ? (
+          <TeamSquadModal
+            logo={activeSquadLogo}
+            onClose={() => setActiveSquadSide("")}
+            squad={activeSquad}
+            teamName={activeSquadTeamName}
+          />
+        ) : null}
       </div>
     </div>
   );

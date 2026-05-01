@@ -158,48 +158,40 @@ export default async function HomePage() {
 
       <section className={styles.socialSection} aria-label="CODACTICS social media">
         <div className={styles.socialSectionInner}>
+          <p className={styles.socialPrompt}>Follow and subscribe us in:</p>
           <a
             className={`${styles.socialCard} ${styles.facebookCard}`}
             href="https://www.facebook.com/Codactics"
+            aria-label="Follow CODACTICS on Facebook"
             target="_blank"
             rel="noreferrer"
           >
             <span className={styles.socialIcon}>
               <SocialIcon platform="facebook" />
             </span>
-            <span className={styles.socialText}>
-              <strong>Facebook</strong>
-              <span>Follow CODACTICS</span>
-            </span>
           </a>
 
           <a
             className={`${styles.socialCard} ${styles.instagramCard}`}
             href="https://www.instagram.com/codactics"
+            aria-label="Follow CODACTICS on Instagram"
             target="_blank"
             rel="noreferrer"
           >
             <span className={styles.socialIcon}>
               <SocialIcon platform="instagram" />
             </span>
-            <span className={styles.socialText}>
-              <strong>Instagram</strong>
-              <span>See updates and highlights</span>
-            </span>
           </a>
 
           <a
             className={`${styles.socialCard} ${styles.youtubeCard}`}
             href="https://www.youtube.com/@Codactics"
+            aria-label="Subscribe to CODACTICS on YouTube"
             target="_blank"
             rel="noreferrer"
           >
             <span className={styles.socialIcon}>
               <SocialIcon platform="youtube" />
-            </span>
-            <span className={styles.socialText}>
-              <strong>YouTube</strong>
-              <span>Subscribe for videos</span>
             </span>
           </a>
         </div>

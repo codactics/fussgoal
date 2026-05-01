@@ -160,6 +160,31 @@
   color: #10241d;
 }
 
+.teamNameButton,
+.lineupTitleButton {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #10241d;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+}
+
+.teamNameButton {
+  font-size: 1.1rem;
+}
+
+.teamNameButton:hover,
+.teamNameButton:focus-visible,
+.lineupTitleButton:hover,
+.lineupTitleButton:focus-visible {
+  color: #0f6a4c;
+  text-decoration: underline;
+}
+
 .centerBlock {
   display: grid;
   gap: 0.35rem;
@@ -887,6 +912,10 @@
 .lineupTitle {
   font-weight: 800;
   color: #10241d;
+}
+
+.lineupTitleButton {
+  font-size: 1rem;
 }
 
 .lineupRow,

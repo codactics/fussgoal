@@ -4,10 +4,12 @@ import { useState } from "react";
 import FixtureCard from "./FixtureCard";
 import GroupCard from "./GroupCard";
 import PointsTable from "./PointsTable";
+import TeamSquadModal from "./TeamSquadModal";
 import styles from "./TournamentPanels.module.css";
 
 export default function TournamentPanels({ tournament, onFixtureSelect }) {
   const [openPanels, setOpenPanels] = useState([]);
+  const [selectedTeam, setSelectedTeam] = useState(null);
   const fixtureSections =
     tournament.fixtureSections?.length
       ? tournament.fixtureSections
@@ -54,18 +56,25 @@ export default function TournamentPanels({ tournament, onFixtureSelect }) {
 
     if (panelKey === "groups") {
       return (
-        <div className={styles.groupGrid}>
-          {tournament.groups.map((group) => (
-            <GroupCard key={group.name} group={group} />
-          ))}
-        </div>
+        <>
+          <div className={styles.groupGrid}>
+            {tournament.groups.map((group) => (
+              <GroupCard key={group.name} group={group} onTeamSelect={setSelectedTeam} />
+            ))}
+          </div>
+        </>
       );
     }
 
     return (
       <div className={styles.pointsGrid}>
         {tournament.pointsTables.map((groupTable) => (
-          <PointsTable key={groupTable.name} rows={groupTable.rows} title={groupTable.name} />
+          <PointsTable
+            key={groupTable.name}
+            onTeamSelect={setSelectedTeam}
+            rows={groupTable.rows}
+            title={groupTable.name}
+          />
         ))}
       </div>
     );
@@ -124,6 +133,15 @@ export default function TournamentPanels({ tournament, onFixtureSelect }) {
             );
           })}
         </div>
+      ) : null}
+
+      {selectedTeam ? (
+        <TeamSquadModal
+          logo={selectedTeam.logo}
+          onClose={() => setSelectedTeam(null)}
+          squad={selectedTeam.squad}
+          teamName={selectedTeam.name}
+        />
       ) : null}
     </section>
   );

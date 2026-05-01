@@ -70,17 +70,25 @@
 .socialSectionInner {
   max-width: 1200px;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.socialPrompt {
+  margin: 0;
+  color: #10241d;
+  font-size: 0.95rem;
+  font-weight: 800;
 }
 
 .socialCard {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.68rem 0.8rem;
-  border-radius: 16px;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 50%;
   border: 1px solid rgba(19, 32, 27, 0.08);
   color: #f7fbf8;
   box-shadow: 0 18px 32px rgba(16, 34, 27, 0.12);
@@ -113,33 +121,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.14);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
   flex-shrink: 0;
 }
 
 .socialIcon svg {
   width: 1.2rem;
   height: 1.2rem;
-}
-
-.socialText {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
-}
-
-.socialText strong {
-  font-size: 0.9rem;
-}
-
-.socialText span {
-  color: rgba(247, 251, 248, 0.82);
-  font-size: 0.8rem;
-  line-height: 1.35;
 }
 
 .content {
@@ -181,11 +171,12 @@
   }
 
   .socialSectionInner {
-    grid-template-columns: 1fr;
+    flex-wrap: wrap;
   }
 
   .socialCard {
-    padding: 0.95rem 1rem;
+    width: 2.7rem;
+    height: 2.7rem;
   }
 
   .content {

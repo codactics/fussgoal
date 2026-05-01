@@ -1,6 +1,6 @@
 import styles from "./PointsTable.module.css";
 
-export default function PointsTable({ rows, title = "Group A" }) {
+export default function PointsTable({ onTeamSelect, rows, title = "Group A" }) {
   return (
     <div className={styles.card}>
       <h3 className={styles.title}>{title}</h3>
@@ -34,7 +34,25 @@ export default function PointsTable({ rows, title = "Group A" }) {
                     </div>
                   )}
                 </td>
-                <td className={styles.team}>{row.team}</td>
+                <td className={styles.team}>
+                  {onTeamSelect ? (
+                    <button
+                      className={styles.teamButton}
+                      onClick={() =>
+                        onTeamSelect({
+                          logo: row.logo,
+                          name: row.team,
+                          squad: row.squad,
+                        })
+                      }
+                      type="button"
+                    >
+                      {row.team}
+                    </button>
+                  ) : (
+                    row.team
+                  )}
+                </td>
                 <td className={styles.points}>{row.points}</td>
                 <td>{row.played}</td>
                 <td>{row.won ?? row.wins ?? 0}</td>
