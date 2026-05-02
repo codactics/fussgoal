@@ -76,6 +76,24 @@
   color: #10241d;
 }
 
+.teamButton {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+
+.teamButton:hover,
+.teamButton:focus-visible {
+  color: #0f6a4c;
+  text-decoration: underline;
+}
+
 .teamLogo {
   width: 2rem;
   height: 2rem;

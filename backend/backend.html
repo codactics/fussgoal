@@ -201,9 +201,76 @@
         color: #c44d3b;
         text-decoration: none;
       }
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        background: rgba(10, 20, 16, 0.56);
+      }
+      .modal-overlay.active {
+        display: flex;
+      }
+      .modal-card {
+        width: min(100%, 30rem);
+        padding: 1.5rem;
+        border: 1px solid rgba(19, 32, 27, 0.1);
+        border-radius: 24px;
+        background: #ffffff;
+        box-shadow: 0 24px 60px rgba(9, 28, 22, 0.18);
+      }
+      .modal-card h3 {
+        margin: 0;
+        color: #13201b;
+        font-size: 1.2rem;
+      }
+      .modal-card p {
+        margin: 0.85rem 0 1rem;
+        color: #4d5c55;
+        line-height: 1.6;
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 1rem;
+      }
+      .modal-ok {
+        min-height: 48px;
+        border: 0;
+        border-radius: 999px;
+        padding: 0.9rem 1.3rem;
+        background: #0f8f63;
+        color: #ffffff;
+        font-size: 0.98rem;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 12px 24px rgba(15, 143, 99, 0.24);
+        transition:
+          transform 180ms ease,
+          background-color 180ms ease,
+          box-shadow 180ms ease;
+      }
+      .modal-ok:hover {
+        transform: translateY(-2px);
+        background: #0a7350;
+        box-shadow: 0 16px 28px rgba(10, 115, 80, 0.28);
+      }
     </style>
   </head>
   <body>
+    <div class="modal-overlay" id="message-modal" aria-modal="true" role="dialog">
+      <div class="modal-card">
+        <h3 id="message-modal-title">Notice</h3>
+        <p id="message-modal-text"></p>
+        <div class="modal-actions">
+          <button class="modal-ok" id="message-modal-ok" type="button">OK</button>
+        </div>
+      </div>
+    </div>
     <main>
       <h1>Backend Page</h1>
       <p>This page will connect to the frontend when you provide the logic.</p>
@@ -360,6 +427,33 @@
       </p>
     </main>
     <script>
+      const messageModal = document.getElementById("message-modal");
+      const messageModalText = document.getElementById("message-modal-text");
+      const messageModalOk = document.getElementById("message-modal-ok");
+
+      const showMessageModal = (message, title = "Notice") => {
+        document.getElementById("message-modal-title").textContent = title;
+        messageModalText.textContent = message;
+        messageModal.classList.add("active");
+        messageModalOk.focus();
+      };
+
+      const closeMessageModal = () => {
+        messageModal.classList.remove("active");
+      };
+
+      messageModalOk.addEventListener("click", closeMessageModal);
+      messageModal.addEventListener("click", (event) => {
+        if (event.target === messageModal) {
+          closeMessageModal();
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && messageModal.classList.contains("active")) {
+          closeMessageModal();
+        }
+      });
+
       const teamCountInput = document.getElementById("team-count");
       const teamRows = document.getElementById("team-rows");
 
@@ -853,7 +947,7 @@
           10
         );
         if (!groupCount || groupCount < 2) {
-          alert("Please enter a valid number of groups (min 2).");
+          showMessageModal("Please enter a valid number of groups (min 2).");
           return;
         }
 
@@ -866,11 +960,11 @@
 
         let teams = getTeamNames();
         if (teams.length === 0) {
-          alert("Please enter at least one team name.");
+          showMessageModal("Please enter at least one team name.");
           return;
         }
         if (teams.length < groupCount) {
-          alert("Total teams (N) must be at least the number of groups (X).");
+          showMessageModal("Total teams (N) must be at least the number of groups (X).");
           return;
         }
         if (assignMode === "auto") {
@@ -884,7 +978,7 @@
             0
           );
           if (assignedCount !== teams.length) {
-            alert("Please assign all team names to a group.");
+            showMessageModal("Please assign all team names to a group.");
             return;
           }
         }
@@ -897,7 +991,7 @@
         .getElementById("generate-fixtures")
         .addEventListener("click", () => {
           if (!currentGroups.length) {
-            alert("Please generate groups first.");
+            showMessageModal("Please generate groups first.");
             return;
           }
           renderFixtures(currentGroups);
@@ -908,7 +1002,7 @@
         output.innerHTML = "";
         const teams = getTeamNames();
         if (teams.length < 2) {
-          alert("Please enter at least two team names.");
+          showMessageModal("Please enter at least two team names.");
           return;
         }
         const homeAway = document.getElementById("league-home-away").checked;
@@ -1007,7 +1101,7 @@
 
       document.getElementById("export-json").addEventListener("click", () => {
         if (!currentGroups.length) {
-          alert("Please generate groups before exporting.");
+          showMessageModal("Please generate groups before exporting.");
           return;
         }
         if (!currentFixtures) {
@@ -1023,7 +1117,7 @@
         a.download = "dynamites-data.json";
         a.click();
         URL.revokeObjectURL(url);
-        alert("JSON exported and saved to local storage.");
+        showMessageModal("JSON exported and saved to local storage.");
       });
     </script>
   </body>

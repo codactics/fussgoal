@@ -1,10 +1,10 @@
 import "./globals.css";
 import Script from "next/script";
 import favicon from "../logo/favicon.ico";
-import shareImage from "../logo/fussgoal.png";
-import { getSiteUrl } from "../lib/site";
+import { buildAbsoluteUrl, getSiteUrl } from "../lib/site";
 
 const siteUrl = getSiteUrl();
+const socialImageUrl = buildAbsoluteUrl("/opengraph-image");
 
 export const metadata = {
   metadataBase: new URL(siteUrl),
@@ -32,7 +32,7 @@ export const metadata = {
     siteName: "FussGoal",
     images: [
       {
-        url: shareImage.src,
+        url: socialImageUrl,
         width: 1200,
         height: 630,
         alt: "FussGoal",
@@ -45,7 +45,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "FussGoal",
     description: "FussGoal football tournament and scoreboard platform.",
-    images: [shareImage.src],
+    images: [socialImageUrl],
   },
 };
 

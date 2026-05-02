@@ -36,6 +36,10 @@ function buildStaticInitialMatch(match) {
       home: [],
       away: [],
     },
+    teamSquads: {
+      home: null,
+      away: null,
+    },
     timelineEntries: match.events || [],
     telecast: null,
   };
@@ -66,6 +70,7 @@ function buildLaunchedInitialMatch(launchedMatch, slug) {
     time: launchedMatch.fixture.time || "TBD",
     venue: "",
     lineups: launchedMatch.fixture.lineup || { home: [], away: [] },
+    teamSquads: launchedMatch.fixture.teamSquads || { home: null, away: null },
     timelineEntries: launchedMatch.fixture.timelineEntries || [],
     telecast: launchedMatch.fixture.telecast || null,
   };

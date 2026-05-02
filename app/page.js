@@ -6,6 +6,7 @@ import { buildAbsoluteUrl, getLaunchedTournamentRecords, getSiteUrl } from "../l
 import { createLaunchedTournamentSlug, getTournamentDisplayStatus } from "../components/launchedTournamentUtils";
 
 const siteUrl = getSiteUrl();
+const socialImageUrl = buildAbsoluteUrl("/opengraph-image");
 const homepageTitle = "Live Football Scores, Fixtures and Tournament Tables";
 const homepageDescription =
   "FussGoal helps fans follow live football scores, fixtures, standings, tournament brackets, and match updates in one football scoreboard platform.";
@@ -21,10 +22,20 @@ export const metadata = {
     description: homepageDescription,
     url: siteUrl,
     type: "website",
+    images: [
+      {
+        url: socialImageUrl,
+        width: 1200,
+        height: 630,
+        alt: "FussGoal live football scores, fixtures and tournament tables",
+      },
+    ],
   },
   twitter: {
+    card: "summary_large_image",
     title: `FussGoal | ${homepageTitle}`,
     description: homepageDescription,
+    images: [socialImageUrl],
   },
 };
 
@@ -117,7 +128,7 @@ export default async function HomePage() {
             name: "Football tournament standings",
           },
         ],
-        primaryImageOfPage: buildAbsoluteUrl("/opengraph-image"),
+        primaryImageOfPage: socialImageUrl,
       },
     ],
   };
@@ -147,48 +158,40 @@ export default async function HomePage() {
 
       <section className={styles.socialSection} aria-label="CODACTICS social media">
         <div className={styles.socialSectionInner}>
+          <p className={styles.socialPrompt}>Follow and subscribe us in:</p>
           <a
             className={`${styles.socialCard} ${styles.facebookCard}`}
             href="https://www.facebook.com/Codactics"
+            aria-label="Follow CODACTICS on Facebook"
             target="_blank"
             rel="noreferrer"
           >
             <span className={styles.socialIcon}>
               <SocialIcon platform="facebook" />
             </span>
-            <span className={styles.socialText}>
-              <strong>Facebook</strong>
-              <span>Follow CODACTICS</span>
-            </span>
           </a>
 
           <a
             className={`${styles.socialCard} ${styles.instagramCard}`}
             href="https://www.instagram.com/codactics"
+            aria-label="Follow CODACTICS on Instagram"
             target="_blank"
             rel="noreferrer"
           >
             <span className={styles.socialIcon}>
               <SocialIcon platform="instagram" />
             </span>
-            <span className={styles.socialText}>
-              <strong>Instagram</strong>
-              <span>See updates and highlights</span>
-            </span>
           </a>
 
           <a
             className={`${styles.socialCard} ${styles.youtubeCard}`}
             href="https://www.youtube.com/@Codactics"
+            aria-label="Subscribe to CODACTICS on YouTube"
             target="_blank"
             rel="noreferrer"
           >
             <span className={styles.socialIcon}>
               <SocialIcon platform="youtube" />
-            </span>
-            <span className={styles.socialText}>
-              <strong>YouTube</strong>
-              <span>Subscribe for videos</span>
             </span>
           </a>
         </div>

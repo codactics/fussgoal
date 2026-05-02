@@ -1,0 +1,44 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(10, 20, 16, 0.56);
+}
+
+.modal {
+  width: min(100%, 34rem);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.1);
+  border-radius: 20px;
+  background: #f8fbf9;
+  box-shadow: 0 24px 60px rgba(9, 28, 22, 0.2);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.closeButton {
+  padding: 0.7rem 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.12);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #13201b;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+@media (max-width: 620px) {
+  .overlay {
+    align-items: flex-start;
+  }
+}

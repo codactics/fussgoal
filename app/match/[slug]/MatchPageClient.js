@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import codacticsGif from "../../../logo/codactics.gif";
 import Navbar from "../../../components/Navbar";
 import SectionContainer from "../../../components/SectionContainer";
+import TeamSquadModal from "../../../components/TeamSquadModal";
 import { normalizeSavedTournament } from "../../../components/launchedTournamentUtils";
 import { formatMatchClock, getMatchClockSeconds } from "../../../components/manageTournamentUtils";
 import styles from "./page.module.css";
@@ -98,6 +99,7 @@ function buildLaunchedMatchData(tournament, fixture) {
     time: fixture.time || "TBD",
     venue: "",
     lineups: fixture.lineup || { home: [], away: [] },
+    teamSquads: fixture.teamSquads || { home: null, away: null },
     timelineEntries: fixture.timelineEntries || [],
     telecast: fixture.telecast || null,
   };
@@ -162,6 +164,7 @@ function getMatchDisplayStatus(match) {
 export default function MatchPageClient({ initialMatch }) {
   const [match, setMatch] = useState(() => buildMatchData(initialMatch));
   const [timerNow, setTimerNow] = useState(Date.now());
+  const [activeSquadSide, setActiveSquadSide] = useState("");
   const telecastFrameWrapRef = useRef(null);
 
   useEffect(() => {
@@ -236,6 +239,16 @@ export default function MatchPageClient({ initialMatch }) {
   const telecastStatus = String(match?.telecast?.status || "stopped");
   const telecastOverlay = String(match?.telecast?.overlay || "none");
   const showBottomScore = Boolean(match?.telecast?.bottomScore);
+  const activeSquad =
+    activeSquadSide === "home"
+      ? match?.teamSquads?.home
+      : activeSquadSide === "away"
+        ? match?.teamSquads?.away
+        : null;
+  const activeSquadTeamName =
+    activeSquadSide === "home" ? match?.homeTeam : activeSquadSide === "away" ? match?.awayTeam : "";
+  const activeSquadLogo =
+    activeSquadSide === "home" ? match?.homeLogo : activeSquadSide === "away" ? match?.awayLogo : "";
   const overlayPlayers =
     telecastOverlay === "home"
       ? match?.lineups?.home || []
@@ -315,7 +328,13 @@ export default function MatchPageClient({ initialMatch }) {
             ) : (
               <div className={styles.teamLogoFallback}>{match.homeTeam?.slice(0, 1) || "H"}</div>
             )}
-            <p className={styles.teamLine}>{match.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}</p>
+            <button
+              className={styles.teamLineButton}
+              onClick={() => setActiveSquadSide("home")}
+              type="button"
+            >
+              {match.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}
+            </button>
           </div>
           <div className={styles.scorePanel}>
             <div className={styles.statusRow}>
@@ -336,7 +355,13 @@ export default function MatchPageClient({ initialMatch }) {
             ) : (
               <div className={styles.teamLogoFallback}>{match.awayTeam?.slice(0, 1) || "A"}</div>
             )}
-            <p className={styles.teamLine}>{match.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}</p>
+            <button
+              className={styles.teamLineButton}
+              onClick={() => setActiveSquadSide("away")}
+              type="button"
+            >
+              {match.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}
+            </button>
           </div>
         </section>
 
@@ -573,7 +598,13 @@ export default function MatchPageClient({ initialMatch }) {
           <div className={styles.lineupGrid}>
             <div className={styles.lineupColumn}>
               <div className={styles.lineupHeader}>
-                <h3 className={styles.lineupSummary}>{match.homeTeam}</h3>
+                <button
+                  className={styles.lineupSummaryButton}
+                  onClick={() => setActiveSquadSide("home")}
+                  type="button"
+                >
+                  {match.homeTeam}
+                </button>
               </div>
               <div className={styles.lineupContent}>
                 {(match.lineups.home || []).length ? (
@@ -593,7 +624,13 @@ export default function MatchPageClient({ initialMatch }) {
 
             <div className={styles.lineupColumn}>
               <div className={styles.lineupHeader}>
-                <h3 className={styles.lineupSummary}>{match.awayTeam}</h3>
+                <button
+                  className={styles.lineupSummaryButton}
+                  onClick={() => setActiveSquadSide("away")}
+                  type="button"
+                >
+                  {match.awayTeam}
+                </button>
               </div>
               <div className={styles.lineupContent}>
                 {(match.lineups.away || []).length ? (
@@ -612,6 +649,15 @@ export default function MatchPageClient({ initialMatch }) {
             </div>
           </div>
         </section>
+
+        {activeSquadSide ? (
+          <TeamSquadModal
+            logo={activeSquadLogo}
+            onClose={() => setActiveSquadSide("")}
+            squad={activeSquad}
+            teamName={activeSquadTeamName}
+          />
+        ) : null}
 
         <SectionContainer
           title="Match Events"

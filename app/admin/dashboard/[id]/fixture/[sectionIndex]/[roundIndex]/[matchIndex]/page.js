@@ -120,6 +120,11 @@ export default function AdminFixturePage({ params }) {
   const [matchStatusMessage, setMatchStatusMessage] = useState("");
   const [isResettingMatch, setIsResettingMatch] = useState(false);
   const [isSavingManualEvent, setIsSavingManualEvent] = useState(false);
+  const [pendingPasswordAction, setPendingPasswordAction] = useState(null);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const [pendingConfirmAction, setPendingConfirmAction] = useState(null);
   const [systemMoments, setSystemMoments] = useState({
     kickoff: null,
     halftime: null,
@@ -131,6 +136,8 @@ export default function AdminFixturePage({ params }) {
   const tournamentRef = useRef(null);
   const statusSaveInFlightRef = useRef(false);
   const pendingSnapshotRef = useRef(null);
+  const passwordPromptResolveRef = useRef(null);
+  const confirmPromptResolveRef = useRef(null);
 
   function createEmptyLineupRow() {
     return {
@@ -669,12 +676,34 @@ export default function AdminFixturePage({ params }) {
     }
   }
 
-  function handleEndMatch() {
+  function requestAdminConfirm({ title, message, okLabel = "OK" }) {
+    setPendingConfirmAction({ title, message, okLabel });
+
+    return new Promise((resolve) => {
+      confirmPromptResolveRef.current = resolve;
+    });
+  }
+
+  function closeAdminConfirmPrompt(result) {
+    setPendingConfirmAction(null);
+
+    if (confirmPromptResolveRef.current) {
+      confirmPromptResolveRef.current(result);
+      confirmPromptResolveRef.current = null;
+    }
+  }
+
+  async function handleEndMatch() {
     if (!isTournamentLaunched || matchStatus === "ended") {
       return;
     }
 
-    const confirmed = window.confirm("Do you really want to End the match?");
+    const confirmed = await requestAdminConfirm({
+      title: "End Match",
+      message: "Do you really want to End the match?",
+      okLabel: "OK",
+    });
+
     if (!confirmed) {
       return;
     }
@@ -1040,36 +1069,85 @@ export default function AdminFixturePage({ params }) {
     return seconds > halfDurationSeconds ? "second" : "first";
   }
 
-  async function verifyAdminPassword(action) {
-    const password = window.prompt(`Enter admin password to ${action}:`);
+  function getPasswordActionLabel(action) {
+    return String(action || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
 
-    if (password === null) {
-      return false;
+  function verifyAdminPassword(action) {
+    setAdminPassword("");
+    setPasswordError("");
+    setPendingPasswordAction({
+      action,
+      label: getPasswordActionLabel(action),
+      tournamentName: tournament?.name || "this tournament",
+    });
+
+    return new Promise((resolve) => {
+      passwordPromptResolveRef.current = resolve;
+    });
+  }
+
+  function closeAdminPasswordPrompt() {
+    setPendingPasswordAction(null);
+    setAdminPassword("");
+    setPasswordError("");
+    setIsVerifyingPassword(false);
+
+    if (passwordPromptResolveRef.current) {
+      passwordPromptResolveRef.current(false);
+      passwordPromptResolveRef.current = null;
+    }
+  }
+
+  async function confirmAdminPassword() {
+    if (!pendingPasswordAction || isVerifyingPassword) {
+      return;
     }
 
-    const trimmedPassword = password.trim();
+    const trimmedPassword = adminPassword.trim();
 
     if (!trimmedPassword) {
-      throw new Error("Admin password is required.");
+      setPasswordError("Admin password is required.");
+      return;
     }
 
-    const verifyResponse = await fetch("/api/admin/verify-password", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        password: trimmedPassword,
-        action,
-      }),
-    });
-    const verifyResult = await verifyResponse.json();
+    setIsVerifyingPassword(true);
+    setPasswordError("");
 
-    if (!verifyResponse.ok) {
-      throw new Error(verifyResult.message || "Invalid admin password.");
+    try {
+      const verifyResponse = await fetch("/api/admin/verify-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          password: trimmedPassword,
+          action: pendingPasswordAction.action,
+        }),
+      });
+      const verifyResult = await verifyResponse.json();
+
+      if (!verifyResponse.ok) {
+        setPasswordError(verifyResult.message || "Invalid admin password.");
+        return;
+      }
+
+      setPendingPasswordAction(null);
+      setAdminPassword("");
+      setPasswordError("");
+
+      if (passwordPromptResolveRef.current) {
+        passwordPromptResolveRef.current(true);
+        passwordPromptResolveRef.current = null;
+      }
+    } catch {
+      setPasswordError("Unable to verify the admin password right now.");
+    } finally {
+      setIsVerifyingPassword(false);
     }
-
-    return true;
   }
 
   function getSubjectMeta(subjectKey) {
@@ -1316,9 +1394,11 @@ export default function AdminFixturePage({ params }) {
       return;
     }
 
-    const confirmed = window.confirm(
-      "Reset the full live match? This will clear the clock, score, and all saved match events."
-    );
+    const confirmed = await requestAdminConfirm({
+      title: "Reset Match",
+      message: "Reset the full live match? This will clear the clock, score, and all saved match events.",
+      okLabel: "OK",
+    });
 
     if (!confirmed) {
       return;
@@ -2163,6 +2243,80 @@ export default function AdminFixturePage({ params }) {
           </div>
         ) : null}
       </section>
+
+      {pendingConfirmAction ? (
+        <div className={wizardStyles.passwordOverlay}>
+          <div className={wizardStyles.passwordCard} role="dialog" aria-modal="true">
+            <h3 className={wizardStyles.passwordTitle}>{pendingConfirmAction.title}</h3>
+            <p className={wizardStyles.passwordText}>{pendingConfirmAction.message}</p>
+            <div className={wizardStyles.passwordActions}>
+              <button
+                className={wizardStyles.confirmCancelButton}
+                onClick={() => closeAdminConfirmPrompt(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className={wizardStyles.confirmOkButton}
+                onClick={() => closeAdminConfirmPrompt(true)}
+                type="button"
+              >
+                {pendingConfirmAction.okLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingPasswordAction ? (
+        <div className={wizardStyles.passwordOverlay}>
+          <form
+            className={wizardStyles.passwordCard}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void confirmAdminPassword();
+            }}
+          >
+            <h3 className={wizardStyles.passwordTitle}>Admin Password Required</h3>
+            <p className={wizardStyles.passwordText}>
+              Enter the admin password to approve{" "}
+              <strong>{pendingPasswordAction.label}</strong> for{" "}
+              {pendingPasswordAction.tournamentName}.
+            </p>
+            <input
+              autoFocus
+              className={wizardStyles.input}
+              disabled={isVerifyingPassword}
+              onChange={(event) => {
+                setAdminPassword(event.target.value);
+                setPasswordError("");
+              }}
+              placeholder="Enter admin password"
+              type="password"
+              value={adminPassword}
+            />
+            {passwordError ? <p className={wizardStyles.status}>{passwordError}</p> : null}
+            <div className={wizardStyles.passwordActions}>
+              <button
+                className={wizardStyles.secondaryButton}
+                disabled={isVerifyingPassword}
+                onClick={closeAdminPasswordPrompt}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className={wizardStyles.primaryButton}
+                disabled={!adminPassword.trim() || isVerifyingPassword}
+                type="submit"
+              >
+                {isVerifyingPassword ? "Verifying..." : "Approve"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </main>
   );
 }

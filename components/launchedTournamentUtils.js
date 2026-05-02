@@ -221,6 +221,7 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
   const matchStatuses = payload.matchStatuses || {};
   const matchLineups = payload.matchLineups || {};
   const matchTelecasts = payload.matchTelecasts || {};
+  const teamSquads = payload.teamSquads || {};
 
   return getTournamentFixtureSections(record).map((section, sectionIndex) => ({
     title: section.title,
@@ -247,6 +248,10 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
         awayTeam: match.away,
         homeLogo: teamLogoMap[match.home] || "",
         awayLogo: teamLogoMap[match.away] || "",
+        teamSquads: {
+          home: teamSquads[match.home] || null,
+          away: teamSquads[match.away] || null,
+        },
         sectionTitle: section.title,
         sectionKind: section.kind || "fixture",
         status: getFixtureStatusLabel(statusRecord) || "Upcoming",
@@ -254,6 +259,7 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
         score,
         penaltyScore,
         penaltyWinnerSide,
+        resultNote: String(statusRecord?.resultNote || "").trim(),
         clockSeconds,
         clockText: statusRecord ? formatMatchClock(clockSeconds) : "",
         statusRecord,
@@ -280,7 +286,7 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
   }));
 }
 
-function normalizeGroups(groups, teamLogoMap) {
+function normalizeGroups(groups, teamLogoMap, teamSquads) {
   if (!Array.isArray(groups)) {
     return [];
   }
@@ -291,6 +297,7 @@ function normalizeGroups(groups, teamLogoMap) {
       ? group.map((team) => ({
           name: team,
           logo: teamLogoMap[team] || "",
+          squad: teamSquads?.[team] || null,
         }))
       : [],
   }));
@@ -304,13 +311,16 @@ export function normalizeSavedTournament(record) {
   const teamLogoMap = buildTeamLogoMap(payload);
   const fixtureSections = normalizeFixtureSections(record, teamLogoMap, startDate);
   const normalizedGroups =
-    record.tournamentType === "group" ? normalizeGroups(payload.groups, teamLogoMap) : [];
+    record.tournamentType === "group"
+      ? normalizeGroups(payload.groups, teamLogoMap, payload.teamSquads || {})
+      : [];
   const normalizedPointsTables = buildTournamentTables(record).map((groupTable) => ({
     name: groupTable.title,
     rows: groupTable.rows.map((row, index) => ({
       position: index + 1,
       team: row.team,
       logo: row.logo || "",
+      squad: payload.teamSquads?.[row.team] || null,
       played: row.played,
       won: row.wins,
       draw: row.draws,

@@ -18,6 +18,13 @@ function normalizeTournamentName(name) {
   return String(name || "").trim().toLowerCase();
 }
 
+function withNoStore(response) {
+  response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
+  return response;
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -37,13 +44,17 @@ export async function GET(request) {
       .sort({ savedAt: -1, updatedAt: -1, createdAt: -1 })
       .toArray();
 
-    return NextResponse.json({
-      tournaments: tournaments.map(({ _id, ...tournament }) => tournament),
-    });
+    return withNoStore(
+      NextResponse.json({
+        tournaments: tournaments.map(({ _id, ...tournament }) => tournament),
+      })
+    );
   } catch {
-    return NextResponse.json(
-      { message: "Unable to load tournaments right now." },
-      { status: 500 }
+    return withNoStore(
+      NextResponse.json(
+        { message: "Unable to load tournaments right now." },
+        { status: 500 }
+      )
     );
   }
 }

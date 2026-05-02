@@ -167,6 +167,8 @@ export default function FixtureCard({ fixture, onClick }) {
         </div>
       ) : null}
 
+      {fixture.resultNote ? <p className={styles.resultNote}>{fixture.resultNote}</p> : null}
+
       <div className={styles.meta}>
         <p className={styles.metaLabel}>Date</p>
         <p className={styles.metaValue}>{fixture.date}</p>

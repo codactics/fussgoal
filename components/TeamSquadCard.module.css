@@ -1,0 +1,110 @@
+.card {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo {
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(19, 32, 27, 0.1);
+  border-radius: 12px;
+  object-fit: cover;
+  background: #ffffff;
+}
+
+.kicker,
+.title,
+.empty {
+  margin: 0;
+}
+
+.kicker {
+  color: #0f6a4c;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin-top: 0.15rem;
+  color: #10241d;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.list {
+  display: grid;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid rgba(19, 32, 27, 0.08);
+}
+
+.playerMain,
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.playerName {
+  color: #10241d;
+  font-weight: 800;
+}
+
+.jersey,
+.badge,
+.position {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.jersey {
+  padding: 0.2rem 0.55rem;
+  background: rgba(19, 32, 27, 0.08);
+  color: #13201b;
+}
+
+.badge {
+  padding: 0.2rem 0.55rem;
+  background: rgba(15, 106, 76, 0.12);
+  color: #0d6b4d;
+}
+
+.position {
+  color: #4d5c55;
+}
+
+.empty {
+  color: #4d5c55;
+}
+
+@media (max-width: 620px) {
+  .row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
