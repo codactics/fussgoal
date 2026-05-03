@@ -95,6 +95,8 @@ function buildLaunchedMatchData(tournament, fixture) {
     phaseLabel: fixture.phaseLabel || "",
     clockText: fixture.clockText || "",
     statusRecord: fixture.statusRecord || null,
+    resultNote: fixture.resultNote || "",
+    resultNoteTone: fixture.resultNoteTone || "",
     date: fixture.date || "TBD",
     time: fixture.time || "TBD",
     venue: "",
@@ -226,6 +228,7 @@ export default function MatchPageClient({ initialMatch }) {
 
   const liveClock = useMemo(() => getLiveClock(match, timerNow), [match, timerNow]);
   const displayStatus = useMemo(() => getMatchDisplayStatus(match), [match]);
+  const isDisciplinaryResultNote = match?.resultNoteTone === "disciplinary";
   const homeGoalScorers = useMemo(() => getGoalScorers(match, "home"), [match]);
   const awayGoalScorers = useMemo(() => getGoalScorers(match, "away"), [match]);
   const timelineEntries = Array.isArray(match?.timelineEntries) ? match.timelineEntries : [];
@@ -348,6 +351,11 @@ export default function MatchPageClient({ initialMatch }) {
               <p className={styles.liveClock}>({penaltyScore.home}:{penaltyScore.away})</p>
             ) : null}
             <p className={styles.liveClock}>{liveClock || "Not live"}</p>
+            {match.resultNote ? (
+              <p className={`${styles.resultNote} ${isDisciplinaryResultNote ? styles.disciplinaryResultNote : ""}`}>
+                {match.resultNote}
+              </p>
+            ) : null}
           </div>
           <div className={styles.teamPanel}>
             {match.awayLogo ? (

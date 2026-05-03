@@ -93,6 +93,7 @@ export default function FixtureDetailModal({ fixture, onClose }) {
   const displayStatus = getFixtureDisplayStatus(fixture);
   const isLive = displayStatus === "Live";
   const isPaused = fixture?.statusRecord?.matchStatus === "paused";
+  const isDisciplinaryResultNote = fixture?.resultNoteTone === "disciplinary";
 
   useEffect(() => {
     function handleEscape(event) {
@@ -336,7 +337,11 @@ export default function FixtureDetailModal({ fixture, onClose }) {
               {liveClock ? <div className={styles.clock}>{liveClock}</div> : null}
               {isPaused ? <div className={styles.interruption}>Interruption</div> : null}
             </div>
-            {fixture.resultNote ? <p className={styles.resultNote}>{fixture.resultNote}</p> : null}
+            {fixture.resultNote ? (
+              <p className={`${styles.resultNote} ${isDisciplinaryResultNote ? styles.disciplinaryResultNote : ""}`}>
+                {fixture.resultNote}
+              </p>
+            ) : null}
           </div>
           <div className={styles.teamBlock}>
             {fixture.awayLogo ? (

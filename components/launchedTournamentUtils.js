@@ -28,6 +28,24 @@ const ACTION_LABELS = {
   other: "Other",
 };
 
+const DISCIPLINARY_ABANDONED_RESULT_NOTE =
+  "Match abandoned; both teams disqualified for disciplinary reasons.";
+
+function normalizeResultNote(value) {
+  const note = String(value || "").trim();
+  const normalizedNote = note.toLowerCase().replace(/\.+$/, "");
+
+  if (normalizedNote === "result suspected for both teams") {
+    return DISCIPLINARY_ABANDONED_RESULT_NOTE;
+  }
+
+  return note;
+}
+
+function getResultNoteTone(note) {
+  return note === DISCIPLINARY_ABANDONED_RESULT_NOTE ? "disciplinary" : "";
+}
+
 export function createLaunchedTournamentSlug(tournamentId) {
   return `launched-${tournamentId}`;
 }
@@ -235,6 +253,7 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
       const penaltyScore = getPenaltyShootoutScore(statusRecord);
       const penaltyWinnerSide = getPenaltyShootoutWinnerSide(statusRecord);
       const clockSeconds = statusRecord ? getMatchClockSeconds(statusRecord) : 0;
+      const resultNote = normalizeResultNote(statusRecord?.resultNote);
 
       return {
         id: `${fixtureKey}-${match.home}-${match.away}`,
@@ -259,7 +278,8 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
         score,
         penaltyScore,
         penaltyWinnerSide,
-        resultNote: String(statusRecord?.resultNote || "").trim(),
+        resultNote,
+        resultNoteTone: getResultNoteTone(resultNote),
         clockSeconds,
         clockText: statusRecord ? formatMatchClock(clockSeconds) : "",
         statusRecord,

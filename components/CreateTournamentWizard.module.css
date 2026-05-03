@@ -936,6 +936,37 @@
   color: #a22735;
 }
 
+.overwritePanel {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(198, 40, 40, 0.2);
+  border-radius: 18px;
+  background: rgba(255, 247, 248, 0.92);
+}
+
+.overwriteGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.overwriteManualInputField {
+  grid-column: 1 / -1;
+}
+
+.resultNotePreview {
+  padding: 0.72rem 0.9rem;
+  border: 1px solid rgba(198, 40, 40, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 235, 238, 0.9);
+  color: #b71c1c;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .eventActionButton,
 .eventIconButton {
   min-height: 46px;
@@ -1495,7 +1526,8 @@
   .lineupHeader,
   .lineupTable,
   .lineupRow,
-  .matchStatusEntryGrid {
+  .matchStatusEntryGrid,
+  .overwriteGrid {
     grid-template-columns: 1fr;
   }
 

@@ -28,6 +28,7 @@ export default function FixtureCard({ fixture, onClick }) {
   const displayStatus = getFixtureDisplayStatus(fixture);
   const isLive = displayStatus === "Live";
   const isPaused = fixture?.statusRecord?.matchStatus === "paused";
+  const isDisciplinaryResultNote = fixture?.resultNoteTone === "disciplinary";
   const previousScoreRef = useRef(`${fixture?.score?.home ?? 0}:${fixture?.score?.away ?? 0}`);
 
   useEffect(() => {
@@ -167,7 +168,11 @@ export default function FixtureCard({ fixture, onClick }) {
         </div>
       ) : null}
 
-      {fixture.resultNote ? <p className={styles.resultNote}>{fixture.resultNote}</p> : null}
+      {fixture.resultNote ? (
+        <p className={`${styles.resultNote} ${isDisciplinaryResultNote ? styles.disciplinaryResultNote : ""}`}>
+          {fixture.resultNote}
+        </p>
+      ) : null}
 
       <div className={styles.meta}>
         <p className={styles.metaLabel}>Date</p>
