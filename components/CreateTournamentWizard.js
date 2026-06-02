@@ -44,6 +44,15 @@ const initialOptions = {
 
 const SAVED_TOURNAMENTS_EVENT = "saved-tournaments-updated";
 
+function getTodayDateInputValue() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 function getGroupLabel(index) {
   return `Group ${String.fromCharCode(65 + index)}`;
 }
@@ -125,6 +134,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
   const [editingTournamentId, setEditingTournamentId] = useState(null);
   const [pendingProtectedAction, setPendingProtectedAction] = useState(null);
   const [adminPassword, setAdminPassword] = useState("");
+  const [endTournamentDate, setEndTournamentDate] = useState(getTodayDateInputValue);
   const [passwordError, setPasswordError] = useState("");
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
   const [isUploadingTournamentLogo, setIsUploadingTournamentLogo] = useState(false);
@@ -165,12 +175,15 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       ...tournament,
       startDate,
       endDate,
-      phase: getAdminTournamentPhase({
-        startDate,
-        endDate,
-        launched: tournament.launched || false,
-        paused: tournament.paused || false,
-      }),
+      phase:
+        tournament.phase === "past" && endDate
+          ? "past"
+          : getAdminTournamentPhase({
+              startDate,
+              endDate,
+              launched: tournament.launched || false,
+              paused: tournament.paused || false,
+            }),
     };
   }
 
@@ -469,12 +482,14 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       tournamentName: tournament.name,
     });
     setAdminPassword("");
+    setEndTournamentDate(type === "end" ? getTodayDateInputValue() : "");
     setPasswordError("");
   }
 
   function closeProtectedActionPrompt() {
     setPendingProtectedAction(null);
     setAdminPassword("");
+    setEndTournamentDate(getTodayDateInputValue());
     setPasswordError("");
     setIsVerifyingPassword(false);
   }
@@ -503,6 +518,11 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       return;
     }
 
+    if (pendingProtectedAction.type === "end" && !endTournamentDate) {
+      setPasswordError("Select the tournament end date.");
+      return;
+    }
+
     setIsVerifyingPassword(true);
     setPasswordError("");
 
@@ -514,7 +534,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       }
 
       if (pendingProtectedAction.type === "end") {
-        await endTournament(pendingProtectedAction.tournamentId);
+        await endTournament(pendingProtectedAction.tournamentId, endTournamentDate);
       }
 
       if (pendingProtectedAction.type === "edit") {
@@ -1239,12 +1259,8 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     }
   }
 
-  async function endTournament(tournamentId) {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const endDate = yesterday.toISOString().slice(0, 10);
-
+  async function endTournament(tournamentId, selectedEndDate) {
+    const endDate = selectedEndDate || getTodayDateInputValue();
     const currentTournament = savedTournaments.find((tournament) => tournament.id === tournamentId);
 
     if (!currentTournament) {
@@ -1264,12 +1280,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     const updatedTournament = {
       ...currentTournament,
       endDate,
-      phase: getAdminTournamentPhase({
-        startDate: currentTournament.startDate,
-        endDate,
-        launched: currentTournament.launched,
-        paused: currentTournament.paused,
-      }),
+      phase: "past",
       data: nextData,
     };
 
@@ -2408,6 +2419,17 @@ export default function CreateTournamentWizard({ adminSession = null }) {
               type="password"
               value={adminPassword}
             />
+            {pendingProtectedAction.type === "end" ? (
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Tournament end date</span>
+                <input
+                  className={styles.input}
+                  onChange={(event) => setEndTournamentDate(event.target.value)}
+                  type="date"
+                  value={endTournamentDate}
+                />
+              </label>
+            ) : null}
             {passwordError ? <p className={styles.status}>{passwordError}</p> : null}
             <div className={styles.passwordActions}>
               <button
@@ -2419,7 +2441,11 @@ export default function CreateTournamentWizard({ adminSession = null }) {
               </button>
               <button
                 className={styles.primaryButton}
-                disabled={!adminPassword || isVerifyingPassword}
+                disabled={
+                  !adminPassword ||
+                  isVerifyingPassword ||
+                  (pendingProtectedAction.type === "end" && !endTournamentDate)
+                }
                 onClick={confirmProtectedAction}
                 type="button"
               >

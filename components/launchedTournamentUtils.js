@@ -363,7 +363,7 @@ export function normalizeSavedTournament(record) {
     id: record.id,
     slug: createLaunchedTournamentSlug(record.id),
     name: record.name,
-    status: getTournamentDisplayStatus(startDate, endDate),
+    status: record.phase === "past" ? "Past" : getTournamentDisplayStatus(startDate, endDate),
     matches: normalizedFixtures.length,
     description,
     fixtures: normalizedFixtures,

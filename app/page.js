@@ -39,8 +39,12 @@ export const metadata = {
   },
 };
 
-function getTournamentBucket(startDate, endDate) {
-  const displayStatus = getTournamentDisplayStatus(startDate, endDate);
+function getTournamentBucket(tournament) {
+  if (tournament.phase === "past") {
+    return "past";
+  }
+
+  const displayStatus = getTournamentDisplayStatus(tournament.startDate, tournament.endDate);
 
   if (displayStatus === "Past") {
     return "past";
@@ -91,7 +95,7 @@ export default async function HomePage() {
   const initialTournaments = launchedTournaments.map((tournament) => ({
     ...tournament,
     slug: createLaunchedTournamentSlug(tournament.id),
-    bucket: getTournamentBucket(tournament.startDate, tournament.endDate),
+    bucket: getTournamentBucket(tournament),
   }));
   const structuredData = {
     "@context": "https://schema.org",

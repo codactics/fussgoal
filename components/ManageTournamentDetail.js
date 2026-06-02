@@ -18,6 +18,7 @@ import {
   getMatchWinnerSide,
   getPenaltyShootoutWinnerSide,
   getTournamentFixtureSections,
+  getTournamentTeamGroups,
 } from "./manageTournamentUtils";
 
 const MAX_SQUAD_ROWS = 30;
@@ -182,6 +183,25 @@ function formatSummaryValue(summaryKey, row) {
   return row?.value ?? 0;
 }
 
+function getTablePositionCode(tableTitle, rowIndex) {
+  const title = String(tableTitle || "").trim();
+  const groupMatch = title.match(/^Group\s+(.+)$/i);
+  const prefix = groupMatch ? groupMatch[1].trim() : title === "League" ? "L" : title;
+
+  return `${prefix}${rowIndex + 1}`;
+}
+
+function formatTeamWithSourceLabel(teamName, source) {
+  const team = String(teamName || "").trim();
+  const label = String(source?.label || "").trim();
+
+  if (!team || !label || source?.type !== KNOCKOUT_SOURCE_GROUP_POSITION) {
+    return team;
+  }
+
+  return `${team} (${label})`;
+}
+
 export default function ManageTournamentDetail({ tournament }) {
   const [currentTournament, setCurrentTournament] = useState(tournament);
   const [activeTeam, setActiveTeam] = useState(null);
@@ -259,7 +279,10 @@ export default function ManageTournamentDetail({ tournament }) {
 
   const payload = currentTournament?.data || {};
   const teamLogoMap = useMemo(() => buildTeamLogoMap(payload), [payload]);
-  const groupList = Array.isArray(payload.groups) ? payload.groups : [];
+  const groupList = useMemo(
+    () => getTournamentTeamGroups(currentTournament),
+    [currentTournament]
+  );
   const fixtureSections = getTournamentFixtureSections(currentTournament);
   const squadData = payload.teamSquads || {};
   const matchStatuses = payload.matchStatuses || {};
@@ -793,12 +816,16 @@ export default function ManageTournamentDetail({ tournament }) {
 
   function getKnockoutGroupPositionOptions() {
     return tournamentTables.flatMap((groupTable, groupIndex) =>
-      groupTable.rows.map((row, rowIndex) => ({
-        label: `${getGroupLabel(groupIndex)} ${rowIndex + 1} - ${row.team}`,
-        sourceLabel: `${getGroupLabel(groupIndex)}${rowIndex + 1}`,
-        team: row.team,
-        value: `${groupIndex}:${rowIndex}`,
-      }))
+      groupTable.rows.map((row, rowIndex) => {
+        const sourceLabel = getTablePositionCode(groupTable.title, rowIndex);
+
+        return {
+          label: `${row.team} (${sourceLabel})`,
+          sourceLabel,
+          team: row.team,
+          value: `${groupIndex}:${rowIndex}`,
+        };
+      })
     );
   }
 
@@ -956,7 +983,9 @@ export default function ManageTournamentDetail({ tournament }) {
           <div className={styles.manageGroupGrid}>
             {groupList.map((group, index) => (
               <div className={styles.manageGroupCard} key={`${currentTournament.id}-group-${index + 1}`}>
-                <h5 className={styles.manageGroupTitle}>{getGroupLabel(index)}</h5>
+                <h5 className={styles.manageGroupTitle}>
+                  {currentTournament.tournamentType === "league" ? "League Teams" : getGroupLabel(index)}
+                </h5>
                 <div className={styles.manageTeamList}>
                   {group.map((team) => (
                     <button
@@ -1031,7 +1060,8 @@ export default function ManageTournamentDetail({ tournament }) {
                             href={`/admin/dashboard/${currentTournament.id}/fixture/${sectionIndex}/${match.roundIndex}/${match.matchIndex}`}
                           >
                             <span className={styles.fixtureRowTeam}>
-                              {match.home}{penaltyWinnerSide === "home" ? " *" : ""}
+                              {formatTeamWithSourceLabel(match.home, match.homeSource)}
+                              {penaltyWinnerSide === "home" ? " *" : ""}
                             </span>
                             <span className={styles.fixtureRowCenter}>
                               <span className={styles.fixtureRowVs}>vs</span>
@@ -1070,7 +1100,8 @@ export default function ManageTournamentDetail({ tournament }) {
                               ) : null}
                             </span>
                             <span className={styles.fixtureRowTeamRight}>
-                              {match.away}{penaltyWinnerSide === "away" ? " *" : ""}
+                              {formatTeamWithSourceLabel(match.away, match.awaySource)}
+                              {penaltyWinnerSide === "away" ? " *" : ""}
                             </span>
                           </Link>
                           {isKnockoutMatch ? (
@@ -1946,12 +1977,14 @@ export default function ManageTournamentDetail({ tournament }) {
                           <span>Team</span>
                           <span>Pts</span>
                         </div>
-                        {groupTable.rows.map((row) => (
+                        {groupTable.rows.map((row, rowIndex) => (
                           <div
                             className={styles.knockoutTeamTableRow}
                             key={`knockout-preview-${groupIndex + 1}-${row.team}`}
                           >
-                            <span className={styles.knockoutTeamName}>{row.team}</span>
+                            <span className={styles.knockoutTeamName}>
+                              {row.team} ({getTablePositionCode(groupTable.title, rowIndex)})
+                            </span>
                             <span className={styles.knockoutTeamPoints}>{row.points}</span>
                           </div>
                         ))}

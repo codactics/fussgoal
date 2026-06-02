@@ -14,12 +14,39 @@ export function buildTeamLogoMap(payload) {
   }, {});
 }
 
+export function getTournamentTeamGroups(tournament) {
+  const payload = tournament?.data || {};
+  const groups = Array.isArray(payload.groups)
+    ? payload.groups.filter((group) => Array.isArray(group) && group.length)
+    : [];
+
+  if (groups.length) {
+    return groups;
+  }
+
+  if (tournament?.tournamentType !== "league") {
+    return [];
+  }
+
+  const teamNames = Array.isArray(payload.teamData) && payload.teamData.length
+    ? payload.teamData.map((team) => String(team?.name || "").trim())
+    : Array.isArray(payload.teams)
+      ? payload.teams.map((team) => String(team || "").trim())
+      : [];
+  const uniqueTeamNames = teamNames.filter(
+    (teamName, index, teams) => teamName && teams.indexOf(teamName) === index
+  );
+
+  return uniqueTeamNames.length ? [uniqueTeamNames] : [];
+}
+
 export function getTournamentFixtureSections(tournament) {
   const payload = tournament?.data || {};
   const tournamentFixtures = payload.fixtures || payload.leagueFixtures || null;
   const knockoutMatches = Array.isArray(payload.knockoutMatches) ? payload.knockoutMatches : [];
   const fixtureSchedules = payload.fixtureSchedules || {};
   const matchStatuses = payload.matchStatuses || {};
+  const teamGroups = getTournamentTeamGroups(tournament);
   const sections = [];
 
   if (tournamentFixtures.scope === "same" && Array.isArray(tournamentFixtures.groups)) {
@@ -78,7 +105,7 @@ export function getTournamentFixtureSections(tournament) {
           {
             home: resolveKnockoutTeamSource({
               fallback: match?.home,
-              groups: payload.groups,
+              groups: teamGroups,
               matchStatuses,
               knockoutMatches,
               knockoutStartSectionIndex,
@@ -87,7 +114,7 @@ export function getTournamentFixtureSections(tournament) {
             }),
             away: resolveKnockoutTeamSource({
               fallback: match?.away,
-              groups: payload.groups,
+              groups: teamGroups,
               matchStatuses,
               knockoutMatches,
               knockoutStartSectionIndex,
@@ -95,6 +122,8 @@ export function getTournamentFixtureSections(tournament) {
               source: match?.awaySource,
             }),
             includeInTable: Boolean(match?.includeInTable),
+            homeSource: match?.homeSource || null,
+            awaySource: match?.awaySource || null,
             roundIndex: 0,
             matchIndex,
           },
@@ -462,7 +491,7 @@ export function getFixturePhaseLabel(statusRecord) {
 
 export function buildTournamentTables(tournament) {
   const payload = tournament?.data || {};
-  const groups = Array.isArray(payload.groups) ? payload.groups : [];
+  const groups = getTournamentTeamGroups(tournament);
   const fixtureSections = getTournamentFixtureSections(tournament);
   const matchStatuses = payload.matchStatuses || {};
   const teamLogoMap = buildTeamLogoMap(payload);
@@ -608,7 +637,7 @@ export function buildTournamentTables(tournament) {
       });
 
     return {
-      title: getGroupLabel(groupIndex),
+      title: tournament?.tournamentType === "league" ? "League" : getGroupLabel(groupIndex),
       rows,
     };
   });

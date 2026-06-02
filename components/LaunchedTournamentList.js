@@ -12,8 +12,12 @@ import {
 const SAVED_TOURNAMENTS_EVENT = "saved-tournaments-updated";
 const LAUNCHED_TOURNAMENT_LIST_REFRESH_MS = 2000;
 
-function getTournamentBucket(startDate, endDate) {
-  const displayStatus = getTournamentDisplayStatus(startDate, endDate);
+function getTournamentBucket(tournament) {
+  if (tournament.phase === "past") {
+    return "past";
+  }
+
+  const displayStatus = getTournamentDisplayStatus(tournament.startDate, tournament.endDate);
 
   if (displayStatus === "Past") {
     return "past";
@@ -117,7 +121,7 @@ export default function LaunchedTournamentList({ initialTournaments = [] }) {
           .map((tournament) => ({
             ...tournament,
             slug: createLaunchedTournamentSlug(tournament.id),
-            bucket: getTournamentBucket(tournament.startDate, tournament.endDate),
+            bucket: getTournamentBucket(tournament),
           }));
         setTournaments(launchedTournaments);
       } catch {
