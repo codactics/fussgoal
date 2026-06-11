@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import styles from "./CreateTournamentWizard.module.css";
 import { getStoredImagePublicId, getStoredImageUrl } from "./launchedTournamentUtils";
+import { getKnownTeam, KNOWN_TEAMS } from "./knownTeams";
 import {
   arrangeRoundsNoBackToBack,
   buildCrossGroupFixtures,
@@ -43,6 +44,15 @@ const initialOptions = {
 };
 
 const SAVED_TOURNAMENTS_EVENT = "saved-tournaments-updated";
+
+function getTodayDateInputValue() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
 
 function getGroupLabel(index) {
   return `Group ${String.fromCharCode(65 + index)}`;
@@ -125,31 +135,41 @@ export default function CreateTournamentWizard({ adminSession = null }) {
   const [editingTournamentId, setEditingTournamentId] = useState(null);
   const [pendingProtectedAction, setPendingProtectedAction] = useState(null);
   const [adminPassword, setAdminPassword] = useState("");
+  const [endTournamentDate, setEndTournamentDate] = useState(getTodayDateInputValue);
   const [passwordError, setPasswordError] = useState("");
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
   const [isUploadingTournamentLogo, setIsUploadingTournamentLogo] = useState(false);
   const [uploadingTeamIndex, setUploadingTeamIndex] = useState(null);
   const [tournamentAdmins, setTournamentAdmins] = useState([initialTournamentAdmin]);
   const [existingTournamentAdmins, setExistingTournamentAdmins] = useState([]);
+  const [selectedManagedTournamentId, setSelectedManagedTournamentId] = useState("");
 
   const groupCountValue = Number.parseInt(form.groupCount, 10) || 0;
   const totalSteps = form.tournamentType === "league" ? 3 : 5;
   const isUploadingLogo = isUploadingTournamentLogo || uploadingTeamIndex !== null;
 
   const namedTeams = teamEntries.map((entry) => entry.name.trim()).filter(Boolean);
-  const savedUpcomingTournaments = savedTournaments.filter(
-    (tournament) => tournament.phase === "upcoming"
-  );
-  const savedOngoingTournaments = savedTournaments.filter(
-    (tournament) => tournament.phase === "ongoing"
-  );
-  const savedPastTournaments = savedTournaments.filter(
-    (tournament) => tournament.phase === "past"
-  );
+  const selectedManagedTournament =
+    savedTournaments.find(
+      (tournament) => String(tournament.id) === String(selectedManagedTournamentId)
+    ) ||
+    savedTournaments[0] ||
+    null;
 
   useEffect(() => {
     loadSavedTournaments();
   }, []);
+
+  useEffect(() => {
+    if (
+      savedTournaments.length &&
+      !savedTournaments.some(
+        (tournament) => String(tournament.id) === String(selectedManagedTournamentId)
+      )
+    ) {
+      setSelectedManagedTournamentId(String(savedTournaments[0].id));
+    }
+  }, [savedTournaments, selectedManagedTournamentId]);
 
   useEffect(() => {
     if (adminSession?.role === "master_admin") {
@@ -165,12 +185,15 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       ...tournament,
       startDate,
       endDate,
-      phase: getAdminTournamentPhase({
-        startDate,
-        endDate,
-        launched: tournament.launched || false,
-        paused: tournament.paused || false,
-      }),
+      phase:
+        tournament.phase === "past" && endDate
+          ? "past"
+          : getAdminTournamentPhase({
+              startDate,
+              endDate,
+              launched: tournament.launched || false,
+              paused: tournament.paused || false,
+            }),
     };
   }
 
@@ -268,8 +291,22 @@ export default function CreateTournamentWizard({ adminSession = null }) {
   function updateTeamEntry(index, field, value) {
     setTeamEntries((current) => {
       const previousEntry = current[index];
+      const knownTeam = field === "name" ? getKnownTeam(value) : null;
+      const normalizedValue = knownTeam ? knownTeam.name : value;
       const nextEntries = current.map((entry, entryIndex) =>
-        entryIndex === index ? { ...entry, [field]: value } : entry
+        entryIndex === index
+          ? {
+              ...entry,
+              [field]: normalizedValue,
+              ...(knownTeam
+                ? {
+                    logoDataUrl: knownTeam.logo,
+                    logoName: "FC_CODACTICS_FALCONS.png",
+                    logoPublicId: "",
+                  }
+                : {}),
+            }
+          : entry
       );
 
       if (field !== "name" || !previousEntry) {
@@ -277,7 +314,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       }
 
       const previousName = previousEntry.name.trim();
-      const nextName = String(value).trim();
+      const nextName = String(normalizedValue).trim();
 
       // If a team is renamed, preserve the existing generated structure by
       // rewriting that team name across groups and fixtures.
@@ -469,12 +506,14 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       tournamentName: tournament.name,
     });
     setAdminPassword("");
+    setEndTournamentDate(type === "end" ? getTodayDateInputValue() : "");
     setPasswordError("");
   }
 
   function closeProtectedActionPrompt() {
     setPendingProtectedAction(null);
     setAdminPassword("");
+    setEndTournamentDate(getTodayDateInputValue());
     setPasswordError("");
     setIsVerifyingPassword(false);
   }
@@ -503,6 +542,11 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       return;
     }
 
+    if (pendingProtectedAction.type === "end" && !endTournamentDate) {
+      setPasswordError("Select the tournament end date.");
+      return;
+    }
+
     setIsVerifyingPassword(true);
     setPasswordError("");
 
@@ -514,7 +558,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       }
 
       if (pendingProtectedAction.type === "end") {
-        await endTournament(pendingProtectedAction.tournamentId);
+        await endTournament(pendingProtectedAction.tournamentId, endTournamentDate);
       }
 
       if (pendingProtectedAction.type === "edit") {
@@ -1239,12 +1283,8 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     }
   }
 
-  async function endTournament(tournamentId) {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const endDate = yesterday.toISOString().slice(0, 10);
-
+  async function endTournament(tournamentId, selectedEndDate) {
+    const endDate = selectedEndDate || getTodayDateInputValue();
     const currentTournament = savedTournaments.find((tournament) => tournament.id === tournamentId);
 
     if (!currentTournament) {
@@ -1264,12 +1304,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     const updatedTournament = {
       ...currentTournament,
       endDate,
-      phase: getAdminTournamentPhase({
-        startDate: currentTournament.startDate,
-        endDate,
-        launched: currentTournament.launched,
-        paused: currentTournament.paused,
-      }),
+      phase: "past",
       data: nextData,
     };
 
@@ -1316,7 +1351,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
         name: team.name,
         manualGroup: manualGroupIndex >= 0 ? String(manualGroupIndex) : "",
         logoName: team.logoName,
-        logoDataUrl: getStoredImageUrl(team.logo),
+        logoDataUrl: getKnownTeam(team.name)?.logo || getStoredImageUrl(team.logo),
         logoPublicId: getStoredImagePublicId(team.logo),
       };
     });
@@ -1944,13 +1979,30 @@ export default function CreateTournamentWizard({ adminSession = null }) {
               <div className={styles.teamGrid}>
                 {teamEntries.map((entry, index) => (
                   <div className={styles.teamRow} key={entry.id}>
-                    <input
-                      className={styles.input}
-                      onChange={(event) => updateTeamEntry(index, "name", event.target.value)}
-                      placeholder={`Team ${entry.id}`}
-                      type="text"
-                      value={entry.name}
-                    />
+                    <div className={styles.teamNameField}>
+                      <input
+                        className={styles.input}
+                        onChange={(event) => updateTeamEntry(index, "name", event.target.value)}
+                        placeholder={`Team ${entry.id}`}
+                        type="text"
+                        value={entry.name}
+                      />
+                      {entry.name.trim() && !getKnownTeam(entry.name)
+                        ? KNOWN_TEAMS.filter((team) =>
+                            team.name.toLowerCase().includes(entry.name.trim().toLowerCase())
+                          ).map((team) => (
+                            <button
+                              className={styles.teamSuggestion}
+                              key={`${entry.id}-${team.name}`}
+                              onClick={() => updateTeamEntry(index, "name", team.name)}
+                              type="button"
+                            >
+                              <img alt="" src={team.logo} />
+                              <span>{team.name}</span>
+                            </button>
+                          ))
+                        : null}
+                    </div>
 
                     <div className={styles.teamLogoCell}>
                       <input
@@ -2341,39 +2393,23 @@ export default function CreateTournamentWizard({ adminSession = null }) {
           </div>
 
           {savedTournaments.length ? (
-            <div className={styles.savedStack}>
-              <div>
-                <h3 className={styles.savedSubTitle}>Upcoming Tournament</h3>
-                {savedUpcomingTournaments.length ? (
-                  <div className={styles.savedGrid}>
-                    {savedUpcomingTournaments.map(renderSavedTournamentCard)}
-                  </div>
-                ) : (
-                  <div className={styles.savedEmpty}>No upcoming tournaments saved.</div>
-                )}
-              </div>
-
-              <div>
-                <h3 className={styles.savedSubTitle}>Ongoing Tournament</h3>
-                {savedOngoingTournaments.length ? (
-                  <div className={styles.savedGrid}>
-                    {savedOngoingTournaments.map(renderSavedTournamentCard)}
-                  </div>
-                ) : (
-                  <div className={styles.savedEmpty}>No ongoing tournaments saved.</div>
-                )}
-              </div>
-
-              <div>
-                <h3 className={styles.savedSubTitle}>Past Tournament</h3>
-                {savedPastTournaments.length ? (
-                  <div className={styles.savedGrid}>
-                    {savedPastTournaments.map(renderSavedTournamentCard)}
-                  </div>
-                ) : (
-                  <div className={styles.savedEmpty}>No past tournaments saved.</div>
-                )}
-              </div>
+            <div className={styles.manageTournamentPicker}>
+              <label className={styles.field} htmlFor="managed-tournament">
+                <span className={styles.fieldLabel}>Tournament</span>
+                <select
+                  className={styles.select}
+                  id="managed-tournament"
+                  onChange={(event) => setSelectedManagedTournamentId(event.target.value)}
+                  value={selectedManagedTournament?.id || ""}
+                >
+                  {savedTournaments.map((tournament) => (
+                    <option key={`manage-${tournament.id}`} value={tournament.id}>
+                      {tournament.name} ({String(tournament.phase || "upcoming")})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedManagedTournament ? renderSavedTournamentCard(selectedManagedTournament) : null}
             </div>
           ) : (
             <div className={styles.savedEmpty}>
@@ -2408,6 +2444,17 @@ export default function CreateTournamentWizard({ adminSession = null }) {
               type="password"
               value={adminPassword}
             />
+            {pendingProtectedAction.type === "end" ? (
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Tournament end date</span>
+                <input
+                  className={styles.input}
+                  onChange={(event) => setEndTournamentDate(event.target.value)}
+                  type="date"
+                  value={endTournamentDate}
+                />
+              </label>
+            ) : null}
             {passwordError ? <p className={styles.status}>{passwordError}</p> : null}
             <div className={styles.passwordActions}>
               <button
@@ -2419,7 +2466,11 @@ export default function CreateTournamentWizard({ adminSession = null }) {
               </button>
               <button
                 className={styles.primaryButton}
-                disabled={!adminPassword || isVerifyingPassword}
+                disabled={
+                  !adminPassword ||
+                  isVerifyingPassword ||
+                  (pendingProtectedAction.type === "end" && !endTournamentDate)
+                }
                 onClick={confirmProtectedAction}
                 type="button"
               >

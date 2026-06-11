@@ -16,6 +16,8 @@ const ACTION_LABELS = {
   goal: "Goal",
   assist: "Assist",
   red: "Red Card",
+  "direct-red": "Direct Red Card",
+  "second-yellow-red": "Second-Yellow Red Card",
   yellow: "Yellow Card",
   "sub-in": "Sub In",
   "sub-out": "Sub Out",
@@ -27,6 +29,24 @@ const ACTION_LABELS = {
   mvp: "MVP",
   other: "Other",
 };
+
+const DISCIPLINARY_ABANDONED_RESULT_NOTE =
+  "Match abandoned; both teams disqualified for disciplinary reasons.";
+
+function normalizeResultNote(value) {
+  const note = String(value || "").trim();
+  const normalizedNote = note.toLowerCase().replace(/\.+$/, "");
+
+  if (normalizedNote === "result suspected for both teams") {
+    return DISCIPLINARY_ABANDONED_RESULT_NOTE;
+  }
+
+  return note;
+}
+
+function getResultNoteTone(note) {
+  return note === DISCIPLINARY_ABANDONED_RESULT_NOTE ? "disciplinary" : "";
+}
 
 export function createLaunchedTournamentSlug(tournamentId) {
   return `launched-${tournamentId}`;
@@ -221,6 +241,7 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
   const matchStatuses = payload.matchStatuses || {};
   const matchLineups = payload.matchLineups || {};
   const matchTelecasts = payload.matchTelecasts || {};
+  const teamSquads = payload.teamSquads || {};
 
   return getTournamentFixtureSections(record).map((section, sectionIndex) => ({
     title: section.title,
@@ -234,6 +255,7 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
       const penaltyScore = getPenaltyShootoutScore(statusRecord);
       const penaltyWinnerSide = getPenaltyShootoutWinnerSide(statusRecord);
       const clockSeconds = statusRecord ? getMatchClockSeconds(statusRecord) : 0;
+      const resultNote = normalizeResultNote(statusRecord?.resultNote);
 
       return {
         id: `${fixtureKey}-${match.home}-${match.away}`,
@@ -247,6 +269,10 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
         awayTeam: match.away,
         homeLogo: teamLogoMap[match.home] || "",
         awayLogo: teamLogoMap[match.away] || "",
+        teamSquads: {
+          home: teamSquads[match.home] || null,
+          away: teamSquads[match.away] || null,
+        },
         sectionTitle: section.title,
         sectionKind: section.kind || "fixture",
         status: getFixtureStatusLabel(statusRecord) || "Upcoming",
@@ -254,6 +280,8 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
         score,
         penaltyScore,
         penaltyWinnerSide,
+        resultNote,
+        resultNoteTone: getResultNoteTone(resultNote),
         clockSeconds,
         clockText: statusRecord ? formatMatchClock(clockSeconds) : "",
         statusRecord,
@@ -280,7 +308,7 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
   }));
 }
 
-function normalizeGroups(groups, teamLogoMap) {
+function normalizeGroups(groups, teamLogoMap, teamSquads) {
   if (!Array.isArray(groups)) {
     return [];
   }
@@ -291,6 +319,7 @@ function normalizeGroups(groups, teamLogoMap) {
       ? group.map((team) => ({
           name: team,
           logo: teamLogoMap[team] || "",
+          squad: teamSquads?.[team] || null,
         }))
       : [],
   }));
@@ -304,13 +333,16 @@ export function normalizeSavedTournament(record) {
   const teamLogoMap = buildTeamLogoMap(payload);
   const fixtureSections = normalizeFixtureSections(record, teamLogoMap, startDate);
   const normalizedGroups =
-    record.tournamentType === "group" ? normalizeGroups(payload.groups, teamLogoMap) : [];
+    record.tournamentType === "group"
+      ? normalizeGroups(payload.groups, teamLogoMap, payload.teamSquads || {})
+      : [];
   const normalizedPointsTables = buildTournamentTables(record).map((groupTable) => ({
     name: groupTable.title,
     rows: groupTable.rows.map((row, index) => ({
-      position: index + 1,
+      position: row.positionLabel || index + 1,
       team: row.team,
       logo: row.logo || "",
+      squad: payload.teamSquads?.[row.team] || null,
       played: row.played,
       won: row.wins,
       draw: row.draws,
@@ -322,6 +354,9 @@ export function normalizeSavedTournament(record) {
       yellow: row.yellow,
       red: row.red,
       penalty: row.penalty,
+      conductScore: row.conductScore,
+      fairPlayScore: row.conductScore,
+      unresolvedTie: row.unresolvedTie,
     })),
   }));
   const normalizedFixtures = fixtureSections.flatMap((section) => section.matches);
@@ -333,7 +368,7 @@ export function normalizeSavedTournament(record) {
     id: record.id,
     slug: createLaunchedTournamentSlug(record.id),
     name: record.name,
-    status: getTournamentDisplayStatus(startDate, endDate),
+    status: record.phase === "past" ? "Past" : getTournamentDisplayStatus(startDate, endDate),
     matches: normalizedFixtures.length,
     description,
     fixtures: normalizedFixtures,

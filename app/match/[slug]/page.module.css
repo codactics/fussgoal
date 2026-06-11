@@ -135,6 +135,31 @@
   font-weight: 800;
 }
 
+.teamLineButton,
+.lineupSummaryButton {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #10241d;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-align: center;
+}
+
+.teamLineButton {
+  font-size: 1.1rem;
+}
+
+.teamLineButton:hover,
+.teamLineButton:focus-visible,
+.lineupSummaryButton:hover,
+.lineupSummaryButton:focus-visible {
+  color: #0f6a4c;
+  text-decoration: underline;
+}
+
 .scorePanel {
   display: grid;
   align-content: center;
@@ -166,6 +191,24 @@
 .telecastBadge {
   background: rgba(15, 106, 76, 0.12);
   color: #0d6b4d;
+}
+
+.resultNote {
+  margin: 0;
+  padding: 0.62rem 0.76rem;
+  border: 1px solid rgba(191, 123, 33, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 246, 232, 0.88);
+  color: #7a4b0b;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.disciplinaryResultNote {
+  border-color: rgba(198, 40, 40, 0.28);
+  background: rgba(255, 235, 238, 0.9);
+  color: #b71c1c;
 }
 
 .phase {
@@ -715,6 +758,12 @@
   font-size: 1.05rem;
   font-weight: 800;
   color: #0b4f39;
+}
+
+.lineupSummaryButton {
+  color: #0b4f39;
+  font-size: 1.05rem;
+  text-align: left;
 }
 
 .lineupContent {

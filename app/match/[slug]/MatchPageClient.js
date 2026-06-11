@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import codacticsGif from "../../../logo/codactics.gif";
 import Navbar from "../../../components/Navbar";
 import SectionContainer from "../../../components/SectionContainer";
+import TeamSquadModal from "../../../components/TeamSquadModal";
+import TeamOfficialPageLink from "../../../components/TeamOfficialPageLink";
+import TeamPageLink from "../../../components/TeamPageLink";
 import { normalizeSavedTournament } from "../../../components/launchedTournamentUtils";
 import { formatMatchClock, getMatchClockSeconds } from "../../../components/manageTournamentUtils";
 import styles from "./page.module.css";
@@ -94,10 +97,13 @@ function buildLaunchedMatchData(tournament, fixture) {
     phaseLabel: fixture.phaseLabel || "",
     clockText: fixture.clockText || "",
     statusRecord: fixture.statusRecord || null,
+    resultNote: fixture.resultNote || "",
+    resultNoteTone: fixture.resultNoteTone || "",
     date: fixture.date || "TBD",
     time: fixture.time || "TBD",
     venue: "",
     lineups: fixture.lineup || { home: [], away: [] },
+    teamSquads: fixture.teamSquads || { home: null, away: null },
     timelineEntries: fixture.timelineEntries || [],
     telecast: fixture.telecast || null,
   };
@@ -162,6 +168,7 @@ function getMatchDisplayStatus(match) {
 export default function MatchPageClient({ initialMatch }) {
   const [match, setMatch] = useState(() => buildMatchData(initialMatch));
   const [timerNow, setTimerNow] = useState(Date.now());
+  const [activeSquadSide, setActiveSquadSide] = useState("");
   const telecastFrameWrapRef = useRef(null);
 
   useEffect(() => {
@@ -223,6 +230,7 @@ export default function MatchPageClient({ initialMatch }) {
 
   const liveClock = useMemo(() => getLiveClock(match, timerNow), [match, timerNow]);
   const displayStatus = useMemo(() => getMatchDisplayStatus(match), [match]);
+  const isDisciplinaryResultNote = match?.resultNoteTone === "disciplinary";
   const homeGoalScorers = useMemo(() => getGoalScorers(match, "home"), [match]);
   const awayGoalScorers = useMemo(() => getGoalScorers(match, "away"), [match]);
   const timelineEntries = Array.isArray(match?.timelineEntries) ? match.timelineEntries : [];
@@ -236,6 +244,16 @@ export default function MatchPageClient({ initialMatch }) {
   const telecastStatus = String(match?.telecast?.status || "stopped");
   const telecastOverlay = String(match?.telecast?.overlay || "none");
   const showBottomScore = Boolean(match?.telecast?.bottomScore);
+  const activeSquad =
+    activeSquadSide === "home"
+      ? match?.teamSquads?.home
+      : activeSquadSide === "away"
+        ? match?.teamSquads?.away
+        : null;
+  const activeSquadTeamName =
+    activeSquadSide === "home" ? match?.homeTeam : activeSquadSide === "away" ? match?.awayTeam : "";
+  const activeSquadLogo =
+    activeSquadSide === "home" ? match?.homeLogo : activeSquadSide === "away" ? match?.awayLogo : "";
   const overlayPlayers =
     telecastOverlay === "home"
       ? match?.lineups?.home || []
@@ -298,7 +316,9 @@ export default function MatchPageClient({ initialMatch }) {
         <section className={styles.hero}>
           <p className={styles.eyebrow}>{match.source === "launched" ? "Live Match" : "Match Overview"}</p>
           <h1 className={styles.heading}>
-            {match.homeTeam} vs {match.awayTeam}
+            {match.homeTeam} <TeamOfficialPageLink teamName={match.homeTeam} />
+            {" vs "}
+            {match.awayTeam} <TeamOfficialPageLink teamName={match.awayTeam} />
           </h1>
           <p className={styles.heroMeta}>
             {match.tournamentName}
@@ -315,7 +335,16 @@ export default function MatchPageClient({ initialMatch }) {
             ) : (
               <div className={styles.teamLogoFallback}>{match.homeTeam?.slice(0, 1) || "H"}</div>
             )}
-            <p className={styles.teamLine}>{match.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}</p>
+            <div>
+              <button
+                className={styles.teamLineButton}
+                onClick={() => setActiveSquadSide("home")}
+                type="button"
+              >
+                {match.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}
+              </button>{" "}
+              <TeamOfficialPageLink teamName={match.homeTeam} />
+            </div>
           </div>
           <div className={styles.scorePanel}>
             <div className={styles.statusRow}>
@@ -329,6 +358,11 @@ export default function MatchPageClient({ initialMatch }) {
               <p className={styles.liveClock}>({penaltyScore.home}:{penaltyScore.away})</p>
             ) : null}
             <p className={styles.liveClock}>{liveClock || "Not live"}</p>
+            {match.resultNote ? (
+              <p className={`${styles.resultNote} ${isDisciplinaryResultNote ? styles.disciplinaryResultNote : ""}`}>
+                {match.resultNote}
+              </p>
+            ) : null}
           </div>
           <div className={styles.teamPanel}>
             {match.awayLogo ? (
@@ -336,7 +370,16 @@ export default function MatchPageClient({ initialMatch }) {
             ) : (
               <div className={styles.teamLogoFallback}>{match.awayTeam?.slice(0, 1) || "A"}</div>
             )}
-            <p className={styles.teamLine}>{match.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}</p>
+            <div>
+              <button
+                className={styles.teamLineButton}
+                onClick={() => setActiveSquadSide("away")}
+                type="button"
+              >
+                {match.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}
+              </button>{" "}
+              <TeamOfficialPageLink teamName={match.awayTeam} />
+            </div>
           </div>
         </section>
 
@@ -399,25 +442,33 @@ export default function MatchPageClient({ initialMatch }) {
                   <div className={styles.telecastScoreboardTeams}>
                     <div className={styles.telecastTeamBlock}>
                       {match.homeLogo ? (
-                        <img
-                          alt={`${match.homeTeam} logo`}
-                          className={styles.telecastTeamLogo}
-                          src={match.homeLogo}
-                        />
+                        <TeamPageLink teamName={match.homeTeam}>
+                          <img
+                            alt={`${match.homeTeam} logo`}
+                            className={styles.telecastTeamLogo}
+                            src={match.homeLogo}
+                          />
+                        </TeamPageLink>
                       ) : (
-                        <span className={styles.telecastTeamName}>{match.homeTeam}</span>
+                        <TeamPageLink teamName={match.homeTeam}>
+                          <span className={styles.telecastTeamName}>{match.homeTeam}</span>
+                        </TeamPageLink>
                       )}
                     </div>
                     <span className={styles.telecastScoreValue}>{homeScore} - {awayScore}</span>
                     <div className={styles.telecastTeamBlock}>
                       {match.awayLogo ? (
-                        <img
-                          alt={`${match.awayTeam} logo`}
-                          className={styles.telecastTeamLogo}
-                          src={match.awayLogo}
-                        />
+                        <TeamPageLink teamName={match.awayTeam}>
+                          <img
+                            alt={`${match.awayTeam} logo`}
+                            className={styles.telecastTeamLogo}
+                            src={match.awayLogo}
+                          />
+                        </TeamPageLink>
                       ) : (
-                        <span className={styles.telecastTeamName}>{match.awayTeam}</span>
+                        <TeamPageLink teamName={match.awayTeam}>
+                          <span className={styles.telecastTeamName}>{match.awayTeam}</span>
+                        </TeamPageLink>
                       )}
                     </div>
                   </div>
@@ -436,26 +487,34 @@ export default function MatchPageClient({ initialMatch }) {
                     <div className={styles.bottomScoreTopRow}>
                       <div className={styles.bottomScoreTeamHeader}>
                         {match.homeLogo ? (
-                          <img
-                            alt={`${match.homeTeam} logo`}
-                            className={styles.bottomScoreLogo}
-                            src={match.homeLogo}
-                          />
+                          <TeamPageLink teamName={match.homeTeam}>
+                            <img
+                              alt={`${match.homeTeam} logo`}
+                              className={styles.bottomScoreLogo}
+                              src={match.homeLogo}
+                            />
+                          </TeamPageLink>
                         ) : null}
-                        <span className={styles.bottomScoreTeamName}>{match.homeTeam}</span>
+                        <TeamPageLink teamName={match.homeTeam}>
+                          <span className={styles.bottomScoreTeamName}>{match.homeTeam}</span>
+                        </TeamPageLink>
                       </div>
                       <div className={styles.bottomScoreCenter}>
                         <span className={styles.bottomScoreValue}>{homeScore} : {awayScore}</span>
                         {liveClock ? <span className={styles.bottomScoreClock}>{liveClock}</span> : null}
                       </div>
                       <div className={`${styles.bottomScoreTeamHeader} ${styles.bottomScoreTeamHeaderRight}`}>
-                        <span className={styles.bottomScoreTeamName}>{match.awayTeam}</span>
+                        <TeamPageLink teamName={match.awayTeam}>
+                          <span className={styles.bottomScoreTeamName}>{match.awayTeam}</span>
+                        </TeamPageLink>
                         {match.awayLogo ? (
-                          <img
-                            alt={`${match.awayTeam} logo`}
-                            className={styles.bottomScoreLogo}
-                            src={match.awayLogo}
-                          />
+                          <TeamPageLink teamName={match.awayTeam}>
+                            <img
+                              alt={`${match.awayTeam} logo`}
+                              className={styles.bottomScoreLogo}
+                              src={match.awayLogo}
+                            />
+                          </TeamPageLink>
                         ) : null}
                       </div>
                     </div>
@@ -573,7 +632,14 @@ export default function MatchPageClient({ initialMatch }) {
           <div className={styles.lineupGrid}>
             <div className={styles.lineupColumn}>
               <div className={styles.lineupHeader}>
-                <h3 className={styles.lineupSummary}>{match.homeTeam}</h3>
+                <button
+                  className={styles.lineupSummaryButton}
+                  onClick={() => setActiveSquadSide("home")}
+                  type="button"
+                >
+                  {match.homeTeam}
+                </button>{" "}
+                <TeamOfficialPageLink teamName={match.homeTeam} />
               </div>
               <div className={styles.lineupContent}>
                 {(match.lineups.home || []).length ? (
@@ -593,7 +659,14 @@ export default function MatchPageClient({ initialMatch }) {
 
             <div className={styles.lineupColumn}>
               <div className={styles.lineupHeader}>
-                <h3 className={styles.lineupSummary}>{match.awayTeam}</h3>
+                <button
+                  className={styles.lineupSummaryButton}
+                  onClick={() => setActiveSquadSide("away")}
+                  type="button"
+                >
+                  {match.awayTeam}
+                </button>{" "}
+                <TeamOfficialPageLink teamName={match.awayTeam} />
               </div>
               <div className={styles.lineupContent}>
                 {(match.lineups.away || []).length ? (
@@ -612,6 +685,15 @@ export default function MatchPageClient({ initialMatch }) {
             </div>
           </div>
         </section>
+
+        {activeSquadSide ? (
+          <TeamSquadModal
+            logo={activeSquadLogo}
+            onClose={() => setActiveSquadSide("")}
+            squad={activeSquad}
+            teamName={activeSquadTeamName}
+          />
+        ) : null}
 
         <SectionContainer
           title="Match Events"

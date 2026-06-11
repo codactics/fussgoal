@@ -288,7 +288,36 @@
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr) 180px;
   gap: 0.8rem;
+  align-items: start;
+}
+
+.teamNameField {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.teamSuggestion {
+  display: flex;
   align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(15, 106, 76, 0.2);
+  border-radius: 12px;
+  background: #f5faf7;
+  color: #10241d;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.teamSuggestion img {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .logoPreviewRow {
@@ -432,6 +461,12 @@
   gap: 1rem;
 }
 
+.manageTournamentPicker {
+  display: grid;
+  gap: 1rem;
+  max-width: 720px;
+}
+
 .savedStack {
   display: grid;
   gap: 1.5rem;
@@ -458,6 +493,7 @@
 
 .savedCardHeader {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
@@ -484,6 +520,7 @@
 
 .savedActions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
@@ -493,6 +530,7 @@
 .savedPrimaryActions,
 .savedSecondaryActions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
 }
@@ -936,6 +974,37 @@
   color: #a22735;
 }
 
+.overwritePanel {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(198, 40, 40, 0.2);
+  border-radius: 18px;
+  background: rgba(255, 247, 248, 0.92);
+}
+
+.overwriteGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.overwriteManualInputField {
+  grid-column: 1 / -1;
+}
+
+.resultNotePreview {
+  padding: 0.72rem 0.9rem;
+  border: 1px solid rgba(198, 40, 40, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 235, 238, 0.9);
+  color: #b71c1c;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .eventActionButton,
 .eventIconButton {
   min-height: 46px;
@@ -1192,6 +1261,26 @@
   min-width: 0;
 }
 
+.summaryTeamLogo,
+.summaryTeamLogoFallback {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+}
+
+.summaryTeamLogo {
+  display: block;
+  object-fit: cover;
+}
+
+.summaryTeamLogoFallback {
+  display: grid;
+  place-items: center;
+  background: #eef3f0;
+  color: #456257;
+  font-weight: 800;
+}
+
 .tournamentSummaryHeader {
   display: flex;
   align-items: center;
@@ -1406,6 +1495,44 @@
   margin-top: 1rem;
 }
 
+.confirmCancelButton,
+.confirmOkButton {
+  min-height: 48px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.9rem 1.3rem;
+  color: #ffffff;
+  font-size: 0.98rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.confirmCancelButton {
+  background: #db2f3e;
+  box-shadow: 0 12px 24px rgba(219, 47, 62, 0.24);
+}
+
+.confirmCancelButton:hover {
+  transform: translateY(-2px);
+  background: #b51f31;
+  box-shadow: 0 16px 28px rgba(181, 31, 49, 0.28);
+}
+
+.confirmOkButton {
+  background: #0f8f63;
+  box-shadow: 0 12px 24px rgba(15, 143, 99, 0.24);
+}
+
+.confirmOkButton:hover {
+  transform: translateY(-2px);
+  background: #0a7350;
+  box-shadow: 0 16px 28px rgba(10, 115, 80, 0.28);
+}
+
 @media (max-width: 640px) {
   .emptyCard,
   .formCard,
@@ -1457,7 +1584,8 @@
   .lineupHeader,
   .lineupTable,
   .lineupRow,
-  .matchStatusEntryGrid {
+  .matchStatusEntryGrid,
+  .overwriteGrid {
     grid-template-columns: 1fr;
   }
 

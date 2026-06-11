@@ -326,6 +326,26 @@
   font-weight: 900;
 }
 
+.summaryTeamLogo,
+.summaryTeamLogoFallback {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+}
+
+.summaryTeamLogo {
+  display: block;
+  object-fit: cover;
+}
+
+.summaryTeamLogoFallback {
+  display: grid;
+  place-items: center;
+  background: #eef3f0;
+  color: #456257;
+  font-weight: 800;
+}
+
 .notFoundCard {
   margin-top: 1.5rem;
 }

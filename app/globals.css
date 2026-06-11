@@ -43,14 +43,89 @@ select {
 
 .site-footer {
   margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
   padding: 1rem 1.5rem 1.5rem;
-  text-align: center;
+  text-align: left;
   color: var(--muted);
   font-size: 0.95rem;
 }
 
 .site-footer p {
   margin: 0;
+}
+
+.site-footer-social {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.site-footer-social-prompt {
+  color: #10241d;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.site-footer-social-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.site-footer-social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid rgba(19, 32, 27, 0.08);
+  border-radius: 50%;
+  color: #f7fbf8;
+  box-shadow: 0 18px 32px rgba(16, 34, 27, 0.12);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.site-footer-social-link:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 26px 42px rgba(16, 34, 27, 0.18);
+  border-color: rgba(19, 32, 27, 0.14);
+}
+
+.site-footer-social-link svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.site-footer-social-facebook {
+  background: linear-gradient(135deg, rgba(24, 119, 242, 0.95), rgba(11, 76, 168, 0.9));
+}
+
+.site-footer-social-instagram {
+  background:
+    linear-gradient(135deg, rgba(245, 96, 64, 0.95), rgba(193, 53, 132, 0.92) 52%, rgba(131, 58, 180, 0.88));
+}
+
+.site-footer-social-youtube {
+  background: linear-gradient(135deg, rgba(255, 67, 67, 0.96), rgba(186, 22, 22, 0.9));
+}
+
+.site-footer-credit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  text-align: center;
 }
 
 .site-footer-link {
@@ -61,4 +136,17 @@ select {
 
 .site-footer-link:hover {
   color: #b51f31;
+}
+
+@media (max-width: 640px) {
+  .site-footer {
+    align-items: center;
+    flex-direction: column;
+    gap: 0.85rem;
+    text-align: center;
+  }
+
+  .site-footer-social {
+    flex-wrap: wrap;
+  }
 }

@@ -17,6 +17,12 @@ export default async function sitemap() {
       changeFrequency: "daily",
       priority: 1,
     },
+    {
+      url: buildAbsoluteUrl("/teams/fccf"),
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
   ];
 
   const tournamentRoutes = ongoingTournaments.map((tournament) => ({

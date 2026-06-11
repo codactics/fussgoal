@@ -1,0 +1,21 @@
+.link {
+  display: inline-grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border: 1px solid rgba(15, 106, 76, 0.22);
+  border-radius: 50%;
+  background: rgba(15, 106, 76, 0.08);
+  color: #0f6a4c;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  text-decoration: none;
+  vertical-align: middle;
+}
+
+.link:hover,
+.link:focus-visible {
+  background: #0f6a4c;
+  color: #ffffff;
+}

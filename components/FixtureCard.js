@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatMatchClock, getMatchClockSeconds } from "./manageTournamentUtils";
+import TeamOfficialPageLink from "./TeamOfficialPageLink";
 import styles from "./FixtureCard.module.css";
 
 function getFixtureDisplayStatus(fixture) {
@@ -28,6 +29,7 @@ export default function FixtureCard({ fixture, onClick }) {
   const displayStatus = getFixtureDisplayStatus(fixture);
   const isLive = displayStatus === "Live";
   const isPaused = fixture?.statusRecord?.matchStatus === "paused";
+  const isDisciplinaryResultNote = fixture?.resultNoteTone === "disciplinary";
   const previousScoreRef = useRef(`${fixture?.score?.home ?? 0}:${fixture?.score?.away ?? 0}`);
 
   useEffect(() => {
@@ -79,15 +81,20 @@ export default function FixtureCard({ fixture, onClick }) {
 
   const penaltyScore = fixture?.penaltyScore || { home: 0, away: 0 };
   const penaltyWinnerSide = String(fixture?.penaltyWinnerSide || "");
-  const CardTag = onClick ? "button" : "article";
-
   return (
-    <CardTag
+    <article
       className={`${styles.card} ${onClick ? styles.cardButton : ""} ${
         showGoalEffect ? styles.goalCard : ""
       }`}
       onClick={onClick}
-      type={onClick ? "button" : undefined}
+      onKeyDown={(event) => {
+        if (onClick && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
       <div className={styles.topRow}>
         <span className={`${styles.status} ${isLive ? styles.liveStatus : ""}`}>
@@ -103,7 +110,10 @@ export default function FixtureCard({ fixture, onClick }) {
             {fixture.homeLogo ? (
               <img alt={`${fixture.homeTeam} logo`} className={styles.teamLogo} src={fixture.homeLogo} />
             ) : null}
-            <p className={styles.team}>{fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}</p>
+            <p className={styles.team}>
+              {fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}{" "}
+              <TeamOfficialPageLink teamName={fixture.homeTeam} />
+            </p>
           </div>
           <div className={styles.liveBoardCenter}>
             <div className={`${styles.scoreRow} ${styles.liveScoreRow}`}>
@@ -130,7 +140,10 @@ export default function FixtureCard({ fixture, onClick }) {
             </div>
           </div>
           <div className={`${styles.liveTeamSide} ${styles.liveTeamSideRight}`}>
-            <p className={styles.team}>{fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}</p>
+            <p className={styles.team}>
+              {fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}{" "}
+              <TeamOfficialPageLink teamName={fixture.awayTeam} />
+            </p>
             {fixture.awayLogo ? (
               <img alt={`${fixture.awayTeam} logo`} className={styles.teamLogo} src={fixture.awayLogo} />
             ) : null}
@@ -142,14 +155,20 @@ export default function FixtureCard({ fixture, onClick }) {
             {fixture.homeLogo ? (
               <img alt={`${fixture.homeTeam} logo`} className={styles.teamLogo} src={fixture.homeLogo} />
             ) : null}
-            <p className={styles.team}>{fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}</p>
+            <p className={styles.team}>
+              {fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}{" "}
+              <TeamOfficialPageLink teamName={fixture.homeTeam} />
+            </p>
           </div>
           <p className={styles.vs}>vs</p>
           <div className={styles.teamRow}>
             {fixture.awayLogo ? (
               <img alt={`${fixture.awayTeam} logo`} className={styles.teamLogo} src={fixture.awayLogo} />
             ) : null}
-            <p className={styles.team}>{fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}</p>
+            <p className={styles.team}>
+              {fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}{" "}
+              <TeamOfficialPageLink teamName={fixture.awayTeam} />
+            </p>
           </div>
         </div>
       )}
@@ -167,6 +186,12 @@ export default function FixtureCard({ fixture, onClick }) {
         </div>
       ) : null}
 
+      {fixture.resultNote ? (
+        <p className={`${styles.resultNote} ${isDisciplinaryResultNote ? styles.disciplinaryResultNote : ""}`}>
+          {fixture.resultNote}
+        </p>
+      ) : null}
+
       <div className={styles.meta}>
         <p className={styles.metaLabel}>Date</p>
         <p className={styles.metaValue}>{fixture.date}</p>
@@ -176,6 +201,6 @@ export default function FixtureCard({ fixture, onClick }) {
         <p className={styles.metaLabel}>Time</p>
         <p className={styles.metaValue}>{fixture.time}</p>
       </div>
-    </CardTag>
+    </article>
   );
 }

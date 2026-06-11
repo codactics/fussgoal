@@ -1,4 +1,5 @@
 import { getStoredImageUrl } from "./launchedTournamentUtils";
+import { getKnownTeam } from "./knownTeams";
 
 export function getGroupLabel(index) {
   return `Group ${String.fromCharCode(65 + index)}`;
@@ -7,11 +8,37 @@ export function getGroupLabel(index) {
 export function buildTeamLogoMap(payload) {
   return (payload.teamData || []).reduce((accumulator, team) => {
     if (team?.name) {
-      accumulator[team.name] = getStoredImageUrl(team.logo);
+      accumulator[team.name] = getKnownTeam(team.name)?.logo || getStoredImageUrl(team.logo) || "";
     }
 
     return accumulator;
   }, {});
+}
+
+export function getTournamentTeamGroups(tournament) {
+  const payload = tournament?.data || {};
+  const groups = Array.isArray(payload.groups)
+    ? payload.groups.filter((group) => Array.isArray(group) && group.length)
+    : [];
+
+  if (groups.length) {
+    return groups;
+  }
+
+  if (tournament?.tournamentType !== "league") {
+    return [];
+  }
+
+  const teamNames = Array.isArray(payload.teamData) && payload.teamData.length
+    ? payload.teamData.map((team) => String(team?.name || "").trim())
+    : Array.isArray(payload.teams)
+      ? payload.teams.map((team) => String(team || "").trim())
+      : [];
+  const uniqueTeamNames = teamNames.filter(
+    (teamName, index, teams) => teamName && teams.indexOf(teamName) === index
+  );
+
+  return uniqueTeamNames.length ? [uniqueTeamNames] : [];
 }
 
 export function getTournamentFixtureSections(tournament) {
@@ -20,6 +47,7 @@ export function getTournamentFixtureSections(tournament) {
   const knockoutMatches = Array.isArray(payload.knockoutMatches) ? payload.knockoutMatches : [];
   const fixtureSchedules = payload.fixtureSchedules || {};
   const matchStatuses = payload.matchStatuses || {};
+  const teamGroups = getTournamentTeamGroups(tournament);
   const sections = [];
 
   if (tournamentFixtures.scope === "same" && Array.isArray(tournamentFixtures.groups)) {
@@ -78,23 +106,27 @@ export function getTournamentFixtureSections(tournament) {
           {
             home: resolveKnockoutTeamSource({
               fallback: match?.home,
-              groups: payload.groups,
+              groups: teamGroups,
               matchStatuses,
               knockoutMatches,
               knockoutStartSectionIndex,
               sections,
               source: match?.homeSource,
+              tournament,
             }),
             away: resolveKnockoutTeamSource({
               fallback: match?.away,
-              groups: payload.groups,
+              groups: teamGroups,
               matchStatuses,
               knockoutMatches,
               knockoutStartSectionIndex,
               sections,
               source: match?.awaySource,
+              tournament,
             }),
             includeInTable: Boolean(match?.includeInTable),
+            homeSource: match?.homeSource || null,
+            awaySource: match?.awaySource || null,
             roundIndex: 0,
             matchIndex,
           },
@@ -126,6 +158,7 @@ function resolveKnockoutTeamSource({
   knockoutStartSectionIndex,
   sections,
   source,
+  tournament,
 }) {
   const fallbackValue = String(fallback || "").trim();
 
@@ -138,6 +171,7 @@ function resolveKnockoutTeamSource({
         rowIndex: source.rowIndex,
         sectionList: sections,
         groupIndex: source.groupIndex,
+        tournament,
       }) || fallbackValue
     );
   }
@@ -175,6 +209,7 @@ function resolveGroupPositionTeam({
   matchStatuses,
   rowIndex,
   sectionList,
+  tournament,
 }) {
   const groupTeams = Array.isArray(groups?.[groupIndex]) ? groups[groupIndex] : [];
   const positionIndex = Number.parseInt(rowIndex, 10);
@@ -189,13 +224,16 @@ function resolveGroupPositionTeam({
       teamName,
       {
         team: teamName,
+        groupOrder: groupTeams.indexOf(teamName),
         points: 0,
         scored: 0,
         contained: 0,
         difference: 0,
+        conductScore: 0,
       },
     ])
   );
+  const groupMatches = [];
 
   sectionList.forEach((section, sectionIndex) => {
     if (section.kind === "knockout") {
@@ -230,7 +268,14 @@ function resolveGroupPositionTeam({
         awayStats.contained += score.home;
       }
 
-      const winnerSide = getMatchWinnerSide(statusRecord);
+      groupMatches.push({
+        away: match.away,
+        awayScore: score.away,
+        home: match.home,
+        homeScore: score.home,
+      });
+
+      const winnerSide = getRegulationWinnerSide(statusRecord);
       if (winnerSide === "home") {
         if (homeStats) {
           homeStats.points += 3;
@@ -247,26 +292,24 @@ function resolveGroupPositionTeam({
           awayStats.points += 1;
         }
       }
+
+      if (homeStats) {
+        homeStats.conductScore += getConductScore(statusRecord?.events, match.home);
+      }
+      if (awayStats) {
+        awayStats.conductScore += getConductScore(statusRecord?.events, match.away);
+      }
     });
   });
 
-  const rows = Array.from(teamStats.values())
+  const rows = rankGroupRows(
+    Array.from(teamStats.values())
     .map((team) => ({
       ...team,
       difference: team.scored - team.contained,
-    }))
-    .sort((left, right) => {
-      if (right.points !== left.points) {
-        return right.points - left.points;
-      }
-      if (right.difference !== left.difference) {
-        return right.difference - left.difference;
-      }
-      if (right.scored !== left.scored) {
-        return right.scored - left.scored;
-      }
-      return left.team.localeCompare(right.team);
-    });
+    })),
+    groupMatches
+  );
 
   return rows[positionIndex]?.team || String(fallback || "").trim();
 }
@@ -390,6 +433,212 @@ export function getMatchWinnerSide(statusRecord) {
   return getPenaltyShootoutWinnerSide(statusRecord);
 }
 
+function getRegulationWinnerSide(statusRecord) {
+  const score = getMatchScore(statusRecord);
+  if (score.home > score.away) {
+    return "home";
+  }
+  if (score.away > score.home) {
+    return "away";
+  }
+  return "";
+}
+
+export function getConductScore(events, teamName) {
+  const subjects = new Map();
+
+  (events || []).forEach((event) => {
+    if (getMatchEventTeamName(event) !== teamName) {
+      return;
+    }
+
+    const subjectKey = String(
+      event?.subjectKey || event?.subjectLabel || event?.id || `team:${teamName}`
+    );
+    const record = subjects.get(subjectKey) || { directRed: false, secondYellowRed: false, yellow: 0 };
+
+    if (event.action === "yellow") {
+      record.yellow += 1;
+    } else if (event.action === "second-yellow-red") {
+      record.secondYellowRed = true;
+    } else if (event.action === "red" || event.action === "direct-red") {
+      record.directRed = true;
+    } else if (event.action === "yellow-direct-red") {
+      record.yellow = Math.max(record.yellow, 1);
+      record.directRed = true;
+    }
+
+    subjects.set(subjectKey, record);
+  });
+
+  return Array.from(subjects.values()).reduce((score, record) => {
+    if (record.directRed && record.yellow > 0) {
+      return score - 5;
+    }
+    if (record.directRed) {
+      return score - 4;
+    }
+    if (record.secondYellowRed || record.yellow >= 2) {
+      return score - 3;
+    }
+    if (record.yellow === 1) {
+      return score - 1;
+    }
+    return score;
+  }, 0);
+}
+
+function getHeadToHeadStats(rows, matches) {
+  const teams = new Set(rows.map((row) => row.team));
+  const stats = new Map(
+    rows.map((row) => [row.team, { team: row.team, points: 0, difference: 0, scored: 0 }])
+  );
+
+  matches.forEach((match) => {
+    if (!teams.has(match.home) || !teams.has(match.away)) {
+      return;
+    }
+
+    const home = stats.get(match.home);
+    const away = stats.get(match.away);
+    home.scored += match.homeScore;
+    home.difference += match.homeScore - match.awayScore;
+    away.scored += match.awayScore;
+    away.difference += match.awayScore - match.homeScore;
+
+    if (match.homeScore > match.awayScore) {
+      home.points += 3;
+    } else if (match.awayScore > match.homeScore) {
+      away.points += 3;
+    } else {
+      home.points += 1;
+      away.points += 1;
+    }
+  });
+
+  return stats;
+}
+
+function splitByCriteria(rows, criteria) {
+  const groups = [];
+
+  rows.forEach((row) => {
+    const previousGroup = groups[groups.length - 1];
+    if (!previousGroup || criteria.some((field) => previousGroup[0][field] !== row[field])) {
+      groups.push([row]);
+    } else {
+      previousGroup.push(row);
+    }
+  });
+
+  return groups;
+}
+
+function rankHeadToHead(rows, matches, path = "h2h") {
+  if (rows.length < 2) {
+    return rows.map((row) => ({ ...row, headToHeadKey: `${path}:0` }));
+  }
+
+  const stats = getHeadToHeadStats(rows, matches);
+  const ranked = rows
+    .map((row) => ({
+      ...row,
+      headToHeadDifference: stats.get(row.team).difference,
+      headToHeadPoints: stats.get(row.team).points,
+      headToHeadScored: stats.get(row.team).scored,
+    }))
+    .sort(
+      (left, right) =>
+        right.headToHeadPoints - left.headToHeadPoints ||
+        right.headToHeadDifference - left.headToHeadDifference ||
+        right.headToHeadScored - left.headToHeadScored
+    );
+  const groups = splitByCriteria(ranked, [
+    "headToHeadPoints",
+    "headToHeadDifference",
+    "headToHeadScored",
+  ]);
+
+  if (groups.length === 1) {
+    return rows.map((row) => ({ ...row, headToHeadKey: `${path}:tied` }));
+  }
+
+  return groups.flatMap((group, groupIndex) => {
+    const originalRows = group.map(
+      ({ headToHeadDifference, headToHeadPoints, headToHeadScored, ...row }) => row
+    );
+    return originalRows.length === 1
+      ? [{ ...originalRows[0], headToHeadKey: `${path}:${groupIndex}` }]
+      : rankHeadToHead(originalRows, matches, `${path}:${groupIndex}`);
+  });
+}
+
+function rankGroupRows(rows, matches) {
+  const pointGroups = new Map();
+  rows.forEach((row) => {
+    const group = pointGroups.get(row.points) || [];
+    group.push(row);
+    pointGroups.set(row.points, group);
+  });
+
+  const ranked = Array.from(pointGroups.entries())
+    .sort(([left], [right]) => right - left)
+    .flatMap(([, tiedRows]) => {
+      const headToHeadRanked = rankHeadToHead(tiedRows, matches);
+      return splitByCriteria(headToHeadRanked, ["headToHeadKey"]).flatMap((headToHeadGroup) =>
+        headToHeadGroup.sort((left, right) => {
+          if (right.difference !== left.difference) {
+            return right.difference - left.difference;
+          }
+          if (right.scored !== left.scored) {
+            return right.scored - left.scored;
+          }
+          if (right.conductScore !== left.conductScore) {
+            return right.conductScore - left.conductScore;
+          }
+          return left.groupOrder - right.groupOrder;
+        })
+      );
+    });
+
+  const rowsWithTieState = ranked.map((row, index) => {
+    const isUnresolvedAgainst = (other) =>
+      other &&
+      row.points === other.points &&
+      row.headToHeadKey === other.headToHeadKey &&
+      row.difference === other.difference &&
+      row.scored === other.scored &&
+      row.conductScore === other.conductScore;
+    const tiedWithPrevious = isUnresolvedAgainst(ranked[index - 1]);
+    const tiedWithNext = isUnresolvedAgainst(ranked[index + 1]);
+
+    return { ...row, unresolvedTie: tiedWithPrevious || tiedWithNext };
+  });
+
+  return rowsWithTieState.map((row, index) => {
+    if (!row.unresolvedTie) {
+      return { ...row, positionLabel: String(index + 1) };
+    }
+
+    let start = index;
+    let end = index;
+    const isSameTieGroup = (other) =>
+      other?.unresolvedTie &&
+      row.points === other.points &&
+      row.headToHeadKey === other.headToHeadKey &&
+      row.difference === other.difference &&
+      row.scored === other.scored &&
+      row.conductScore === other.conductScore;
+    while (start > 0 && isSameTieGroup(rowsWithTieState[start - 1])) {
+      start -= 1;
+    }
+    while (end < rowsWithTieState.length - 1 && isSameTieGroup(rowsWithTieState[end + 1])) {
+      end += 1;
+    }
+    return { ...row, positionLabel: `${start + 1}/${end + 1}` };
+  });
+}
+
 export function getMatchClockSeconds(statusRecord, now = Date.now()) {
   const halfDurationMinutes = Number(statusRecord?.halfDurationMinutes) || 0;
   const halfDurationSeconds = Math.max(0, halfDurationMinutes * 60);
@@ -462,7 +711,7 @@ export function getFixturePhaseLabel(statusRecord) {
 
 export function buildTournamentTables(tournament) {
   const payload = tournament?.data || {};
-  const groups = Array.isArray(payload.groups) ? payload.groups : [];
+  const groups = getTournamentTeamGroups(tournament);
   const fixtureSections = getTournamentFixtureSections(tournament);
   const matchStatuses = payload.matchStatuses || {};
   const teamLogoMap = buildTeamLogoMap(payload);
@@ -473,6 +722,7 @@ export function buildTournamentTables(tournament) {
         teamName,
         {
           team: teamName,
+          groupOrder: groupTeams.indexOf(teamName),
           logo: teamLogoMap[teamName] || "",
           points: 0,
           played: 0,
@@ -482,6 +732,7 @@ export function buildTournamentTables(tournament) {
           scored: 0,
           contained: 0,
           difference: 0,
+          conductScore: 0,
           yellow: 0,
           red: 0,
           penalty: 0,
@@ -489,6 +740,7 @@ export function buildTournamentTables(tournament) {
       ])
     );
     const groupSet = new Set(groupTeams);
+    const groupMatches = [];
 
     fixtureSections.forEach((section, sectionIndex) => {
       section.matches.forEach((match) => {
@@ -516,6 +768,12 @@ export function buildTournamentTables(tournament) {
         }
 
         const score = getMatchScore(statusRecord);
+        groupMatches.push({
+          away: match.away,
+          awayScore: score.away,
+          home: match.home,
+          homeScore: score.home,
+        });
         if (homeStats) {
           homeStats.played += 1;
           homeStats.scored += score.home;
@@ -528,7 +786,7 @@ export function buildTournamentTables(tournament) {
           awayStats.contained += score.home;
         }
 
-        const winnerSide = getMatchWinnerSide(statusRecord);
+        const winnerSide = getRegulationWinnerSide(statusRecord);
         if (winnerSide === "home") {
           if (homeStats) {
             homeStats.wins += 1;
@@ -574,7 +832,11 @@ export function buildTournamentTables(tournament) {
             }
           }
 
-          if (event.action === "red") {
+          if (
+            event.action === "red" ||
+            event.action === "direct-red" ||
+            event.action === "second-yellow-red"
+          ) {
             teamRecord.red += 1;
           }
 
@@ -586,29 +848,27 @@ export function buildTournamentTables(tournament) {
             teamRecord.penalty += 1;
           }
         });
+
+        if (homeStats) {
+          homeStats.conductScore += getConductScore(statusRecord?.events, match.home);
+        }
+        if (awayStats) {
+          awayStats.conductScore += getConductScore(statusRecord?.events, match.away);
+        }
       });
     });
 
-    const rows = Array.from(teamStats.values())
+    const rows = rankGroupRows(
+      Array.from(teamStats.values())
       .map((team) => ({
         ...team,
         difference: team.scored - team.contained,
-      }))
-      .sort((left, right) => {
-        if (right.points !== left.points) {
-          return right.points - left.points;
-        }
-        if (right.difference !== left.difference) {
-          return right.difference - left.difference;
-        }
-        if (right.scored !== left.scored) {
-          return right.scored - left.scored;
-        }
-        return left.team.localeCompare(right.team);
-      });
+      })),
+      groupMatches
+    );
 
     return {
-      title: getGroupLabel(groupIndex),
+      title: tournament?.tournamentType === "league" ? "League" : getGroupLabel(groupIndex),
       rows,
     };
   });
@@ -672,6 +932,7 @@ export function buildTournamentSummaryTables(tournament) {
   const yellowCards = new Map();
   const redCards = new Map();
   const cleanSheets = new Map();
+  const fairPlay = new Map();
 
   fixtureSections.forEach((section, sectionIndex) => {
     section.matches.forEach((match) => {
@@ -683,6 +944,21 @@ export function buildTournamentSummaryTables(tournament) {
       }
 
       const score = getMatchScore(statusRecord);
+      [match.home, match.away].forEach((teamName) => {
+        const normalizedTeamName = String(teamName || "").trim();
+        if (!normalizedTeamName) {
+          return;
+        }
+
+        const current = fairPlay.get(normalizedTeamName) || {
+          label: normalizedTeamName,
+          team: "",
+          value: 0,
+        };
+        current.value += getConductScore(statusRecord?.events, normalizedTeamName);
+        fairPlay.set(normalizedTeamName, current);
+      });
+
       if (String(match.home || "").trim() && score.away === 0) {
         incrementSummaryStat(cleanSheets, match.home, {
           label: match.home,
@@ -721,7 +997,11 @@ export function buildTournamentSummaryTables(tournament) {
           }
         }
 
-        if (event.action === "red") {
+        if (
+          event.action === "red" ||
+          event.action === "direct-red" ||
+          event.action === "second-yellow-red"
+        ) {
           incrementSummaryStat(redCards, subjectKey, subject);
         }
       });
@@ -734,5 +1014,6 @@ export function buildTournamentSummaryTables(tournament) {
     { key: "mostAssist", title: "Most Assist", valueLabel: "Assists", rows: sortSummaryRows(assists) },
     { key: "yellowCard", title: "Yellow Card", valueLabel: "Cards", rows: sortSummaryRows(yellowCards) },
     { key: "redCard", title: "Red Card", valueLabel: "Cards", rows: sortSummaryRows(redCards) },
+    { key: "fairPlay", title: "Fair Play", valueLabel: "Points", rows: sortSummaryRows(fairPlay) },
   ];
 }

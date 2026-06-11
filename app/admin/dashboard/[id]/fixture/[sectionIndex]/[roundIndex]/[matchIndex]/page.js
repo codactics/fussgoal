@@ -19,7 +19,8 @@ import {
 const MATCH_ACTIONS = [
   { value: "goal", label: "Goal", emoji: "⚽" },
   { value: "assist", label: "Assist", emoji: "🅰️" },
-  { value: "red", label: "Red Card", emoji: "🟥" },
+  { value: "direct-red", label: "Direct Red Card", emoji: "🟥" },
+  { value: "second-yellow-red", label: "Second-Yellow Red Card", emoji: "🟨🟥" },
   { value: "yellow", label: "Yellow Card", emoji: "🟨" },
   { value: "sub-in", label: "Sub In", emoji: "🟢↑" },
   { value: "sub-out", label: "Sub Out", emoji: "🔴↓" },
@@ -31,7 +32,11 @@ const MATCH_ACTIONS = [
   { value: "other", label: "Other", emoji: "📝" },
 ];
 const MVP_ACTION = { value: "mvp", label: "MVP", emoji: "⭐" };
-const MANUAL_MATCH_ACTIONS = [...MATCH_ACTIONS, MVP_ACTION];
+const MANUAL_MATCH_ACTIONS = [
+  ...MATCH_ACTIONS,
+  { value: "red", label: "Direct Red Card", emoji: "🟥" },
+  MVP_ACTION,
+];
 
 const PENALTY_ACTIONS = [
   { value: "", label: "---" },
@@ -40,6 +45,41 @@ const PENALTY_ACTIONS = [
 ];
 
 const INITIAL_PENALTY_ROWS = 2;
+const DISCIPLINARY_ABANDONED_RESULT_NOTE =
+  "Match abandoned; both teams disqualified for disciplinary reasons.";
+const OVERWRITE_MATCH_STATUS_OPTIONS = [
+  { value: "idle", label: "Upcoming", persistedStatus: "idle", message: "" },
+  { value: "running", label: "Live", persistedStatus: "running", message: "Match is live." },
+  { value: "paused", label: "Paused", persistedStatus: "paused", message: "Match paused." },
+  { value: "halftime", label: "Half Time", persistedStatus: "halftime", message: "Half time." },
+  { value: "ended", label: "End", persistedStatus: "ended", message: "Match ended." },
+  { value: "interrupted", label: "Interrupted", persistedStatus: "paused", message: "Match interrupted." },
+  { value: "suspended", label: "Suspended", persistedStatus: "ended", message: "Match suspended." },
+  { value: "disqualified", label: "Disqualified", persistedStatus: "ended", message: DISCIPLINARY_ABANDONED_RESULT_NOTE },
+  {
+    value: "medical-emergency",
+    label: "Medical Emergency",
+    persistedStatus: "paused",
+    message: "Match interrupted due to a medical emergency.",
+  },
+  { value: "other", label: "Other", persistedStatus: "paused", message: "Match status updated." },
+];
+const OVERWRITE_STATUS_MESSAGES = OVERWRITE_MATCH_STATUS_OPTIONS.map((option) => option.message).filter(Boolean);
+
+function createInitialOverwriteDraft() {
+  return {
+    homeTeam: "",
+    awayTeam: "",
+    homeScore: "",
+    awayScore: "",
+    scorers: "",
+    cards: "",
+    matchStatus: "ended",
+    statusMessage: DISCIPLINARY_ABANDONED_RESULT_NOTE,
+    manualInput: "",
+    overwriteAll: false,
+  };
+}
 
 function normalizeTelecastUrl(value) {
   const rawValue = String(value || "").trim();
@@ -113,13 +153,23 @@ export default function AdminFixturePage({ params }) {
     clock: "",
   });
   const [savedMatchEvents, setSavedMatchEvents] = useState([]);
+  const [scoreOverride, setScoreOverride] = useState(null);
+  const [resultNote, setResultNote] = useState("");
   const [penaltyRows, setPenaltyRows] = useState(() => createInitialPenaltyRows());
   const [isPenaltyShootoutFinished, setIsPenaltyShootoutFinished] = useState(false);
   const [isSavingPenaltyShootout, setIsSavingPenaltyShootout] = useState(false);
+  const [isOverwriteUnlocked, setIsOverwriteUnlocked] = useState(false);
+  const [overwriteDraft, setOverwriteDraft] = useState(() => createInitialOverwriteDraft());
+  const [isSavingOverwrite, setIsSavingOverwrite] = useState(false);
   const [editingMatchEventId, setEditingMatchEventId] = useState(null);
   const [matchStatusMessage, setMatchStatusMessage] = useState("");
   const [isResettingMatch, setIsResettingMatch] = useState(false);
   const [isSavingManualEvent, setIsSavingManualEvent] = useState(false);
+  const [pendingPasswordAction, setPendingPasswordAction] = useState(null);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const [pendingConfirmAction, setPendingConfirmAction] = useState(null);
   const [systemMoments, setSystemMoments] = useState({
     kickoff: null,
     halftime: null,
@@ -131,6 +181,8 @@ export default function AdminFixturePage({ params }) {
   const tournamentRef = useRef(null);
   const statusSaveInFlightRef = useRef(false);
   const pendingSnapshotRef = useRef(null);
+  const passwordPromptResolveRef = useRef(null);
+  const confirmPromptResolveRef = useRef(null);
 
   function createEmptyLineupRow() {
     return {
@@ -307,6 +359,13 @@ export default function AdminFixturePage({ params }) {
       Number.isFinite(savedStatus?.runningStartedAt) ? savedStatus.runningStartedAt : null
     );
     setSavedMatchEvents(Array.isArray(savedStatus?.events) ? savedStatus.events : []);
+    setScoreOverride(
+      Number.isFinite(savedStatus?.goalScore?.home) &&
+        Number.isFinite(savedStatus?.goalScore?.away)
+        ? { home: savedStatus.goalScore.home, away: savedStatus.goalScore.away }
+        : null
+    );
+    setResultNote(String(savedStatus?.resultNote || ""));
     const savedPenaltyEntries = Array.isArray(savedStatus?.penaltyShootout?.entries)
       ? savedStatus.penaltyShootout.entries
       : [];
@@ -343,6 +402,16 @@ export default function AdminFixturePage({ params }) {
       note: "",
       clock: "",
     });
+    setOverwriteDraft({
+      ...createInitialOverwriteDraft(),
+      homeTeam: String(savedStatus?.homeTeam || fixture.home || ""),
+      awayTeam: String(savedStatus?.awayTeam || fixture.away || ""),
+      homeScore: Number.isFinite(savedStatus?.goalScore?.home) ? String(savedStatus.goalScore.home) : "",
+      awayScore: Number.isFinite(savedStatus?.goalScore?.away) ? String(savedStatus.goalScore.away) : "",
+      matchStatus: String(savedStatus?.overwriteStatus || savedStatus?.matchStatus || "ended"),
+      statusMessage: String(savedStatus?.resultNote || DISCIPLINARY_ABANDONED_RESULT_NOTE),
+    });
+    setIsOverwriteUnlocked(false);
     const savedTelecast = tournament.data?.matchTelecasts?.[fixtureKey];
     setTelecastUrl(String(savedTelecast?.url || ""));
     setTelecastStatus(
@@ -391,6 +460,8 @@ export default function AdminFixturePage({ params }) {
           ? savedStatus.goalScore
           : { home: 0, away: 0 },
       events: Array.isArray(savedStatus?.events) ? savedStatus.events : [],
+      resultNote: String(savedStatus?.resultNote || ""),
+      overwriteStatus: String(savedStatus?.overwriteStatus || ""),
       penaltyShootout: {
         entries: savedPenaltyEntries,
         finished: Boolean(savedStatus?.penaltyShootout?.finished),
@@ -434,6 +505,10 @@ export default function AdminFixturePage({ params }) {
   }
 
   function getGoalScore(events = savedMatchEvents) {
+    if (events === savedMatchEvents && scoreOverride) {
+      return scoreOverride;
+    }
+
     const score = { home: 0, away: 0 };
 
     events.forEach((event) => {
@@ -491,6 +566,8 @@ export default function AdminFixturePage({ params }) {
       clockSeconds: getCurrentElapsedSeconds(),
       goalScore: getGoalScore(),
       events: savedMatchEvents,
+      resultNote,
+      overwriteStatus: "",
       penaltyShootout: buildPenaltyShootoutSnapshot(),
       systemMoments,
       updatedAt: new Date().toISOString(),
@@ -669,12 +746,34 @@ export default function AdminFixturePage({ params }) {
     }
   }
 
-  function handleEndMatch() {
+  function requestAdminConfirm({ title, message, okLabel = "OK" }) {
+    setPendingConfirmAction({ title, message, okLabel });
+
+    return new Promise((resolve) => {
+      confirmPromptResolveRef.current = resolve;
+    });
+  }
+
+  function closeAdminConfirmPrompt(result) {
+    setPendingConfirmAction(null);
+
+    if (confirmPromptResolveRef.current) {
+      confirmPromptResolveRef.current(result);
+      confirmPromptResolveRef.current = null;
+    }
+  }
+
+  async function handleEndMatch() {
     if (!isTournamentLaunched || matchStatus === "ended") {
       return;
     }
 
-    const confirmed = window.confirm("Do you really want to End the match?");
+    const confirmed = await requestAdminConfirm({
+      title: "End Match",
+      message: "Do you really want to End the match?",
+      okLabel: "OK",
+    });
+
     if (!confirmed) {
       return;
     }
@@ -747,6 +846,216 @@ export default function AdminFixturePage({ params }) {
     setIsSavingPenaltyShootout(false);
   }
 
+  function updateOverwriteDraft(field, value) {
+    setOverwriteDraft((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "matchStatus"
+        ? {
+            statusMessage:
+              !current.statusMessage || OVERWRITE_STATUS_MESSAGES.includes(current.statusMessage)
+                ? OVERWRITE_MATCH_STATUS_OPTIONS.find((option) => option.value === value)?.message || ""
+                : current.statusMessage,
+          }
+        : {}),
+    }));
+  }
+
+  function getOverwriteStatusOption(value) {
+    return (
+      OVERWRITE_MATCH_STATUS_OPTIONS.find((option) => option.value === value) ||
+      OVERWRITE_MATCH_STATUS_OPTIONS.find((option) => option.value === "other")
+    );
+  }
+
+  function splitManualLines(value) {
+    return String(value || "")
+      .split(/\r?\n|;/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  function inferManualTeamName(text) {
+    const normalizedText = String(text || "").toLowerCase();
+    const homeTeam = String(overwriteDraft.homeTeam || fixture?.home || "").trim();
+    const awayTeam = String(overwriteDraft.awayTeam || fixture?.away || "").trim();
+
+    if (awayTeam && normalizedText.includes(awayTeam.toLowerCase())) {
+      return awayTeam;
+    }
+
+    if (homeTeam && normalizedText.includes(homeTeam.toLowerCase())) {
+      return homeTeam;
+    }
+
+    return homeTeam || fixture?.home || "";
+  }
+
+  function getManualEventSeconds(index) {
+    const baseSeconds = matchStatus === "ended" ? totalDurationSeconds : getCurrentElapsedSeconds();
+    return Math.max(0, baseSeconds + index);
+  }
+
+  function buildManualOverwriteEvents() {
+    const createdAt = Date.now();
+    const scorerEvents = splitManualLines(overwriteDraft.scorers).map((line, index) => {
+      const teamName = inferManualTeamName(line);
+      return {
+        id: `overwrite-goal-${createdAt}-${index + 1}`,
+        subjectKey: "",
+        subjectLabel: line,
+        subjectType: "manual",
+        teamName,
+        action: "goal",
+        note: line,
+        seconds: getManualEventSeconds(index),
+        half: getHalfForSeconds(getManualEventSeconds(index)),
+      };
+    });
+    const cardEvents = splitManualLines(overwriteDraft.cards).map((line, index) => {
+      const normalizedLine = line.toLowerCase();
+      const action = normalizedLine.includes("second") && normalizedLine.includes("red")
+        ? "second-yellow-red"
+        : normalizedLine.includes("red")
+          ? "direct-red"
+          : "yellow";
+      const seconds = getManualEventSeconds(scorerEvents.length + index);
+      return {
+        id: `overwrite-card-${createdAt}-${index + 1}`,
+        subjectKey: "",
+        subjectLabel: line,
+        subjectType: "manual",
+        teamName: inferManualTeamName(line),
+        action,
+        note: line,
+        seconds,
+        half: getHalfForSeconds(seconds),
+      };
+    });
+    const manualInputEvents = splitManualLines(overwriteDraft.manualInput).map((line, index) => {
+      const seconds = getManualEventSeconds(scorerEvents.length + cardEvents.length + index);
+      return {
+        id: `overwrite-manual-${createdAt}-${index + 1}`,
+        subjectKey: "",
+        subjectLabel: line,
+        subjectType: "manual",
+        teamName: inferManualTeamName(line),
+        action: "other",
+        note: line,
+        seconds,
+        half: getHalfForSeconds(seconds),
+      };
+    });
+
+    return [...scorerEvents, ...cardEvents, ...manualInputEvents];
+  }
+
+  async function unlockOverwriteSection() {
+    if (!isTournamentLaunched || isOverwriteUnlocked) {
+      return;
+    }
+
+    const isVerified = await verifyAdminPassword("open overwrite section");
+
+    if (!isVerified) {
+      return;
+    }
+
+    setOverwriteDraft((current) => ({
+      ...current,
+      homeTeam: current.homeTeam || fixture?.home || "",
+      awayTeam: current.awayTeam || fixture?.away || "",
+      homeScore: current.homeScore || String(goalScore.home ?? 0),
+      awayScore: current.awayScore || String(goalScore.away ?? 0),
+      statusMessage: current.statusMessage || resultNote || DISCIPLINARY_ABANDONED_RESULT_NOTE,
+    }));
+    setIsOverwriteUnlocked(true);
+    setMatchStatusMessage("Overwrite section unlocked.");
+  }
+
+  async function saveOverwriteSection() {
+    if (!isTournamentLaunched || !fixture || isSavingOverwrite) {
+      return;
+    }
+
+    setIsSavingOverwrite(true);
+    setMatchStatusMessage("");
+
+    try {
+      const isVerified = await verifyAdminPassword("save overwrite entry");
+
+      if (!isVerified) {
+        return;
+      }
+
+      const homeScoreValue = Number.parseInt(overwriteDraft.homeScore, 10);
+      const awayScoreValue = Number.parseInt(overwriteDraft.awayScore, 10);
+      const hasManualScore = Number.isFinite(homeScoreValue) || Number.isFinite(awayScoreValue);
+      const nextGoalScore = hasManualScore
+        ? {
+            home: Number.isFinite(homeScoreValue) ? Math.max(0, homeScoreValue) : goalScore.home,
+            away: Number.isFinite(awayScoreValue) ? Math.max(0, awayScoreValue) : goalScore.away,
+          }
+        : goalScore;
+      const manualEvents = buildManualOverwriteEvents();
+      const nextEvents = overwriteDraft.overwriteAll
+        ? manualEvents
+        : [...savedMatchEvents, ...manualEvents];
+      const overwriteStatusOption = getOverwriteStatusOption(overwriteDraft.matchStatus);
+      const nextMatchStatus = overwriteStatusOption?.persistedStatus || matchStatus;
+      const nextResultNote = String(overwriteDraft.statusMessage || "").trim();
+      const nextSystemMoments =
+        nextMatchStatus === "ended"
+          ? { ...systemMoments, fulltime: totalDurationSeconds }
+          : systemMoments;
+      const nextElapsed =
+        nextMatchStatus === "ended" ? totalDurationSeconds : getCurrentElapsedSeconds();
+      const nextSelectedHalf = nextMatchStatus === "ended" ? "second" : selectedHalf;
+
+      setSavedMatchEvents(nextEvents);
+      setScoreOverride(nextGoalScore);
+      setResultNote(nextResultNote);
+      setMatchStatus(nextMatchStatus);
+      setSystemMoments(nextSystemMoments);
+      setElapsedBeforePause(nextElapsed);
+      setRunningStartedAt(nextMatchStatus === "running" ? runningStartedAt : null);
+      setSelectedHalf(nextSelectedHalf);
+      setIsPenaltyShootoutFinished(overwriteDraft.overwriteAll ? false : isPenaltyShootoutFinished);
+
+      await persistMatchStatusSnapshot({
+        homeTeam: String(overwriteDraft.homeTeam || fixture.home || "").trim(),
+        awayTeam: String(overwriteDraft.awayTeam || fixture.away || "").trim(),
+        selectedHalf: nextSelectedHalf,
+        matchStatus: nextMatchStatus,
+        elapsedBeforePause: nextElapsed,
+        runningStartedAt: nextMatchStatus === "running" ? runningStartedAt : null,
+        clockSeconds: nextElapsed,
+        goalScore: nextGoalScore,
+        events: nextEvents,
+        resultNote: nextResultNote,
+        overwriteStatus: overwriteDraft.matchStatus,
+        penaltyShootout: overwriteDraft.overwriteAll
+          ? { entries: [], finished: false }
+          : buildPenaltyShootoutSnapshot(),
+        systemMoments: nextSystemMoments,
+      });
+
+      if (overwriteDraft.overwriteAll) {
+        setPenaltyRows(createInitialPenaltyRows());
+      }
+
+      setMatchStatusMessage(
+        overwriteDraft.overwriteAll
+          ? "Overwrite saved. Previous match inputs were replaced."
+          : "Overwrite saved. Manual inputs were added beside the current inputs."
+      );
+    } catch (error) {
+      setMatchStatusMessage(error.message || "Unable to save the overwrite section.");
+    } finally {
+      setIsSavingOverwrite(false);
+    }
+  }
+
   const displayedClock = useMemo(() => {
     if (matchStatus === "ended") {
       return formatMatchClock(totalDurationSeconds);
@@ -759,7 +1068,7 @@ export default function AdminFixturePage({ params }) {
   const displayScheduledTime = scheduledTime || fixture?.time || "TBD";
   const goalScore = useMemo(
     () => getGoalScore(savedMatchEvents),
-    [fixture?.away, fixture?.home, savedMatchEvents]
+    [fixture?.away, fixture?.home, savedMatchEvents, scoreOverride]
   );
   const isFullTimeDraw = matchStatus === "ended" && goalScore.home === goalScore.away;
   const currentPenaltyShootout = useMemo(
@@ -928,6 +1237,8 @@ export default function AdminFixturePage({ params }) {
     matchStatus,
     runningStartedAt,
     savedMatchEvents,
+    scoreOverride,
+    resultNote,
     selectedHalf,
     systemMoments,
   ]);
@@ -1040,36 +1351,85 @@ export default function AdminFixturePage({ params }) {
     return seconds > halfDurationSeconds ? "second" : "first";
   }
 
-  async function verifyAdminPassword(action) {
-    const password = window.prompt(`Enter admin password to ${action}:`);
+  function getPasswordActionLabel(action) {
+    return String(action || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
 
-    if (password === null) {
-      return false;
+  function verifyAdminPassword(action) {
+    setAdminPassword("");
+    setPasswordError("");
+    setPendingPasswordAction({
+      action,
+      label: getPasswordActionLabel(action),
+      tournamentName: tournament?.name || "this tournament",
+    });
+
+    return new Promise((resolve) => {
+      passwordPromptResolveRef.current = resolve;
+    });
+  }
+
+  function closeAdminPasswordPrompt() {
+    setPendingPasswordAction(null);
+    setAdminPassword("");
+    setPasswordError("");
+    setIsVerifyingPassword(false);
+
+    if (passwordPromptResolveRef.current) {
+      passwordPromptResolveRef.current(false);
+      passwordPromptResolveRef.current = null;
+    }
+  }
+
+  async function confirmAdminPassword() {
+    if (!pendingPasswordAction || isVerifyingPassword) {
+      return;
     }
 
-    const trimmedPassword = password.trim();
+    const trimmedPassword = adminPassword.trim();
 
     if (!trimmedPassword) {
-      throw new Error("Admin password is required.");
+      setPasswordError("Admin password is required.");
+      return;
     }
 
-    const verifyResponse = await fetch("/api/admin/verify-password", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        password: trimmedPassword,
-        action,
-      }),
-    });
-    const verifyResult = await verifyResponse.json();
+    setIsVerifyingPassword(true);
+    setPasswordError("");
 
-    if (!verifyResponse.ok) {
-      throw new Error(verifyResult.message || "Invalid admin password.");
+    try {
+      const verifyResponse = await fetch("/api/admin/verify-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          password: trimmedPassword,
+          action: pendingPasswordAction.action,
+        }),
+      });
+      const verifyResult = await verifyResponse.json();
+
+      if (!verifyResponse.ok) {
+        setPasswordError(verifyResult.message || "Invalid admin password.");
+        return;
+      }
+
+      setPendingPasswordAction(null);
+      setAdminPassword("");
+      setPasswordError("");
+
+      if (passwordPromptResolveRef.current) {
+        passwordPromptResolveRef.current(true);
+        passwordPromptResolveRef.current = null;
+      }
+    } catch {
+      setPasswordError("Unable to verify the admin password right now.");
+    } finally {
+      setIsVerifyingPassword(false);
     }
-
-    return true;
   }
 
   function getSubjectMeta(subjectKey) {
@@ -1203,6 +1563,7 @@ export default function AdminFixturePage({ params }) {
       half: existingEvent?.half || selectedHalf,
     };
 
+    setScoreOverride(null);
     setSavedMatchEvents((currentEvents) => {
       if (!editingMatchEventId) {
         return [...currentEvents, nextEvent];
@@ -1285,6 +1646,7 @@ export default function AdminFixturePage({ params }) {
         half: isMvpEvent ? "second" : getHalfForSeconds(clampedSeconds),
       };
 
+      setScoreOverride(null);
       setSavedMatchEvents((currentEvents) => {
         if (!editingMatchEventId) {
           return [...currentEvents, nextEvent];
@@ -1316,9 +1678,11 @@ export default function AdminFixturePage({ params }) {
       return;
     }
 
-    const confirmed = window.confirm(
-      "Reset the full live match? This will clear the clock, score, and all saved match events."
-    );
+    const confirmed = await requestAdminConfirm({
+      title: "Reset Match",
+      message: "Reset the full live match? This will clear the clock, score, and all saved match events.",
+      okLabel: "OK",
+    });
 
     if (!confirmed) {
       return;
@@ -1350,6 +1714,8 @@ export default function AdminFixturePage({ params }) {
         clockSeconds: 0,
         goalScore: { home: 0, away: 0 },
         events: [],
+        resultNote: "",
+        overwriteStatus: "",
         penaltyShootout: {
           entries: [],
           finished: false,
@@ -1364,6 +1730,8 @@ export default function AdminFixturePage({ params }) {
       setRunningStartedAt(null);
       setTimerNow(Date.now());
       setSavedMatchEvents([]);
+      setScoreOverride(null);
+      setResultNote("");
       setPenaltyRows(createInitialPenaltyRows());
       setIsPenaltyShootoutFinished(false);
       setSystemMoments(resetSystemMoments);
@@ -1379,6 +1747,14 @@ export default function AdminFixturePage({ params }) {
         clock: "",
       });
       setEditingMatchEventId(null);
+      setOverwriteDraft({
+        ...createInitialOverwriteDraft(),
+        homeTeam: fixture.home,
+        awayTeam: fixture.away,
+        homeScore: "",
+        awayScore: "",
+      });
+      setIsOverwriteUnlocked(false);
       lastSavedStatusRef.current = "";
       pendingSnapshotRef.current = null;
 
@@ -1414,6 +1790,7 @@ export default function AdminFixturePage({ params }) {
   }
 
   function deleteMatchEvent(eventId) {
+    setScoreOverride(null);
     setSavedMatchEvents((currentEvents) =>
       currentEvents.filter((event) => event.id !== eventId)
     );
@@ -2060,9 +2437,175 @@ export default function AdminFixturePage({ params }) {
               </div>
             </div>
 
+            <div className={wizardStyles.manageSectionCard}>
+              <h4 className={wizardStyles.manageSectionTitle}>Section 4: Overwright Section</h4>
+              <div className={wizardStyles.lineupActions}>
+                <button
+                  className={wizardStyles.primaryButton}
+                  disabled={!isTournamentLaunched || isOverwriteUnlocked}
+                  onClick={() => void unlockOverwriteSection()}
+                  type="button"
+                >
+                  over wright
+                </button>
+              </div>
+              {!isTournamentLaunched ? (
+                <p className={wizardStyles.notice}>
+                  Overwrite controls unlock only after the tournament is launched.
+                </p>
+              ) : null}
+
+              {isOverwriteUnlocked ? (
+                <div className={wizardStyles.overwritePanel}>
+                  <div className={wizardStyles.overwriteGrid}>
+                    <div className={wizardStyles.field}>
+                      <label className={wizardStyles.fieldLabel} htmlFor="overwrite-home-team">
+                        Home team name
+                      </label>
+                      <input
+                        className={wizardStyles.input}
+                        id="overwrite-home-team"
+                        onChange={(event) => updateOverwriteDraft("homeTeam", event.target.value)}
+                        type="text"
+                        value={overwriteDraft.homeTeam}
+                      />
+                    </div>
+                    <div className={wizardStyles.field}>
+                      <label className={wizardStyles.fieldLabel} htmlFor="overwrite-away-team">
+                        Away team name
+                      </label>
+                      <input
+                        className={wizardStyles.input}
+                        id="overwrite-away-team"
+                        onChange={(event) => updateOverwriteDraft("awayTeam", event.target.value)}
+                        type="text"
+                        value={overwriteDraft.awayTeam}
+                      />
+                    </div>
+                    <div className={wizardStyles.field}>
+                      <label className={wizardStyles.fieldLabel} htmlFor="overwrite-home-score">
+                        Home score
+                      </label>
+                      <input
+                        className={wizardStyles.input}
+                        id="overwrite-home-score"
+                        min="0"
+                        onChange={(event) => updateOverwriteDraft("homeScore", event.target.value)}
+                        type="number"
+                        value={overwriteDraft.homeScore}
+                      />
+                    </div>
+                    <div className={wizardStyles.field}>
+                      <label className={wizardStyles.fieldLabel} htmlFor="overwrite-away-score">
+                        Away score
+                      </label>
+                      <input
+                        className={wizardStyles.input}
+                        id="overwrite-away-score"
+                        min="0"
+                        onChange={(event) => updateOverwriteDraft("awayScore", event.target.value)}
+                        type="number"
+                        value={overwriteDraft.awayScore}
+                      />
+                    </div>
+                    <div className={wizardStyles.field}>
+                      <label className={wizardStyles.fieldLabel} htmlFor="overwrite-scorers">
+                        Who scored
+                      </label>
+                      <textarea
+                        className={`${wizardStyles.input} ${wizardStyles.textarea}`}
+                        id="overwrite-scorers"
+                        onChange={(event) => updateOverwriteDraft("scorers", event.target.value)}
+                        placeholder="One scorer per line"
+                        value={overwriteDraft.scorers}
+                      />
+                    </div>
+                    <div className={wizardStyles.field}>
+                      <label className={wizardStyles.fieldLabel} htmlFor="overwrite-cards">
+                        Card
+                      </label>
+                      <textarea
+                        className={`${wizardStyles.input} ${wizardStyles.textarea}`}
+                        id="overwrite-cards"
+                        onChange={(event) => updateOverwriteDraft("cards", event.target.value)}
+                        placeholder="One card per line, for example: Red - Player Name"
+                        value={overwriteDraft.cards}
+                      />
+                    </div>
+                    <div className={wizardStyles.field}>
+                      <label className={wizardStyles.fieldLabel} htmlFor="overwrite-match-status">
+                        Match status
+                      </label>
+                      <select
+                        className={wizardStyles.input}
+                        id="overwrite-match-status"
+                        onChange={(event) => updateOverwriteDraft("matchStatus", event.target.value)}
+                        value={overwriteDraft.matchStatus}
+                      >
+                        {OVERWRITE_MATCH_STATUS_OPTIONS.map((option) => (
+                          <option key={`overwrite-status-${option.value}`} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className={wizardStyles.field}>
+                      <label className={wizardStyles.fieldLabel} htmlFor="overwrite-status-message">
+                        Match status message
+                      </label>
+                      <input
+                        className={wizardStyles.input}
+                        id="overwrite-status-message"
+                        onChange={(event) => updateOverwriteDraft("statusMessage", event.target.value)}
+                        placeholder={DISCIPLINARY_ABANDONED_RESULT_NOTE}
+                        type="text"
+                        value={overwriteDraft.statusMessage}
+                      />
+                    </div>
+                    <div className={`${wizardStyles.field} ${wizardStyles.overwriteManualInputField}`}>
+                      <label className={wizardStyles.fieldLabel} htmlFor="overwrite-manual-input">
+                        Manual Input
+                      </label>
+                      <textarea
+                        className={`${wizardStyles.input} ${wizardStyles.textarea}`}
+                        id="overwrite-manual-input"
+                        onChange={(event) => updateOverwriteDraft("manualInput", event.target.value)}
+                        placeholder="Add any extra manual note or event text"
+                        value={overwriteDraft.manualInput}
+                      />
+                    </div>
+                  </div>
+
+                  <label className={wizardStyles.checkboxLabel}>
+                    <input
+                      checked={overwriteDraft.overwriteAll}
+                      onChange={(event) => updateOverwriteDraft("overwriteAll", event.target.checked)}
+                      type="checkbox"
+                    />
+                    Want to overwright all the current input
+                  </label>
+
+                  <div className={wizardStyles.resultNotePreview}>
+                    {overwriteDraft.statusMessage || DISCIPLINARY_ABANDONED_RESULT_NOTE}
+                  </div>
+
+                  <div className={wizardStyles.lineupActions}>
+                    <button
+                      className={wizardStyles.primaryButton}
+                      disabled={isSavingOverwrite}
+                      onClick={() => void saveOverwriteSection()}
+                      type="button"
+                    >
+                      {isSavingOverwrite ? "Saving..." : "Save Overwright"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             {isFullTimeDraw ? (
               <div className={wizardStyles.manageSectionCard}>
-                <h4 className={wizardStyles.manageSectionTitle}>Section 4: Penalty Shootout</h4>
+                <h4 className={wizardStyles.manageSectionTitle}>Section 5: Penalty Shootout</h4>
                 <p className={wizardStyles.status}>
                   Shootout score: {penaltyScore.home}:{penaltyScore.away}
                   {draftPenaltyWinnerSide
@@ -2163,6 +2706,80 @@ export default function AdminFixturePage({ params }) {
           </div>
         ) : null}
       </section>
+
+      {pendingConfirmAction ? (
+        <div className={wizardStyles.passwordOverlay}>
+          <div className={wizardStyles.passwordCard} role="dialog" aria-modal="true">
+            <h3 className={wizardStyles.passwordTitle}>{pendingConfirmAction.title}</h3>
+            <p className={wizardStyles.passwordText}>{pendingConfirmAction.message}</p>
+            <div className={wizardStyles.passwordActions}>
+              <button
+                className={wizardStyles.confirmCancelButton}
+                onClick={() => closeAdminConfirmPrompt(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className={wizardStyles.confirmOkButton}
+                onClick={() => closeAdminConfirmPrompt(true)}
+                type="button"
+              >
+                {pendingConfirmAction.okLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingPasswordAction ? (
+        <div className={wizardStyles.passwordOverlay}>
+          <form
+            className={wizardStyles.passwordCard}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void confirmAdminPassword();
+            }}
+          >
+            <h3 className={wizardStyles.passwordTitle}>Admin Password Required</h3>
+            <p className={wizardStyles.passwordText}>
+              Enter the admin password to approve{" "}
+              <strong>{pendingPasswordAction.label}</strong> for{" "}
+              {pendingPasswordAction.tournamentName}.
+            </p>
+            <input
+              autoFocus
+              className={wizardStyles.input}
+              disabled={isVerifyingPassword}
+              onChange={(event) => {
+                setAdminPassword(event.target.value);
+                setPasswordError("");
+              }}
+              placeholder="Enter admin password"
+              type="password"
+              value={adminPassword}
+            />
+            {passwordError ? <p className={wizardStyles.status}>{passwordError}</p> : null}
+            <div className={wizardStyles.passwordActions}>
+              <button
+                className={wizardStyles.secondaryButton}
+                disabled={isVerifyingPassword}
+                onClick={closeAdminPasswordPrompt}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className={wizardStyles.primaryButton}
+                disabled={!adminPassword.trim() || isVerifyingPassword}
+                type="submit"
+              >
+                {isVerifyingPassword ? "Verifying..." : "Approve"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </main>
   );
 }

@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import codacticsGif from "../logo/codactics.gif";
+import TeamSquadModal from "./TeamSquadModal";
+import TeamOfficialPageLink from "./TeamOfficialPageLink";
+import TeamPageLink from "./TeamPageLink";
 import { formatMatchClock, getMatchClockSeconds } from "./manageTournamentUtils";
 import styles from "./FixtureDetailModal.module.css";
 
@@ -86,11 +89,13 @@ export default function FixtureDetailModal({ fixture, onClose }) {
   const [timerNow, setTimerNow] = useState(Date.now());
   const [changedSide, setChangedSide] = useState("");
   const [shareMessage, setShareMessage] = useState("");
+  const [activeSquadSide, setActiveSquadSide] = useState("");
   const previousScoreRef = useRef(`${fixture?.score?.home ?? 0}:${fixture?.score?.away ?? 0}`);
   const telecastFrameWrapRef = useRef(null);
   const displayStatus = getFixtureDisplayStatus(fixture);
   const isLive = displayStatus === "Live";
   const isPaused = fixture?.statusRecord?.matchStatus === "paused";
+  const isDisciplinaryResultNote = fixture?.resultNoteTone === "disciplinary";
 
   useEffect(() => {
     function handleEscape(event) {
@@ -183,6 +188,16 @@ export default function FixtureDetailModal({ fixture, onClose }) {
   const timelineEntries = Array.isArray(fixture?.timelineEntries) ? fixture.timelineEntries : [];
   const mvpEntries = timelineEntries.filter((entry) => entry?.action === "mvp");
   const matchHistoryEntries = timelineEntries.filter((entry) => entry?.action !== "mvp");
+  const activeSquad =
+    activeSquadSide === "home"
+      ? fixture?.teamSquads?.home
+      : activeSquadSide === "away"
+        ? fixture?.teamSquads?.away
+        : null;
+  const activeSquadTeamName =
+    activeSquadSide === "home" ? fixture?.homeTeam : activeSquadSide === "away" ? fixture?.awayTeam : "";
+  const activeSquadLogo =
+    activeSquadSide === "home" ? fixture?.homeLogo : activeSquadSide === "away" ? fixture?.awayLogo : "";
 
   async function handleTelecastFullscreen() {
     const telecastFrameWrap = telecastFrameWrapRef.current;
@@ -241,6 +256,10 @@ export default function FixtureDetailModal({ fixture, onClose }) {
     setShareMessage("");
   }, [fixture?.id]);
 
+  useEffect(() => {
+    setActiveSquadSide("");
+  }, [fixture?.id]);
+
   if (!fixture) {
     return null;
   }
@@ -257,7 +276,9 @@ export default function FixtureDetailModal({ fixture, onClose }) {
           <div>
             <p className={styles.kicker}>{fixture.sectionTitle || "Fixture Detail"}</p>
             <h2 className={styles.title}>
-              {fixture.homeTeam} vs {fixture.awayTeam}
+              {fixture.homeTeam} <TeamOfficialPageLink teamName={fixture.homeTeam} />
+              {" vs "}
+              {fixture.awayTeam} <TeamOfficialPageLink teamName={fixture.awayTeam} />
             </h2>
             <p className={styles.meta}>
               {fixture.date || "TBD"} | {fixture.time || "TBD"}
@@ -287,9 +308,16 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             ) : (
               <span className={styles.teamLogoFallback}>{fixture.homeTeam?.slice(0, 1) || "H"}</span>
             )}
-            <span className={styles.teamName}>
-              {fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}
-            </span>
+            <div>
+              <button
+                className={styles.teamNameButton}
+                onClick={() => setActiveSquadSide("home")}
+                type="button"
+              >
+                {fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}
+              </button>{" "}
+              <TeamOfficialPageLink teamName={fixture.homeTeam} />
+            </div>
           </div>
           <div className={styles.centerBlock}>
             {showGoalEffect ? <div className={styles.goalBanner}>GOAL!</div> : null}
@@ -316,6 +344,11 @@ export default function FixtureDetailModal({ fixture, onClose }) {
               {liveClock ? <div className={styles.clock}>{liveClock}</div> : null}
               {isPaused ? <div className={styles.interruption}>Interruption</div> : null}
             </div>
+            {fixture.resultNote ? (
+              <p className={`${styles.resultNote} ${isDisciplinaryResultNote ? styles.disciplinaryResultNote : ""}`}>
+                {fixture.resultNote}
+              </p>
+            ) : null}
           </div>
           <div className={styles.teamBlock}>
             {fixture.awayLogo ? (
@@ -327,9 +360,16 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             ) : (
               <span className={styles.teamLogoFallback}>{fixture.awayTeam?.slice(0, 1) || "A"}</span>
             )}
-            <span className={styles.teamName}>
-              {fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}
-            </span>
+            <div>
+              <button
+                className={styles.teamNameButton}
+                onClick={() => setActiveSquadSide("away")}
+                type="button"
+              >
+                {fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}
+              </button>{" "}
+              <TeamOfficialPageLink teamName={fixture.awayTeam} />
+            </div>
           </div>
         </div>
 
@@ -400,13 +440,17 @@ export default function FixtureDetailModal({ fixture, onClose }) {
                   <div className={styles.telecastScoreboardTeams}>
                     <div className={styles.telecastTeamBlock}>
                       {fixture.homeLogo ? (
-                        <img
-                          alt={`${fixture.homeTeam} logo`}
-                          className={styles.telecastTeamLogo}
-                          src={fixture.homeLogo}
-                        />
+                        <TeamPageLink teamName={fixture.homeTeam}>
+                          <img
+                            alt={`${fixture.homeTeam} logo`}
+                            className={styles.telecastTeamLogo}
+                            src={fixture.homeLogo}
+                          />
+                        </TeamPageLink>
                       ) : (
-                        <span className={styles.telecastTeamName}>{fixture.homeTeam}</span>
+                        <TeamPageLink teamName={fixture.homeTeam}>
+                          <span className={styles.telecastTeamName}>{fixture.homeTeam}</span>
+                        </TeamPageLink>
                       )}
                     </div>
                     <span className={styles.telecastScoreValue}>
@@ -414,13 +458,17 @@ export default function FixtureDetailModal({ fixture, onClose }) {
                     </span>
                     <div className={styles.telecastTeamBlock}>
                       {fixture.awayLogo ? (
-                        <img
-                          alt={`${fixture.awayTeam} logo`}
-                          className={styles.telecastTeamLogo}
-                          src={fixture.awayLogo}
-                        />
+                        <TeamPageLink teamName={fixture.awayTeam}>
+                          <img
+                            alt={`${fixture.awayTeam} logo`}
+                            className={styles.telecastTeamLogo}
+                            src={fixture.awayLogo}
+                          />
+                        </TeamPageLink>
                       ) : (
-                        <span className={styles.telecastTeamName}>{fixture.awayTeam}</span>
+                        <TeamPageLink teamName={fixture.awayTeam}>
+                          <span className={styles.telecastTeamName}>{fixture.awayTeam}</span>
+                        </TeamPageLink>
                       )}
                     </div>
                   </div>
@@ -444,13 +492,17 @@ export default function FixtureDetailModal({ fixture, onClose }) {
                     <div className={styles.bottomScoreTopRow}>
                       <div className={styles.bottomScoreTeamHeader}>
                         {fixture.homeLogo ? (
-                          <img
-                            alt={`${fixture.homeTeam} logo`}
-                            className={styles.bottomScoreLogo}
-                            src={fixture.homeLogo}
-                          />
+                          <TeamPageLink teamName={fixture.homeTeam}>
+                            <img
+                              alt={`${fixture.homeTeam} logo`}
+                              className={styles.bottomScoreLogo}
+                              src={fixture.homeLogo}
+                            />
+                          </TeamPageLink>
                         ) : null}
-                        <span className={styles.bottomScoreTeamName}>{fixture.homeTeam}</span>
+                        <TeamPageLink teamName={fixture.homeTeam}>
+                          <span className={styles.bottomScoreTeamName}>{fixture.homeTeam}</span>
+                        </TeamPageLink>
                       </div>
                       <div className={styles.bottomScoreCenter}>
                         <span className={styles.bottomScoreValue}>
@@ -459,13 +511,17 @@ export default function FixtureDetailModal({ fixture, onClose }) {
                         {liveClock ? <span className={styles.bottomScoreClock}>{liveClock}</span> : null}
                       </div>
                       <div className={`${styles.bottomScoreTeamHeader} ${styles.bottomScoreTeamHeaderRight}`}>
-                        <span className={styles.bottomScoreTeamName}>{fixture.awayTeam}</span>
+                        <TeamPageLink teamName={fixture.awayTeam}>
+                          <span className={styles.bottomScoreTeamName}>{fixture.awayTeam}</span>
+                        </TeamPageLink>
                         {fixture.awayLogo ? (
-                          <img
-                            alt={`${fixture.awayTeam} logo`}
-                            className={styles.bottomScoreLogo}
-                            src={fixture.awayLogo}
-                          />
+                          <TeamPageLink teamName={fixture.awayTeam}>
+                            <img
+                              alt={`${fixture.awayTeam} logo`}
+                              className={styles.bottomScoreLogo}
+                              src={fixture.awayLogo}
+                            />
+                          </TeamPageLink>
                         ) : null}
                       </div>
                     </div>
@@ -590,7 +646,14 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             <div className={styles.lineupGrid}>
               <div className={styles.lineupTeamCard}>
                 <div className={styles.lineupTeamHeader}>
-                  <p className={styles.lineupTitle}>{fixture.homeTeam}</p>
+                  <button
+                    className={styles.lineupTitleButton}
+                    onClick={() => setActiveSquadSide("home")}
+                    type="button"
+                  >
+                    {fixture.homeTeam}
+                  </button>{" "}
+                  <TeamOfficialPageLink teamName={fixture.homeTeam} />
                 </div>
                 <div className={styles.lineupTeamBody}>
                   <div className={styles.lineupPlayersList}>
@@ -609,7 +672,14 @@ export default function FixtureDetailModal({ fixture, onClose }) {
               </div>
               <div className={styles.lineupTeamCard}>
                 <div className={styles.lineupTeamHeader}>
-                  <p className={styles.lineupTitle}>{fixture.awayTeam}</p>
+                  <button
+                    className={styles.lineupTitleButton}
+                    onClick={() => setActiveSquadSide("away")}
+                    type="button"
+                  >
+                    {fixture.awayTeam}
+                  </button>{" "}
+                  <TeamOfficialPageLink teamName={fixture.awayTeam} />
                 </div>
                 <div className={styles.lineupTeamBody}>
                   <div className={styles.lineupPlayersList}>
@@ -648,6 +718,14 @@ export default function FixtureDetailModal({ fixture, onClose }) {
             )}
           </section>
         </div>
+        {activeSquadSide ? (
+          <TeamSquadModal
+            logo={activeSquadLogo}
+            onClose={() => setActiveSquadSide("")}
+            squad={activeSquad}
+            teamName={activeSquadTeamName}
+          />
+        ) : null}
       </div>
     </div>
   );

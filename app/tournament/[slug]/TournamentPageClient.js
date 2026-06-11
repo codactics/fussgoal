@@ -11,6 +11,9 @@ import {
   getStoredImageUrl,
   normalizeSavedTournament,
 } from "../../../components/launchedTournamentUtils";
+import { getConductScore } from "../../../components/manageTournamentUtils";
+import TeamPageLink from "../../../components/TeamPageLink";
+import { getKnownTeam } from "../../../components/knownTeams";
 import styles from "./page.module.css";
 
 const SAVED_TOURNAMENTS_EVENT = "saved-tournaments-updated";
@@ -21,6 +24,7 @@ const SUMMARY_ACTIONS = [
   { key: "cleanSheet", title: "Clean Sheet", valueLabel: "Clean Sheets", accent: "#1967d2" },
   { key: "yellowCard", title: "Yellow Card", valueLabel: "Cards", accent: "#b7791f" },
   { key: "redCard", title: "Red Card", valueLabel: "Cards", accent: "#c62828" },
+  { key: "fairPlay", title: "Fair Play", valueLabel: "Points", accent: "#0b7a53" },
 ];
 
 function getFixtureScheduleTimestamp(fixture) {
@@ -91,6 +95,7 @@ function buildPublicSummaryTables(tournament) {
   const redCards = new Map();
   const yellowCards = new Map();
   const assists = new Map();
+  const fairPlay = new Map();
   const fixtures = tournament?.fixtureSections?.length
     ? tournament.fixtureSections.flatMap((section) => section.matches || [])
     : tournament?.fixtures || [];
@@ -105,6 +110,16 @@ function buildPublicSummaryTables(tournament) {
     const homeTeam = String(fixture.homeTeam || fixture.home || "").trim();
     const awayTeam = String(fixture.awayTeam || fixture.away || "").trim();
     const score = fixture.score || { home: 0, away: 0 };
+
+    [homeTeam, awayTeam].forEach((teamName) => {
+      if (!teamName) {
+        return;
+      }
+
+      const current = fairPlay.get(teamName) || { label: teamName, team: "", value: 0 };
+      current.value += getConductScore(statusRecord?.events, teamName);
+      fairPlay.set(teamName, current);
+    });
 
     if (homeTeam && Number(score.away) === 0) {
       incrementSummary(cleanSheets, homeTeam, { label: homeTeam, team: "" });
@@ -127,7 +142,11 @@ function buildPublicSummaryTables(tournament) {
       if (event.action === "assist") {
         incrementSummary(assists, subjectKey, subject);
       }
-      if (event.action === "red") {
+      if (
+        event.action === "red" ||
+        event.action === "direct-red" ||
+        event.action === "second-yellow-red"
+      ) {
         incrementSummary(redCards, subjectKey, subject);
       }
       if (event.action === "yellow") {
@@ -147,6 +166,7 @@ function buildPublicSummaryTables(tournament) {
     redCard: redCards,
     yellowCard: yellowCards,
     assist: assists,
+    fairPlay,
   };
 
   return SUMMARY_ACTIONS.map((summary) => ({
@@ -183,6 +203,35 @@ function getSummaryLeader(summaryTables, summaryKey) {
   }
 
   return leader.team ? `${leader.label} (${leader.team})` : leader.label;
+}
+
+function getFairPlayTeam(summaryTables, selectedTeam = "") {
+  const rows = summaryTables.find((table) => table.key === "fairPlay")?.rows || [];
+  const team = selectedTeam
+    ? rows.find((row) => row.label === selectedTeam)
+    : rows[0];
+
+  return team
+    ? `${team.label} (${team.value ?? 0})`
+    : String(selectedTeam || "").trim();
+}
+
+function getTournamentTeamLogo(tournament, teamName) {
+  return (
+    (tournament?.groups || [])
+      .flatMap((group) => group.teams || [])
+      .find((team) => team.name === teamName)?.logo ||
+    (tournament?.pointsTables || [])
+      .flatMap((table) => table.rows || [])
+      .find((team) => team.team === teamName)?.logo ||
+    getKnownTeam(teamName)?.logo ||
+    ""
+  );
+}
+
+function getFairPlayTeamName(summaryTables, selectedTeam = "") {
+  const rows = summaryTables.find((table) => table.key === "fairPlay")?.rows || [];
+  return selectedTeam || rows[0]?.label || "";
 }
 
 function getFixtureWinnerSide(fixture) {
@@ -276,6 +325,17 @@ function buildOverallSummaryRows(tournament, summaryTables) {
       key: "bestPlayer",
       label: "Best Player",
       value: formatPlayerKey(summary.bestPlayer?.playerKey),
+    },
+    {
+      key: "fairPlay",
+      label: "Fair Play",
+      teamName: getFairPlayTeamName(summaryTables, summary.fairPlay?.mode === "manual"
+        ? summary.fairPlay?.team
+        : ""),
+      value:
+        summary.fairPlay?.mode === "manual"
+          ? getFairPlayTeam(summaryTables, summary.fairPlay?.team)
+          : getFairPlayTeam(summaryTables),
     },
   ];
 
@@ -470,7 +530,13 @@ export default function TournamentPageClient({
               {overallSummaryRows.map((row) => (
                 <article className={styles.overallSummaryItem} key={row.key}>
                   <p className={styles.overallSummaryLabel}>{row.label}</p>
-                  <p className={styles.overallSummaryValue}>{row.value}</p>
+                  {row.teamName ? (
+                    <TeamPageLink className={styles.overallSummaryValue} teamName={row.teamName}>
+                      {row.value}
+                    </TeamPageLink>
+                  ) : (
+                    <p className={styles.overallSummaryValue}>{row.value}</p>
+                  )}
                 </article>
               ))}
             </div>
@@ -519,19 +585,53 @@ export default function TournamentPageClient({
                 {summaryTable.rows.length ? (
                   <table className={styles.summaryTable}>
                     <thead>
-                      <tr>
-                        <th>Rank</th>
-                        <th>Player / Team</th>
-                        <th>Team</th>
-                        <th>{summaryTable.valueLabel}</th>
-                      </tr>
+                      {summaryTable.key === "fairPlay" ? (
+                        <tr>
+                          <th>Rank</th>
+                          <th>Logo</th>
+                          <th>Team</th>
+                          <th>Points</th>
+                        </tr>
+                      ) : (
+                        <tr>
+                          <th>Rank</th>
+                          <th>Player / Team</th>
+                          <th>Team</th>
+                          <th>{summaryTable.valueLabel}</th>
+                        </tr>
+                      )}
                     </thead>
                     <tbody>
                       {summaryTable.rows.map((row, index) => (
                         <tr key={`${summaryTable.key}-${row.team}-${row.label}`}>
                           <td>{index + 1}</td>
-                          <td>{row.label}</td>
-                          <td>{row.team || "-"}</td>
+                          {summaryTable.key === "fairPlay" ? (
+                            <>
+                              <td>
+                                {getTournamentTeamLogo(tournament, row.label) ? (
+                                  <TeamPageLink teamName={row.label}>
+                                    <img
+                                      alt={`${row.label} logo`}
+                                      className={styles.summaryTeamLogo}
+                                      src={getTournamentTeamLogo(tournament, row.label)}
+                                    />
+                                  </TeamPageLink>
+                                ) : (
+                                  <div className={styles.summaryTeamLogoFallback}>
+                                    {String(row.label || "").slice(0, 1).toUpperCase()}
+                                  </div>
+                                )}
+                              </td>
+                              <td>
+                                <TeamPageLink teamName={row.label}>{row.label}</TeamPageLink>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td>{row.label}</td>
+                              <td>{row.team || "-"}</td>
+                            </>
+                          )}
                           <td>{formatSummaryValue(summaryTable.key, row)}</td>
                         </tr>
                       ))}
