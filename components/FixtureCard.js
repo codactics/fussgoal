@@ -111,7 +111,8 @@ export default function FixtureCard({ fixture, onClick }) {
               <img alt={`${fixture.homeTeam} logo`} className={styles.teamLogo} src={fixture.homeLogo} />
             ) : null}
             <p className={styles.team}>
-              {fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}{" "}
+              {fixture.homeTeamDisplay || fixture.homeTeam}
+              {penaltyWinnerSide === "home" ? " *" : ""}{" "}
               <TeamOfficialPageLink teamName={fixture.homeTeam} />
             </p>
           </div>
@@ -141,7 +142,8 @@ export default function FixtureCard({ fixture, onClick }) {
           </div>
           <div className={`${styles.liveTeamSide} ${styles.liveTeamSideRight}`}>
             <p className={styles.team}>
-              {fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}{" "}
+              {fixture.awayTeamDisplay || fixture.awayTeam}
+              {penaltyWinnerSide === "away" ? " *" : ""}{" "}
               <TeamOfficialPageLink teamName={fixture.awayTeam} />
             </p>
             {fixture.awayLogo ? (
@@ -156,7 +158,8 @@ export default function FixtureCard({ fixture, onClick }) {
               <img alt={`${fixture.homeTeam} logo`} className={styles.teamLogo} src={fixture.homeLogo} />
             ) : null}
             <p className={styles.team}>
-              {fixture.homeTeam}{penaltyWinnerSide === "home" ? " *" : ""}{" "}
+              {fixture.homeTeamDisplay || fixture.homeTeam}
+              {penaltyWinnerSide === "home" ? " *" : ""}{" "}
               <TeamOfficialPageLink teamName={fixture.homeTeam} />
             </p>
           </div>
@@ -166,7 +169,8 @@ export default function FixtureCard({ fixture, onClick }) {
               <img alt={`${fixture.awayTeam} logo`} className={styles.teamLogo} src={fixture.awayLogo} />
             ) : null}
             <p className={styles.team}>
-              {fixture.awayTeam}{penaltyWinnerSide === "away" ? " *" : ""}{" "}
+              {fixture.awayTeamDisplay || fixture.awayTeam}
+              {penaltyWinnerSide === "away" ? " *" : ""}{" "}
               <TeamOfficialPageLink teamName={fixture.awayTeam} />
             </p>
           </div>

@@ -13,6 +13,7 @@ export default function AdminManageTournamentPage({ params }) {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [tournament, setTournament] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [adminSession, setAdminSession] = useState(null);
 
   useEffect(() => {
     async function loadTournament() {
@@ -24,6 +25,8 @@ export default function AdminManageTournamentPage({ params }) {
           router.replace("/admin");
           return;
         }
+
+        setAdminSession(sessionResult);
 
         const tournamentResponse = await fetch(`/api/tournaments/${id}`, {
           cache: "no-store",
@@ -84,7 +87,12 @@ export default function AdminManageTournamentPage({ params }) {
           </div>
         ) : null}
 
-        {tournament ? <ManageTournamentDetail tournament={tournament} /> : null}
+        {tournament ? (
+          <ManageTournamentDetail
+            isMasterAdmin={Boolean(adminSession?.isMasterAdmin)}
+            tournament={tournament}
+          />
+        ) : null}
       </section>
     </main>
   );

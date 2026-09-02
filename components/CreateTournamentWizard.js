@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./CreateTournamentWizard.module.css";
 import { getStoredImagePublicId, getStoredImageUrl } from "./launchedTournamentUtils";
 import { getKnownTeam, KNOWN_TEAMS } from "./knownTeams";
@@ -137,6 +137,8 @@ export default function CreateTournamentWizard({ adminSession = null }) {
   const [adminPassword, setAdminPassword] = useState("");
   const [endTournamentDate, setEndTournamentDate] = useState(getTodayDateInputValue);
   const [passwordError, setPasswordError] = useState("");
+  const uploadTournamentInputRef = useRef(null);
+  const [isUploadTournamentOpen, setIsUploadTournamentOpen] = useState(false);
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
   const [isUploadingTournamentLogo, setIsUploadingTournamentLogo] = useState(false);
   const [uploadingTeamIndex, setUploadingTeamIndex] = useState(null);
@@ -1320,7 +1322,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     }
   }
 
-  function editTournament(tournament) {
+  function applyWizardStateFromTournament(tournament) {
     const payload = tournament.data || {};
     const settings = payload.settings || {};
     const teams = Array.isArray(payload.teamData) && payload.teamData.length
@@ -1393,6 +1395,10 @@ export default function CreateTournamentWizard({ adminSession = null }) {
           }))
         : [initialTournamentAdmin]
     );
+  }
+
+  function editTournament(tournament) {
+    applyWizardStateFromTournament(tournament);
     setActiveTab("setup");
     setIsStarted(true);
     setStep(1);
@@ -1400,6 +1406,50 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     setStatusMessage(
       `Editing "${tournament.name}". All saved values are loaded into the wizard for changes.`
     );
+  }
+
+  function handleUploadTournamentFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setStatusMessage("");
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (uploadTournamentInputRef.current) {
+        uploadTournamentInputRef.current.value = "";
+      }
+
+      try {
+        const parsed = JSON.parse(String(reader.result || ""));
+        const name = String(parsed?.data?.settings?.name || parsed?.name || "").trim();
+
+        if (!name || !parsed?.data || typeof parsed.data !== "object") {
+          setStatusMessage("This file doesn't look like a valid tournament backup.");
+          return;
+        }
+
+        applyWizardStateFromTournament(parsed);
+        setEditingTournamentId(null);
+        setActiveTab("setup");
+        setIsStarted(true);
+        setStep(6);
+        setStatusMessage(
+          `Loaded "${name}" from the uploaded file. Review the details below and click Save Tournament to create it as a new tournament.`
+        );
+      } catch {
+        setStatusMessage("Unable to read that file. Make sure it is a tournament JSON backup.");
+      }
+    };
+    reader.onerror = () => {
+      setStatusMessage("Unable to read that file.");
+      if (uploadTournamentInputRef.current) {
+        uploadTournamentInputRef.current.value = "";
+      }
+    };
+    reader.readAsText(file);
   }
 
   async function deleteTournament(tournamentId) {
@@ -1541,13 +1591,45 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       {activeTab === "setup" ? (
         !isStarted ? (
           <div className={styles.emptyCard}>
-            <button
-              className={styles.createButton}
-              onClick={() => setIsStarted(true)}
-              type="button"
-            >
-              Create a tournament
-            </button>
+            <div className={styles.generatorActions}>
+              <button
+                className={styles.createButton}
+                onClick={() => setIsStarted(true)}
+                type="button"
+              >
+                Create a tournament
+              </button>
+              {adminSession?.role === "master_admin" ? (
+                <button
+                  className={styles.secondaryButton}
+                  onClick={() => setIsUploadTournamentOpen((current) => !current)}
+                  type="button"
+                >
+                  Upload Tournament
+                </button>
+              ) : null}
+            </div>
+            {adminSession?.role === "master_admin" && isUploadTournamentOpen ? (
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="upload-tournament-json">
+                  Upload Tournament Backup JSON
+                </label>
+                <p className={styles.helper}>
+                  Upload a tournament backup JSON file to auto-fill every setup step (teams,
+                  groups, fixtures, and tournament admins). Review the loaded details and click
+                  Save Tournament to create it as a new tournament.
+                </p>
+                <input
+                  accept="application/json,.json"
+                  className={styles.input}
+                  id="upload-tournament-json"
+                  onChange={handleUploadTournamentFile}
+                  ref={uploadTournamentInputRef}
+                  type="file"
+                />
+              </div>
+            ) : null}
+            {statusMessage ? <p className={styles.status}>{statusMessage}</p> : null}
           </div>
         ) : (
           <div className={styles.formCard}>

@@ -10,6 +10,7 @@ import styles from "./TournamentPanels.module.css";
 export default function TournamentPanels({ tournament, onFixtureSelect }) {
   const [openPanels, setOpenPanels] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [showCombinedTable, setShowCombinedTable] = useState(false);
   const fixtureSections =
     tournament.fixtureSections?.length
       ? tournament.fixtureSections
@@ -67,16 +68,40 @@ export default function TournamentPanels({ tournament, onFixtureSelect }) {
     }
 
     return (
-      <div className={styles.pointsGrid}>
-        {tournament.pointsTables.map((groupTable) => (
-          <PointsTable
-            key={groupTable.name}
-            onTeamSelect={setSelectedTeam}
-            rows={groupTable.rows}
-            title={groupTable.name}
-          />
-        ))}
-      </div>
+      <>
+        <div className={styles.pointsGrid}>
+          {tournament.pointsTables.map((groupTable) => (
+            <PointsTable
+              key={groupTable.name}
+              onTeamSelect={setSelectedTeam}
+              rows={groupTable.rows}
+              title={groupTable.name}
+            />
+          ))}
+        </div>
+        {tournament.overallPointsTable ? (
+          <div className={styles.combinedTableSection}>
+            <button
+              aria-expanded={showCombinedTable}
+              className={styles.toggleButton}
+              onClick={() => setShowCombinedTable((current) => !current)}
+              type="button"
+            >
+              <span>Combined Table</span>
+              <span className={styles.buttonIcon}>{showCombinedTable ? "-" : "+"}</span>
+            </button>
+            {showCombinedTable ? (
+              <div className={styles.pointsGrid}>
+                <PointsTable
+                  onTeamSelect={setSelectedTeam}
+                  rows={tournament.overallPointsTable.rows}
+                  title="Overall (All Groups)"
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </>
     );
   }
 

@@ -8,7 +8,11 @@ import TeamSquadModal from "../../../components/TeamSquadModal";
 import TeamOfficialPageLink from "../../../components/TeamOfficialPageLink";
 import TeamPageLink from "../../../components/TeamPageLink";
 import { normalizeSavedTournament } from "../../../components/launchedTournamentUtils";
-import { formatMatchClock, getMatchClockSeconds } from "../../../components/manageTournamentUtils";
+import {
+  formatMatchClock,
+  getGoalCreditTeamName,
+  getMatchClockSeconds,
+} from "../../../components/manageTournamentUtils";
 import styles from "./page.module.css";
 
 const LAUNCHED_MATCH_REFRESH_MS = 2000;
@@ -118,19 +122,26 @@ function getLiveClock(match, timerNow) {
 }
 
 function getGoalScorers(match, side) {
-  const teamName = side === "home" ? match?.homeTeam : match?.awayTeam;
+  const teamName = String((side === "home" ? match?.homeTeam : match?.awayTeam) || "").trim();
+  const homeTeam = String(match?.homeTeam || "").trim();
+  const awayTeam = String(match?.awayTeam || "").trim();
   const entries = Array.isArray(match?.timelineEntries) ? match.timelineEntries : [];
 
   return entries
-    .filter(
-      (entry) =>
-        entry?.type === "event" &&
-        (entry?.action === "goal" || entry?.action === "penalty-goal") &&
-        String(entry?.teamName || "").trim() === String(teamName || "").trim()
-    )
+    .filter((entry) => {
+      const action = entry?.action;
+      if (entry?.type !== "event" || (action !== "goal" && action !== "penalty-goal" && action !== "own-goal")) {
+        return false;
+      }
+
+      const creditedTeam = getGoalCreditTeamName(String(entry?.teamName || "").trim(), action, homeTeam, awayTeam);
+      return creditedTeam === teamName;
+    })
     .map((entry) => ({
       id: entry.id,
-      player: String(entry.subjectLabel || "").trim() || String(teamName || ""),
+      player:
+        (String(entry.subjectLabel || "").trim() || teamName) +
+        (entry.action === "own-goal" ? " (OG)" : ""),
       time: String(entry.displayTime || "").trim(),
     }));
 }

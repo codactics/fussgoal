@@ -5,6 +5,10 @@ export function getGroupLabel(index) {
   return `Group ${String.fromCharCode(65 + index)}`;
 }
 
+export const OVERALL_GROUP_INDEX = -1;
+export const WINNERS_TIER_GROUP_INDEX = -2;
+export const RUNNERS_UP_TIER_GROUP_INDEX = -3;
+
 export function buildTeamLogoMap(payload) {
   return (payload.teamData || []).reduce((accumulator, team) => {
     if (team?.name) {
@@ -150,6 +154,23 @@ export function getTournamentFixtureSections(tournament) {
   }));
 }
 
+export function hasTournamentGroupStageStarted(tournament) {
+  const payload = tournament?.data || {};
+  const matchStatuses = payload.matchStatuses || {};
+  const sections = getTournamentFixtureSections(tournament);
+
+  return sections.some((section, sectionIndex) => {
+    if (section.kind === "knockout") {
+      return false;
+    }
+
+    return section.matches.some((match) => {
+      const fixtureKey = getFixtureKey(sectionIndex, match.roundIndex, match.matchIndex);
+      return getMatchStatusHasStarted(matchStatuses[fixtureKey]);
+    });
+  });
+}
+
 function resolveKnockoutTeamSource({
   fallback,
   groups,
@@ -176,7 +197,9 @@ function resolveKnockoutTeamSource({
     );
   }
 
-  if (source?.type !== "knockoutWinner") {
+  const isLoserSource = source?.type === "knockoutLoser";
+
+  if (source?.type !== "knockoutWinner" && !isLoserSource) {
     return fallbackValue;
   }
 
@@ -190,41 +213,42 @@ function resolveKnockoutTeamSource({
   const fixtureKey = getFixtureKey(knockoutStartSectionIndex + sourceMatchIndex, 0, sourceMatchIndex);
   const statusRecord = matchStatuses[fixtureKey];
   const winnerSide = getMatchWinnerSide(statusRecord);
+  const targetSide = isLoserSource
+    ? winnerSide === "home"
+      ? "away"
+      : winnerSide === "away"
+        ? "home"
+        : null
+    : winnerSide;
 
-  if (winnerSide === "home") {
+  if (targetSide === "home") {
     return String(statusRecord?.homeTeam || sourceMatch.home || "").trim() || fallbackValue;
   }
 
-  if (winnerSide === "away") {
+  if (targetSide === "away") {
     return String(statusRecord?.awayTeam || sourceMatch.away || "").trim() || fallbackValue;
   }
 
-  return fallbackValue || `Winner of ${sourceMatch.title || `Knockout Match ${sourceMatchIndex + 1}`}`;
+  const resultLabel = isLoserSource ? "Loser" : "Winner";
+  return (
+    fallbackValue || `${resultLabel} of ${sourceMatch.title || `Knockout Match ${sourceMatchIndex + 1}`}`
+  );
 }
 
-function resolveGroupPositionTeam({
-  fallback,
-  groups,
-  groupIndex,
-  matchStatuses,
-  rowIndex,
-  sectionList,
-  tournament,
-}) {
-  const groupTeams = Array.isArray(groups?.[groupIndex]) ? groups[groupIndex] : [];
-  const positionIndex = Number.parseInt(rowIndex, 10);
+function computeLivePositionRows(teamList, sectionList, matchStatuses) {
+  const teams = Array.isArray(teamList) ? teamList.filter(Boolean) : [];
 
-  if (!groupTeams.length || !Number.isFinite(positionIndex) || positionIndex < 0) {
-    return String(fallback || "").trim();
+  if (!teams.length) {
+    return [];
   }
 
-  const groupSet = new Set(groupTeams);
+  const teamSet = new Set(teams);
   const teamStats = new Map(
-    groupTeams.map((teamName) => [
+    teams.map((teamName) => [
       teamName,
       {
         team: teamName,
-        groupOrder: groupTeams.indexOf(teamName),
+        groupOrder: teams.indexOf(teamName),
         points: 0,
         scored: 0,
         contained: 0,
@@ -233,7 +257,7 @@ function resolveGroupPositionTeam({
       },
     ])
   );
-  const groupMatches = [];
+  const matches = [];
 
   sectionList.forEach((section, sectionIndex) => {
     if (section.kind === "knockout") {
@@ -241,10 +265,10 @@ function resolveGroupPositionTeam({
     }
 
     section.matches.forEach((match) => {
-      const homeInGroup = groupSet.has(match.home);
-      const awayInGroup = groupSet.has(match.away);
+      const homeInSet = teamSet.has(match.home);
+      const awayInSet = teamSet.has(match.away);
 
-      if (!homeInGroup && !awayInGroup) {
+      if (!homeInSet && !awayInSet) {
         return;
       }
 
@@ -268,7 +292,7 @@ function resolveGroupPositionTeam({
         awayStats.contained += score.home;
       }
 
-      groupMatches.push({
+      matches.push({
         away: match.away,
         awayScore: score.away,
         home: match.home,
@@ -302,20 +326,64 @@ function resolveGroupPositionTeam({
     });
   });
 
-  const rows = rankGroupRows(
-    Array.from(teamStats.values())
-    .map((team) => ({
+  return rankGroupRows(
+    Array.from(teamStats.values()).map((team) => ({
       ...team,
       difference: team.scored - team.contained,
     })),
-    groupMatches
+    matches
   );
+}
 
-  return rows[positionIndex]?.team || String(fallback || "").trim();
+function resolveGroupPositionTeam({ fallback, groups, groupIndex, matchStatuses, rowIndex, sectionList }) {
+  const fallbackValue = String(fallback || "").trim();
+  const positionIndex = Number.parseInt(rowIndex, 10);
+
+  if (!Number.isFinite(positionIndex) || positionIndex < 0) {
+    return fallbackValue;
+  }
+
+  const isPositionTier =
+    groupIndex === WINNERS_TIER_GROUP_INDEX || groupIndex === RUNNERS_UP_TIER_GROUP_INDEX;
+  const tierPositionIndex = groupIndex === WINNERS_TIER_GROUP_INDEX ? 0 : 1;
+
+  const teamList = isPositionTier
+    ? (groups || [])
+        .map(
+          (groupTeams) =>
+            computeLivePositionRows(groupTeams, sectionList, matchStatuses)[tierPositionIndex]?.team
+        )
+        .filter(Boolean)
+    : groupIndex === OVERALL_GROUP_INDEX
+      ? (groups || [])
+          .flat()
+          .filter((teamName, index, teams) => teamName && teams.indexOf(teamName) === index)
+      : Array.isArray(groups?.[groupIndex])
+        ? groups[groupIndex]
+        : [];
+
+  if (!teamList.length) {
+    return fallbackValue;
+  }
+
+  const rows = computeLivePositionRows(teamList, sectionList, matchStatuses);
+
+  return rows[positionIndex]?.team || fallbackValue;
 }
 
 export function getFixtureKey(sectionIndex, roundIndex, matchIndex) {
   return `${sectionIndex}-${roundIndex}-${matchIndex}`;
+}
+
+export function formatTeamWithPositionCode(teamName, source) {
+  const team = String(teamName || "").trim();
+  const label = String(source?.label || "").trim();
+
+  if (!team || !label || source?.type !== "groupPosition") {
+    return team;
+  }
+
+  return `${team} (${label})`;
 }
 
 export function getFixtureByIndexes(tournament, sectionIndex, roundIndex, matchIndex) {
@@ -335,6 +403,22 @@ export function getFixtureByIndexes(tournament, sectionIndex, roundIndex, matchI
 
 function getMatchEventTeamName(event) {
   return String(event?.teamName || event?.subjectTeamName || "").trim();
+}
+
+export function getGoalCreditTeamName(teamName, action, homeTeam, awayTeam) {
+  if (action !== "own-goal") {
+    return teamName;
+  }
+
+  if (teamName === homeTeam) {
+    return awayTeam;
+  }
+
+  if (teamName === awayTeam) {
+    return homeTeam;
+  }
+
+  return "";
 }
 
 export function getMatchStatusHasStarted(statusRecord) {
@@ -366,11 +450,12 @@ export function getMatchScore(statusRecord) {
   const awayTeam = String(statusRecord?.awayTeam || "");
 
   (statusRecord?.events || []).forEach((event) => {
-    if (event?.action !== "goal" && event?.action !== "penalty-goal") {
+    const action = event?.action;
+    if (action !== "goal" && action !== "penalty-goal" && action !== "own-goal") {
       return;
     }
 
-    const teamName = getMatchEventTeamName(event);
+    const teamName = getGoalCreditTeamName(getMatchEventTeamName(event), action, homeTeam, awayTeam);
     if (teamName === homeTeam) {
       score.home += 1;
     }
@@ -709,169 +794,218 @@ export function getFixturePhaseLabel(statusRecord) {
   return "";
 }
 
-export function buildTournamentTables(tournament) {
+function buildGroupTableRows(tournament, groupTeams) {
   const payload = tournament?.data || {};
-  const groups = getTournamentTeamGroups(tournament);
   const fixtureSections = getTournamentFixtureSections(tournament);
   const matchStatuses = payload.matchStatuses || {};
   const teamLogoMap = buildTeamLogoMap(payload);
 
-  return groups.map((groupTeams, groupIndex) => {
-    const teamStats = new Map(
-      groupTeams.map((teamName) => [
-        teamName,
-        {
-          team: teamName,
-          groupOrder: groupTeams.indexOf(teamName),
-          logo: teamLogoMap[teamName] || "",
-          points: 0,
-          played: 0,
-          wins: 0,
-          losses: 0,
-          draws: 0,
-          scored: 0,
-          contained: 0,
-          difference: 0,
-          conductScore: 0,
-          yellow: 0,
-          red: 0,
-          penalty: 0,
-        },
-      ])
-    );
-    const groupSet = new Set(groupTeams);
-    const groupMatches = [];
+  const teamStats = new Map(
+    groupTeams.map((teamName) => [
+      teamName,
+      {
+        team: teamName,
+        groupOrder: groupTeams.indexOf(teamName),
+        logo: teamLogoMap[teamName] || "",
+        points: 0,
+        played: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        scored: 0,
+        contained: 0,
+        difference: 0,
+        conductScore: 0,
+        yellow: 0,
+        red: 0,
+        penalty: 0,
+      },
+    ])
+  );
+  const groupSet = new Set(groupTeams);
+  const groupMatches = [];
 
-    fixtureSections.forEach((section, sectionIndex) => {
-      section.matches.forEach((match) => {
-        if (section.kind === "knockout" && !match.includeInTable) {
-          return;
-        }
+  fixtureSections.forEach((section, sectionIndex) => {
+    section.matches.forEach((match) => {
+      if (section.kind === "knockout" && !match.includeInTable) {
+        return;
+      }
 
-        const homeInGroup = groupSet.has(match.home);
-        const awayInGroup = groupSet.has(match.away);
+      const homeInGroup = groupSet.has(match.home);
+      const awayInGroup = groupSet.has(match.away);
 
-        if (!homeInGroup && !awayInGroup) {
-          return;
-        }
+      if (!homeInGroup && !awayInGroup) {
+        return;
+      }
 
-        const fixtureKey = getFixtureKey(sectionIndex, match.roundIndex, match.matchIndex);
-        const statusRecord = matchStatuses[fixtureKey];
-        if (!getMatchStatusHasStarted(statusRecord)) {
-          return;
-        }
+      const fixtureKey = getFixtureKey(sectionIndex, match.roundIndex, match.matchIndex);
+      const statusRecord = matchStatuses[fixtureKey];
+      if (!getMatchStatusHasStarted(statusRecord)) {
+        return;
+      }
 
-        const homeStats = teamStats.get(match.home);
-        const awayStats = teamStats.get(match.away);
-        if (!homeStats && !awayStats) {
-          return;
-        }
+      const homeStats = teamStats.get(match.home);
+      const awayStats = teamStats.get(match.away);
+      if (!homeStats && !awayStats) {
+        return;
+      }
 
-        const score = getMatchScore(statusRecord);
-        groupMatches.push({
-          away: match.away,
-          awayScore: score.away,
-          home: match.home,
-          homeScore: score.home,
-        });
+      const score = getMatchScore(statusRecord);
+      groupMatches.push({
+        away: match.away,
+        awayScore: score.away,
+        home: match.home,
+        homeScore: score.home,
+      });
+      if (homeStats) {
+        homeStats.played += 1;
+        homeStats.scored += score.home;
+        homeStats.contained += score.away;
+      }
+
+      if (awayStats) {
+        awayStats.played += 1;
+        awayStats.scored += score.away;
+        awayStats.contained += score.home;
+      }
+
+      const winnerSide = getRegulationWinnerSide(statusRecord);
+      if (winnerSide === "home") {
         if (homeStats) {
-          homeStats.played += 1;
-          homeStats.scored += score.home;
-          homeStats.contained += score.away;
+          homeStats.wins += 1;
+          homeStats.points += 3;
         }
-
         if (awayStats) {
-          awayStats.played += 1;
-          awayStats.scored += score.away;
-          awayStats.contained += score.home;
+          awayStats.losses += 1;
+        }
+      } else if (winnerSide === "away") {
+        if (awayStats) {
+          awayStats.wins += 1;
+          awayStats.points += 3;
+        }
+        if (homeStats) {
+          homeStats.losses += 1;
+        }
+      } else {
+        if (homeStats) {
+          homeStats.draws += 1;
+          homeStats.points += 1;
+        }
+        if (awayStats) {
+          awayStats.draws += 1;
+          awayStats.points += 1;
+        }
+      }
+
+      const subjectYellowCounts = new Map();
+      (statusRecord?.events || []).forEach((event) => {
+        const teamName = getMatchEventTeamName(event);
+        const teamRecord = teamStats.get(teamName);
+        if (!teamRecord) {
+          return;
         }
 
-        const winnerSide = getRegulationWinnerSide(statusRecord);
-        if (winnerSide === "home") {
-          if (homeStats) {
-            homeStats.wins += 1;
-            homeStats.points += 3;
-          }
-          if (awayStats) {
-            awayStats.losses += 1;
-          }
-        } else if (winnerSide === "away") {
-          if (awayStats) {
-            awayStats.wins += 1;
-            awayStats.points += 3;
-          }
-          if (homeStats) {
-            homeStats.losses += 1;
-          }
-        } else {
-          if (homeStats) {
-            homeStats.draws += 1;
-            homeStats.points += 1;
-          }
-          if (awayStats) {
-            awayStats.draws += 1;
-            awayStats.points += 1;
-          }
-        }
-
-        const subjectYellowCounts = new Map();
-        (statusRecord?.events || []).forEach((event) => {
-          const teamName = getMatchEventTeamName(event);
-          const teamRecord = teamStats.get(teamName);
-          if (!teamRecord) {
-            return;
-          }
-
-          if (event.action === "yellow") {
-            teamRecord.yellow += 1;
-            const subjectKey = `${teamName}::${event.subjectKey || event.subjectLabel || event.id || ""}`;
-            const nextYellowCount = (subjectYellowCounts.get(subjectKey) || 0) + 1;
-            subjectYellowCounts.set(subjectKey, nextYellowCount);
-            if (nextYellowCount === 2) {
-              teamRecord.red += 1;
-            }
-          }
-
-          if (
-            event.action === "red" ||
-            event.action === "direct-red" ||
-            event.action === "second-yellow-red"
-          ) {
+        if (event.action === "yellow") {
+          teamRecord.yellow += 1;
+          const subjectKey = `${teamName}::${event.subjectKey || event.subjectLabel || event.id || ""}`;
+          const nextYellowCount = (subjectYellowCounts.get(subjectKey) || 0) + 1;
+          subjectYellowCounts.set(subjectKey, nextYellowCount);
+          if (nextYellowCount === 2) {
             teamRecord.red += 1;
           }
-
-          if (
-            event.action === "penalty" ||
-            event.action === "penalty-goal" ||
-            event.action === "penalty-missed"
-          ) {
-            teamRecord.penalty += 1;
-          }
-        });
-
-        if (homeStats) {
-          homeStats.conductScore += getConductScore(statusRecord?.events, match.home);
         }
-        if (awayStats) {
-          awayStats.conductScore += getConductScore(statusRecord?.events, match.away);
+
+        if (
+          event.action === "red" ||
+          event.action === "direct-red" ||
+          event.action === "second-yellow-red"
+        ) {
+          teamRecord.red += 1;
+        }
+
+        if (
+          event.action === "penalty" ||
+          event.action === "penalty-goal" ||
+          event.action === "penalty-missed"
+        ) {
+          teamRecord.penalty += 1;
         }
       });
+
+      if (homeStats) {
+        homeStats.conductScore += getConductScore(statusRecord?.events, match.home);
+      }
+      if (awayStats) {
+        awayStats.conductScore += getConductScore(statusRecord?.events, match.away);
+      }
     });
-
-    const rows = rankGroupRows(
-      Array.from(teamStats.values())
-      .map((team) => ({
-        ...team,
-        difference: team.scored - team.contained,
-      })),
-      groupMatches
-    );
-
-    return {
-      title: tournament?.tournamentType === "league" ? "League" : getGroupLabel(groupIndex),
-      rows,
-    };
   });
+
+  return rankGroupRows(
+    Array.from(teamStats.values())
+    .map((team) => ({
+      ...team,
+      difference: team.scored - team.contained,
+    })),
+    groupMatches
+  );
+}
+
+export function buildTournamentTables(tournament) {
+  const groups = getTournamentTeamGroups(tournament);
+
+  return groups.map((groupTeams, groupIndex) => ({
+    title: tournament?.tournamentType === "league" ? "League" : getGroupLabel(groupIndex),
+    rows: buildGroupTableRows(tournament, groupTeams),
+  }));
+}
+
+export function buildOverallTournamentTable(tournament) {
+  const groups = getTournamentTeamGroups(tournament);
+  if (groups.length < 2) {
+    return null;
+  }
+
+  const allTeams = groups
+    .flat()
+    .filter((teamName, index, teams) => teamName && teams.indexOf(teamName) === index);
+
+  if (!allTeams.length) {
+    return null;
+  }
+
+  return {
+    title: "Overall",
+    rows: buildGroupTableRows(tournament, allTeams),
+  };
+}
+
+function buildPositionTierTournamentTable(tournament, title, positionIndex) {
+  const groups = getTournamentTeamGroups(tournament);
+  if (groups.length < 2) {
+    return null;
+  }
+
+  const tierTeams = buildTournamentTables(tournament)
+    .map((groupTable) => groupTable.rows[positionIndex]?.team)
+    .filter(Boolean);
+
+  if (tierTeams.length < 2) {
+    return null;
+  }
+
+  return {
+    title,
+    rows: buildGroupTableRows(tournament, tierTeams),
+  };
+}
+
+export function buildWinnersTournamentTable(tournament) {
+  return buildPositionTierTournamentTable(tournament, "Winners", 0);
+}
+
+export function buildRunnersUpTournamentTable(tournament) {
+  return buildPositionTierTournamentTable(tournament, "Runners-up", 1);
 }
 
 function getSummarySubjectLabel(event, fallbackTeamName = "") {

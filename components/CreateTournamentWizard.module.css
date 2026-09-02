@@ -683,6 +683,11 @@
   font-size: 1rem;
 }
 
+.overallTournamentCard {
+  border-color: rgba(15, 118, 82, 0.35);
+  background: #eef7f2;
+}
+
 .manageTeamList,
 .manageFixturesStack {
   display: grid;

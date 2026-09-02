@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./CreateTournamentWizard.module.css";
 import { getStoredImageUrl } from "./launchedTournamentUtils";
 import {
+  buildOverallTournamentTable,
+  buildRunnersUpTournamentTable,
   buildTournamentSummaryTables,
   buildTournamentTables,
   buildTeamLogoMap,
+  buildWinnersTournamentTable,
   formatMatchClock,
   getFixtureKey,
   getFixturePhaseLabel,
@@ -19,6 +22,10 @@ import {
   getPenaltyShootoutWinnerSide,
   getTournamentFixtureSections,
   getTournamentTeamGroups,
+  hasTournamentGroupStageStarted,
+  OVERALL_GROUP_INDEX,
+  RUNNERS_UP_TIER_GROUP_INDEX,
+  WINNERS_TIER_GROUP_INDEX,
 } from "./manageTournamentUtils";
 
 const MAX_SQUAD_ROWS = 30;
@@ -33,7 +40,11 @@ const SUMMARY_TABLE_KEYS = [
 ];
 const KNOCKOUT_SOURCE_MANUAL = "manual";
 const KNOCKOUT_SOURCE_GROUP_POSITION = "groupPosition";
+const KNOCKOUT_SOURCE_OVERALL_POSITION = "overallPosition";
+const KNOCKOUT_SOURCE_WINNERS_POSITION = "winnersPosition";
+const KNOCKOUT_SOURCE_RUNNERS_UP_POSITION = "runnersUpPosition";
 const KNOCKOUT_SOURCE_WINNER = "knockoutWinner";
+const KNOCKOUT_SOURCE_LOSER = "knockoutLoser";
 const OVERALL_MODE_MANUAL = "manual";
 const OVERALL_MODE_AUTO = "auto";
 const OVERALL_AUTO_KNOCKOUT_WINNER = "knockoutWinner";
@@ -100,8 +111,16 @@ function createInitialKnockoutMatchForm() {
     awaySourceType: KNOCKOUT_SOURCE_MANUAL,
     homeGroupPosition: "",
     awayGroupPosition: "",
+    homeOverallPosition: "",
+    awayOverallPosition: "",
+    homeWinnersPosition: "",
+    awayWinnersPosition: "",
+    homeRunnersUpPosition: "",
+    awayRunnersUpPosition: "",
     homeWinnerMatchIndex: "",
     awayWinnerMatchIndex: "",
+    homeLoserMatchIndex: "",
+    awayLoserMatchIndex: "",
     includeInTable: false,
   };
 }
@@ -151,11 +170,29 @@ function normalizeOverallSummary(summary) {
 
 function getKnockoutSourceType(source) {
   if (source?.type === KNOCKOUT_SOURCE_GROUP_POSITION) {
+    const groupIndex = Number(source.groupIndex);
+
+    if (groupIndex === OVERALL_GROUP_INDEX) {
+      return KNOCKOUT_SOURCE_OVERALL_POSITION;
+    }
+
+    if (groupIndex === WINNERS_TIER_GROUP_INDEX) {
+      return KNOCKOUT_SOURCE_WINNERS_POSITION;
+    }
+
+    if (groupIndex === RUNNERS_UP_TIER_GROUP_INDEX) {
+      return KNOCKOUT_SOURCE_RUNNERS_UP_POSITION;
+    }
+
     return KNOCKOUT_SOURCE_GROUP_POSITION;
   }
 
   if (source?.type === KNOCKOUT_SOURCE_WINNER) {
     return KNOCKOUT_SOURCE_WINNER;
+  }
+
+  if (source?.type === KNOCKOUT_SOURCE_LOSER) {
+    return KNOCKOUT_SOURCE_LOSER;
   }
 
   return KNOCKOUT_SOURCE_MANUAL;
@@ -179,10 +216,26 @@ function createKnockoutMatchFormFromMatch(match) {
       awaySourceType === KNOCKOUT_SOURCE_GROUP_POSITION
         ? `${match.awaySource.groupIndex}:${match.awaySource.rowIndex}`
         : "",
+    homeOverallPosition:
+      homeSourceType === KNOCKOUT_SOURCE_OVERALL_POSITION ? String(match.homeSource.rowIndex) : "",
+    awayOverallPosition:
+      awaySourceType === KNOCKOUT_SOURCE_OVERALL_POSITION ? String(match.awaySource.rowIndex) : "",
+    homeWinnersPosition:
+      homeSourceType === KNOCKOUT_SOURCE_WINNERS_POSITION ? String(match.homeSource.rowIndex) : "",
+    awayWinnersPosition:
+      awaySourceType === KNOCKOUT_SOURCE_WINNERS_POSITION ? String(match.awaySource.rowIndex) : "",
+    homeRunnersUpPosition:
+      homeSourceType === KNOCKOUT_SOURCE_RUNNERS_UP_POSITION ? String(match.homeSource.rowIndex) : "",
+    awayRunnersUpPosition:
+      awaySourceType === KNOCKOUT_SOURCE_RUNNERS_UP_POSITION ? String(match.awaySource.rowIndex) : "",
     homeWinnerMatchIndex:
       homeSourceType === KNOCKOUT_SOURCE_WINNER ? String(match.homeSource.matchIndex) : "",
     awayWinnerMatchIndex:
       awaySourceType === KNOCKOUT_SOURCE_WINNER ? String(match.awaySource.matchIndex) : "",
+    homeLoserMatchIndex:
+      homeSourceType === KNOCKOUT_SOURCE_LOSER ? String(match.homeSource.matchIndex) : "",
+    awayLoserMatchIndex:
+      awaySourceType === KNOCKOUT_SOURCE_LOSER ? String(match.awaySource.matchIndex) : "",
     includeInTable: Boolean(match?.includeInTable),
   };
 }
@@ -198,23 +251,98 @@ function formatSummaryValue(summaryKey, row) {
 function getTablePositionCode(tableTitle, rowIndex) {
   const title = String(tableTitle || "").trim();
   const groupMatch = title.match(/^Group\s+(.+)$/i);
-  const prefix = groupMatch ? groupMatch[1].trim() : title === "League" ? "L" : title;
+  const prefix = groupMatch
+    ? groupMatch[1].trim()
+    : title === "League"
+      ? "L"
+      : title === "Overall"
+        ? "ALL"
+        : title === "Winners"
+          ? "W"
+          : title === "Runners-up"
+            ? "R"
+            : title;
 
   return `${prefix}${rowIndex + 1}`;
 }
 
-function formatTeamWithSourceLabel(teamName, source) {
-  const team = String(teamName || "").trim();
-  const label = String(source?.label || "").trim();
+function getOrdinalSuffix(position) {
+  const remainder100 = position % 100;
+  if (remainder100 >= 11 && remainder100 <= 13) {
+    return "th";
+  }
 
-  if (!team || !label || source?.type !== KNOCKOUT_SOURCE_GROUP_POSITION) {
+  switch (position % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+}
+
+function getPlainOrdinal(position) {
+  return `${position}${getOrdinalSuffix(position)}`;
+}
+
+function getTierOrdinal(position) {
+  return position === 1 ? "Best" : `${getPlainOrdinal(position)} Best`;
+}
+
+function getGroupPositionExplanation(source) {
+  if (source?.type !== KNOCKOUT_SOURCE_GROUP_POSITION) {
+    return "";
+  }
+
+  const groupIndex = Number(source.groupIndex);
+  const rowIndex = Number(source.rowIndex);
+
+  if (!Number.isFinite(rowIndex) || rowIndex < 0) {
+    return "";
+  }
+
+  const position = rowIndex + 1;
+
+  if (groupIndex === WINNERS_TIER_GROUP_INDEX) {
+    return `${getTierOrdinal(position)} Group Winner`;
+  }
+
+  if (groupIndex === RUNNERS_UP_TIER_GROUP_INDEX) {
+    return `${getTierOrdinal(position)} Group Runner-up`;
+  }
+
+  if (groupIndex === OVERALL_GROUP_INDEX) {
+    return `${getPlainOrdinal(position)} Overall`;
+  }
+
+  return `${getGroupLabel(groupIndex)} - ${getPlainOrdinal(position)} Place`;
+}
+
+function formatTeamWithSourceLabel(teamName, source, hasGroupStageStarted) {
+  const team = String(teamName || "").trim();
+
+  if (source?.type !== KNOCKOUT_SOURCE_GROUP_POSITION) {
     return team;
   }
 
-  return `${team} (${label})`;
+  if (hasGroupStageStarted) {
+    return team;
+  }
+
+  const label = String(source?.label || "").trim();
+
+  if (!label) {
+    return team;
+  }
+
+  const explanation = getGroupPositionExplanation(source);
+  return explanation ? `${label} - ${explanation}` : label;
 }
 
-export default function ManageTournamentDetail({ tournament }) {
+export default function ManageTournamentDetail({ isMasterAdmin = false, tournament }) {
   const [currentTournament, setCurrentTournament] = useState(tournament);
   const [activeTeam, setActiveTeam] = useState(null);
   const [isKnockoutModalOpen, setIsKnockoutModalOpen] = useState(false);
@@ -245,6 +373,10 @@ export default function ManageTournamentDetail({ tournament }) {
       return accumulator;
     }, {})
   );
+  const [pendingRestorePayload, setPendingRestorePayload] = useState(null);
+  const [isRestoringBackup, setIsRestoringBackup] = useState(false);
+  const [restoreMessage, setRestoreMessage] = useState("");
+  const restoreFileInputRef = useRef(null);
 
   useEffect(() => {
     setCurrentTournament(tournament);
@@ -298,10 +430,112 @@ export default function ManageTournamentDetail({ tournament }) {
   const fixtureSections = getTournamentFixtureSections(currentTournament);
   const squadData = payload.teamSquads || {};
   const matchStatuses = payload.matchStatuses || {};
+  const hasGroupStageStarted = useMemo(
+    () => hasTournamentGroupStageStarted(currentTournament),
+    [currentTournament]
+  );
   const tournamentTables = useMemo(
     () => buildTournamentTables(currentTournament),
     [currentTournament]
   );
+  const overallTournamentTable = useMemo(
+    () => buildOverallTournamentTable(currentTournament),
+    [currentTournament]
+  );
+  const winnersTournamentTable = useMemo(
+    () => buildWinnersTournamentTable(currentTournament),
+    [currentTournament]
+  );
+  const runnersUpTournamentTable = useMemo(
+    () => buildRunnersUpTournamentTable(currentTournament),
+    [currentTournament]
+  );
+
+  function renderTournamentTableCard(table, { cardClassName, displayTitle, keySuffix } = {}) {
+    if (!table) {
+      return null;
+    }
+
+    return (
+      <div
+        className={cardClassName ? `${styles.manageFixtureCard} ${cardClassName}` : styles.manageFixtureCard}
+        key={`${currentTournament.id}-${keySuffix}-table`}
+      >
+        <h5 className={styles.manageFixtureTitle}>{displayTitle || table.title}</h5>
+        <div className={styles.tournamentTableWrap}>
+          <table className={styles.tournamentTable}>
+            <thead>
+              <tr>
+                <th>Position</th>
+                <th>Team</th>
+                <th>Points</th>
+                <th>Played</th>
+                <th>W</th>
+                <th>L</th>
+                <th>D</th>
+                <th>Scored</th>
+                <th>Contained</th>
+                <th>GD</th>
+                <th>Yellow</th>
+                <th>Red</th>
+                <th>Fair Play</th>
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row, rowIndex) => (
+                <tr key={`${keySuffix}-${row.team}`}>
+                  <td>{row.positionLabel || rowIndex + 1}</td>
+                  <td>{row.team}</td>
+                  <td>{row.points}</td>
+                  <td>{row.played}</td>
+                  <td>{row.wins}</td>
+                  <td>{row.losses}</td>
+                  <td>{row.draws}</td>
+                  <td>{row.scored}</td>
+                  <td>{row.contained}</td>
+                  <td>{row.difference}</td>
+                  <td>{row.yellow}</td>
+                  <td>{row.red}</td>
+                  <td>{row.fairPlayScore ?? row.conductScore}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  function renderKnockoutPositionPreview(table, { displayTitle, keySuffix } = {}) {
+    if (!table) {
+      return null;
+    }
+
+    return (
+      <div className={styles.knockoutTeamGroup} key={`knockout-${keySuffix}-preview`}>
+        <p className={styles.knockoutTeamGroupTitle}>{displayTitle || table.title}</p>
+        {table.rows.length ? (
+          <div className={styles.knockoutTeamTable}>
+            <div className={styles.knockoutTeamTableHead}>
+              <span>Team</span>
+              <span>Pts</span>
+            </div>
+            {table.rows.map((row, rowIndex) => (
+              <div className={styles.knockoutTeamTableRow} key={`knockout-${keySuffix}-preview-${row.team}`}>
+                <span className={styles.knockoutTeamName}>
+                  {row.team} ({getTablePositionCode(table.title, rowIndex)})
+                </span>
+                <span className={styles.knockoutTeamPoints}>{row.points}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.knockoutTeamName}>No table data yet.</p>
+        )}
+      </div>
+    );
+  }
+
   const tournamentSummaryTables = useMemo(
     () => buildTournamentSummaryTables(currentTournament),
     [currentTournament]
@@ -864,6 +1098,35 @@ export default function ManageTournamentDetail({ tournament }) {
     );
   }
 
+  function getKnockoutTierPositionOptions(table) {
+    if (!table) {
+      return [];
+    }
+
+    return table.rows.map((row, rowIndex) => {
+      const sourceLabel = getTablePositionCode(table.title, rowIndex);
+
+      return {
+        label: `${row.team} (${sourceLabel})`,
+        sourceLabel,
+        team: row.team,
+        value: String(rowIndex),
+      };
+    });
+  }
+
+  function getKnockoutOverallPositionOptions() {
+    return getKnockoutTierPositionOptions(overallTournamentTable);
+  }
+
+  function getKnockoutWinnersPositionOptions() {
+    return getKnockoutTierPositionOptions(winnersTournamentTable);
+  }
+
+  function getKnockoutRunnersUpPositionOptions() {
+    return getKnockoutTierPositionOptions(runnersUpTournamentTable);
+  }
+
   function getSavedKnockoutMatchOptions() {
     return (Array.isArray(payload.knockoutMatches) ? payload.knockoutMatches : []).map(
       (match, matchIndex) => ({
@@ -876,14 +1139,22 @@ export default function ManageTournamentDetail({ tournament }) {
   function updateKnockoutSource(fieldName, sourceType) {
     const sourceTypeKey = `${fieldName}SourceType`;
     const groupPositionKey = `${fieldName}GroupPosition`;
+    const overallPositionKey = `${fieldName}OverallPosition`;
+    const winnersPositionKey = `${fieldName}WinnersPosition`;
+    const runnersUpPositionKey = `${fieldName}RunnersUpPosition`;
     const winnerMatchIndexKey = `${fieldName}WinnerMatchIndex`;
+    const loserMatchIndexKey = `${fieldName}LoserMatchIndex`;
 
     setKnockoutMatchForm((current) => ({
       ...current,
       [fieldName]: "",
       [sourceTypeKey]: sourceType,
       [groupPositionKey]: "",
+      [overallPositionKey]: "",
+      [winnersPositionKey]: "",
+      [runnersUpPositionKey]: "",
       [winnerMatchIndexKey]: "",
+      [loserMatchIndexKey]: "",
     }));
   }
 
@@ -897,6 +1168,36 @@ export default function ManageTournamentDetail({ tournament }) {
     }));
   }
 
+  function updateKnockoutOverallPosition(fieldName, value) {
+    const selectedOption = getKnockoutOverallPositionOptions().find((option) => option.value === value);
+
+    setKnockoutMatchForm((current) => ({
+      ...current,
+      [fieldName]: selectedOption?.team || "",
+      [`${fieldName}OverallPosition`]: value,
+    }));
+  }
+
+  function updateKnockoutWinnersPosition(fieldName, value) {
+    const selectedOption = getKnockoutWinnersPositionOptions().find((option) => option.value === value);
+
+    setKnockoutMatchForm((current) => ({
+      ...current,
+      [fieldName]: selectedOption?.team || "",
+      [`${fieldName}WinnersPosition`]: value,
+    }));
+  }
+
+  function updateKnockoutRunnersUpPosition(fieldName, value) {
+    const selectedOption = getKnockoutRunnersUpPositionOptions().find((option) => option.value === value);
+
+    setKnockoutMatchForm((current) => ({
+      ...current,
+      [fieldName]: selectedOption?.team || "",
+      [`${fieldName}RunnersUpPosition`]: value,
+    }));
+  }
+
   function updateKnockoutWinnerSource(fieldName, matchIndex) {
     const selectedOption = getSavedKnockoutMatchOptions().find(
       (option) => option.value === matchIndex
@@ -906,6 +1207,18 @@ export default function ManageTournamentDetail({ tournament }) {
       ...current,
       [fieldName]: selectedOption ? `Winner of ${selectedOption.label}` : "",
       [`${fieldName}WinnerMatchIndex`]: matchIndex,
+    }));
+  }
+
+  function updateKnockoutLoserSource(fieldName, matchIndex) {
+    const selectedOption = getSavedKnockoutMatchOptions().find(
+      (option) => option.value === matchIndex
+    );
+
+    setKnockoutMatchForm((current) => ({
+      ...current,
+      [fieldName]: selectedOption ? `Loser of ${selectedOption.label}` : "",
+      [`${fieldName}LoserMatchIndex`]: matchIndex,
     }));
   }
 
@@ -928,6 +1241,54 @@ export default function ManageTournamentDetail({ tournament }) {
         : null;
     }
 
+    if (sourceType === KNOCKOUT_SOURCE_OVERALL_POSITION) {
+      const selectedOption = getKnockoutOverallPositionOptions().find(
+        (option) => option.value === knockoutMatchForm[`${fieldName}OverallPosition`]
+      );
+
+      return selectedOption
+        ? {
+            type: KNOCKOUT_SOURCE_GROUP_POSITION,
+            groupIndex: OVERALL_GROUP_INDEX,
+            label: selectedOption.sourceLabel,
+            rowIndex: Number.parseInt(selectedOption.value, 10),
+            team: selectedOption.team,
+          }
+        : null;
+    }
+
+    if (sourceType === KNOCKOUT_SOURCE_WINNERS_POSITION) {
+      const selectedOption = getKnockoutWinnersPositionOptions().find(
+        (option) => option.value === knockoutMatchForm[`${fieldName}WinnersPosition`]
+      );
+
+      return selectedOption
+        ? {
+            type: KNOCKOUT_SOURCE_GROUP_POSITION,
+            groupIndex: WINNERS_TIER_GROUP_INDEX,
+            label: selectedOption.sourceLabel,
+            rowIndex: Number.parseInt(selectedOption.value, 10),
+            team: selectedOption.team,
+          }
+        : null;
+    }
+
+    if (sourceType === KNOCKOUT_SOURCE_RUNNERS_UP_POSITION) {
+      const selectedOption = getKnockoutRunnersUpPositionOptions().find(
+        (option) => option.value === knockoutMatchForm[`${fieldName}RunnersUpPosition`]
+      );
+
+      return selectedOption
+        ? {
+            type: KNOCKOUT_SOURCE_GROUP_POSITION,
+            groupIndex: RUNNERS_UP_TIER_GROUP_INDEX,
+            label: selectedOption.sourceLabel,
+            rowIndex: Number.parseInt(selectedOption.value, 10),
+            team: selectedOption.team,
+          }
+        : null;
+    }
+
     if (sourceType === KNOCKOUT_SOURCE_WINNER) {
       const selectedOption = getSavedKnockoutMatchOptions().find(
         (option) => option.value === knockoutMatchForm[`${fieldName}WinnerMatchIndex`]
@@ -937,6 +1298,20 @@ export default function ManageTournamentDetail({ tournament }) {
         ? {
             type: KNOCKOUT_SOURCE_WINNER,
             label: `Winner of ${selectedOption.label}`,
+            matchIndex: Number.parseInt(selectedOption.value, 10),
+          }
+        : null;
+    }
+
+    if (sourceType === KNOCKOUT_SOURCE_LOSER) {
+      const selectedOption = getSavedKnockoutMatchOptions().find(
+        (option) => option.value === knockoutMatchForm[`${fieldName}LoserMatchIndex`]
+      );
+
+      return selectedOption
+        ? {
+            type: KNOCKOUT_SOURCE_LOSER,
+            label: `Loser of ${selectedOption.label}`,
             matchIndex: Number.parseInt(selectedOption.value, 10),
           }
         : null;
@@ -996,12 +1371,137 @@ export default function ManageTournamentDetail({ tournament }) {
     }
   }
 
+  function handleDownloadBackup() {
+    if (!currentTournament) {
+      return;
+    }
+
+    const fileNameBase =
+      String(currentTournament.name || "tournament")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "tournament";
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const fileName = `${fileNameBase}-backup-${timestamp}.json`;
+
+    const blob = new Blob([JSON.stringify(currentTournament, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function handleRestoreFileChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setRestoreMessage("");
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (restoreFileInputRef.current) {
+        restoreFileInputRef.current.value = "";
+      }
+
+      try {
+        const parsed = JSON.parse(String(reader.result || ""));
+        const name = String(parsed?.name || "").trim();
+
+        if (!name || !parsed?.data || typeof parsed.data !== "object") {
+          setRestoreMessage("This file doesn't look like a valid tournament backup.");
+          return;
+        }
+
+        setPendingRestorePayload(parsed);
+      } catch {
+        setRestoreMessage("Unable to read that file. Make sure it is a tournament backup JSON file.");
+      }
+    };
+    reader.onerror = () => {
+      setRestoreMessage("Unable to read that file.");
+      if (restoreFileInputRef.current) {
+        restoreFileInputRef.current.value = "";
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function cancelRestoreBackup() {
+    setPendingRestorePayload(null);
+  }
+
+  async function confirmRestoreBackup() {
+    if (!pendingRestorePayload || !currentTournament) {
+      return;
+    }
+
+    setIsRestoringBackup(true);
+    setRestoreMessage("");
+
+    try {
+      const nextTournament = {
+        ...pendingRestorePayload,
+        id: currentTournament.id,
+      };
+
+      const response = await fetch(`/api/tournaments/${currentTournament.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(nextTournament),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to restore the tournament from backup.");
+      }
+
+      setCurrentTournament(result.tournament || nextTournament);
+      setRestoreMessage("Tournament data restored from the uploaded backup.");
+    } catch (error) {
+      setRestoreMessage(error.message || "Unable to restore the tournament from backup.");
+    } finally {
+      setIsRestoringBackup(false);
+      setPendingRestorePayload(null);
+    }
+  }
+
   if (!currentTournament) {
     return null;
   }
 
   return (
     <div className={styles.manageDetailSection}>
+      {isMasterAdmin ? (
+        <div className={styles.manageSectionCard}>
+          <h4 className={styles.manageSectionTitle}>Restore Tournament From Backup</h4>
+          <p className={styles.passwordText}>
+            Upload a previously downloaded backup JSON file to replace this tournament&apos;s
+            groups &amp; teams, squads, fixtures, live match events and scores, tournament tables,
+            knockout matches, and overall summary with what&apos;s in the file. This overwrites
+            everything currently saved for this tournament and cannot be undone.
+          </p>
+          <input
+            accept="application/json,.json"
+            disabled={isRestoringBackup}
+            onChange={handleRestoreFileChange}
+            ref={restoreFileInputRef}
+            type="file"
+          />
+          {restoreMessage ? <p className={styles.status}>{restoreMessage}</p> : null}
+        </div>
+      ) : null}
+
       <div className={styles.manageDetailHeader}>
         <div>
           <p className={styles.eyebrowLabel}>Selected Tournament</p>
@@ -1095,7 +1595,7 @@ export default function ManageTournamentDetail({ tournament }) {
                             href={`/admin/dashboard/${currentTournament.id}/fixture/${sectionIndex}/${match.roundIndex}/${match.matchIndex}`}
                           >
                             <span className={styles.fixtureRowTeam}>
-                              {formatTeamWithSourceLabel(match.home, match.homeSource)}
+                              {formatTeamWithSourceLabel(match.home, match.homeSource, hasGroupStageStarted)}
                               {penaltyWinnerSide === "home" ? " *" : ""}
                             </span>
                             <span className={styles.fixtureRowCenter}>
@@ -1135,7 +1635,7 @@ export default function ManageTournamentDetail({ tournament }) {
                               ) : null}
                             </span>
                             <span className={styles.fixtureRowTeamRight}>
-                              {formatTeamWithSourceLabel(match.away, match.awaySource)}
+                              {formatTeamWithSourceLabel(match.away, match.awaySource, hasGroupStageStarted)}
                               {penaltyWinnerSide === "away" ? " *" : ""}
                             </span>
                           </Link>
@@ -1167,51 +1667,16 @@ export default function ManageTournamentDetail({ tournament }) {
         <h4 className={styles.manageSectionTitle}>Section 3: Tournament Table</h4>
         {tournamentTables.length ? (
           <div className={styles.manageFixturesStack}>
-            {tournamentTables.map((groupTable) => (
-              <div className={styles.manageFixtureCard} key={`${currentTournament.id}-${groupTable.title}-table`}>
-                <h5 className={styles.manageFixtureTitle}>{groupTable.title}</h5>
-                <div className={styles.tournamentTableWrap}>
-                  <table className={styles.tournamentTable}>
-                    <thead>
-                      <tr>
-                        <th>Position</th>
-                        <th>Team</th>
-                        <th>Points</th>
-                        <th>Played</th>
-                        <th>W</th>
-                        <th>L</th>
-                        <th>D</th>
-                        <th>Scored</th>
-                        <th>Contained</th>
-                        <th>GD</th>
-                        <th>Yellow</th>
-                        <th>Red</th>
-                        <th>Fair Play</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {groupTable.rows.map((row, rowIndex) => (
-                        <tr key={`${groupTable.title}-${row.team}`}>
-                          <td>{row.positionLabel || rowIndex + 1}</td>
-                          <td>{row.team}</td>
-                          <td>{row.points}</td>
-                          <td>{row.played}</td>
-                          <td>{row.wins}</td>
-                          <td>{row.losses}</td>
-                          <td>{row.draws}</td>
-                          <td>{row.scored}</td>
-                          <td>{row.contained}</td>
-                          <td>{row.difference}</td>
-                          <td>{row.yellow}</td>
-                          <td>{row.red}</td>
-                          <td>{row.fairPlayScore ?? row.conductScore}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
+            {tournamentTables.map((groupTable) =>
+              renderTournamentTableCard(groupTable, { keySuffix: groupTable.title })
+            )}
+            {renderTournamentTableCard(overallTournamentTable, {
+              cardClassName: styles.overallTournamentCard,
+              displayTitle: overallTournamentTable ? `${overallTournamentTable.title} (All Groups)` : "",
+              keySuffix: "overall",
+            })}
+            {renderTournamentTableCard(winnersTournamentTable, { keySuffix: "winners" })}
+            {renderTournamentTableCard(runnersUpTournamentTable, { keySuffix: "runners-up" })}
           </div>
         ) : (
           <div className={styles.savedEmpty}>No group table is available for this tournament yet.</div>
@@ -1604,6 +2069,52 @@ export default function ManageTournamentDetail({ tournament }) {
         {overallSummaryMessage ? <p className={styles.status}>{overallSummaryMessage}</p> : null}
       </div>
 
+      {isMasterAdmin ? (
+        <div className={styles.manageSectionCard}>
+          <h4 className={styles.manageSectionTitle}>Section 6: Backup Tournament Data</h4>
+          <p className={styles.passwordText}>
+            Download a full JSON backup of this tournament at any time — groups &amp; teams, squads,
+            fixtures, live match events and scores, tournament tables, knockout matches, and the
+            overall summary are all included. Keep this file safe as a restore point. Visible to the
+            master admin only.
+          </p>
+          <button className={styles.primaryButton} onClick={handleDownloadBackup} type="button">
+            Download Full Backup (JSON)
+          </button>
+        </div>
+      ) : null}
+
+      {pendingRestorePayload ? (
+        <div className={styles.passwordOverlay}>
+          <div className={styles.passwordCard} role="dialog" aria-modal="true">
+            <h3 className={styles.passwordTitle}>Restore Tournament From Backup?</h3>
+            <p className={styles.passwordText}>
+              This will replace <strong>{currentTournament.name}</strong>&apos;s current data with{" "}
+              <strong>{pendingRestorePayload.name}</strong> from the uploaded file, including live
+              match scores and events. This cannot be undone.
+            </p>
+            <div className={styles.passwordActions}>
+              <button
+                className={styles.confirmCancelButton}
+                disabled={isRestoringBackup}
+                onClick={cancelRestoreBackup}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.confirmOkButton}
+                disabled={isRestoringBackup}
+                onClick={() => void confirmRestoreBackup()}
+                type="button"
+              >
+                {isRestoringBackup ? "Restoring..." : "Restore"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {activeTeam ? (
         <div className={styles.passwordOverlay}>
           <div className={styles.squadModalCard}>
@@ -1932,7 +2443,11 @@ export default function ManageTournamentDetail({ tournament }) {
                   >
                     <option value={KNOCKOUT_SOURCE_MANUAL}>Manual team</option>
                     <option value={KNOCKOUT_SOURCE_GROUP_POSITION}>Group table position</option>
+                    <option value={KNOCKOUT_SOURCE_OVERALL_POSITION}>Overall table position</option>
+                    <option value={KNOCKOUT_SOURCE_WINNERS_POSITION}>Best group winner position</option>
+                    <option value={KNOCKOUT_SOURCE_RUNNERS_UP_POSITION}>Best group runner-up position</option>
                     <option value={KNOCKOUT_SOURCE_WINNER}>Winner of knockout match</option>
+                    <option value={KNOCKOUT_SOURCE_LOSER}>Loser of knockout match</option>
                   </select>
 
                   <label className={styles.fieldLabel} htmlFor="knockout-home-team">
@@ -1952,6 +2467,48 @@ export default function ManageTournamentDetail({ tournament }) {
                         </option>
                       ))}
                     </select>
+                  ) : knockoutMatchForm.homeSourceType === KNOCKOUT_SOURCE_OVERALL_POSITION ? (
+                    <select
+                      className={styles.select}
+                      id="knockout-home-team"
+                      onChange={(event) => updateKnockoutOverallPosition("home", event.target.value)}
+                      value={knockoutMatchForm.homeOverallPosition}
+                    >
+                      <option value="">Select overall table position</option>
+                      {getKnockoutOverallPositionOptions().map((option) => (
+                        <option key={`knockout-home-overall-${option.value}`} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : knockoutMatchForm.homeSourceType === KNOCKOUT_SOURCE_WINNERS_POSITION ? (
+                    <select
+                      className={styles.select}
+                      id="knockout-home-team"
+                      onChange={(event) => updateKnockoutWinnersPosition("home", event.target.value)}
+                      value={knockoutMatchForm.homeWinnersPosition}
+                    >
+                      <option value="">Select best group winner position</option>
+                      {getKnockoutWinnersPositionOptions().map((option) => (
+                        <option key={`knockout-home-winners-${option.value}`} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : knockoutMatchForm.homeSourceType === KNOCKOUT_SOURCE_RUNNERS_UP_POSITION ? (
+                    <select
+                      className={styles.select}
+                      id="knockout-home-team"
+                      onChange={(event) => updateKnockoutRunnersUpPosition("home", event.target.value)}
+                      value={knockoutMatchForm.homeRunnersUpPosition}
+                    >
+                      <option value="">Select best group runner-up position</option>
+                      {getKnockoutRunnersUpPositionOptions().map((option) => (
+                        <option key={`knockout-home-runners-up-${option.value}`} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   ) : knockoutMatchForm.homeSourceType === KNOCKOUT_SOURCE_WINNER ? (
                     <select
                       className={styles.select}
@@ -1963,6 +2520,20 @@ export default function ManageTournamentDetail({ tournament }) {
                       {getSavedKnockoutMatchOptions().map((option) => (
                         <option key={`knockout-home-winner-${option.value}`} value={option.value}>
                           Winner of {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : knockoutMatchForm.homeSourceType === KNOCKOUT_SOURCE_LOSER ? (
+                    <select
+                      className={styles.select}
+                      id="knockout-home-team"
+                      onChange={(event) => updateKnockoutLoserSource("home", event.target.value)}
+                      value={knockoutMatchForm.homeLoserMatchIndex}
+                    >
+                      <option value="">Select knockout loser</option>
+                      {getSavedKnockoutMatchOptions().map((option) => (
+                        <option key={`knockout-home-loser-${option.value}`} value={option.value}>
+                          Loser of {option.label}
                         </option>
                       ))}
                     </select>
@@ -2004,7 +2575,11 @@ export default function ManageTournamentDetail({ tournament }) {
                   >
                     <option value={KNOCKOUT_SOURCE_MANUAL}>Manual team</option>
                     <option value={KNOCKOUT_SOURCE_GROUP_POSITION}>Group table position</option>
+                    <option value={KNOCKOUT_SOURCE_OVERALL_POSITION}>Overall table position</option>
+                    <option value={KNOCKOUT_SOURCE_WINNERS_POSITION}>Best group winner position</option>
+                    <option value={KNOCKOUT_SOURCE_RUNNERS_UP_POSITION}>Best group runner-up position</option>
                     <option value={KNOCKOUT_SOURCE_WINNER}>Winner of knockout match</option>
+                    <option value={KNOCKOUT_SOURCE_LOSER}>Loser of knockout match</option>
                   </select>
 
                   <label className={styles.fieldLabel} htmlFor="knockout-away-team">
@@ -2024,6 +2599,48 @@ export default function ManageTournamentDetail({ tournament }) {
                         </option>
                       ))}
                     </select>
+                  ) : knockoutMatchForm.awaySourceType === KNOCKOUT_SOURCE_OVERALL_POSITION ? (
+                    <select
+                      className={styles.select}
+                      id="knockout-away-team"
+                      onChange={(event) => updateKnockoutOverallPosition("away", event.target.value)}
+                      value={knockoutMatchForm.awayOverallPosition}
+                    >
+                      <option value="">Select overall table position</option>
+                      {getKnockoutOverallPositionOptions().map((option) => (
+                        <option key={`knockout-away-overall-${option.value}`} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : knockoutMatchForm.awaySourceType === KNOCKOUT_SOURCE_WINNERS_POSITION ? (
+                    <select
+                      className={styles.select}
+                      id="knockout-away-team"
+                      onChange={(event) => updateKnockoutWinnersPosition("away", event.target.value)}
+                      value={knockoutMatchForm.awayWinnersPosition}
+                    >
+                      <option value="">Select best group winner position</option>
+                      {getKnockoutWinnersPositionOptions().map((option) => (
+                        <option key={`knockout-away-winners-${option.value}`} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : knockoutMatchForm.awaySourceType === KNOCKOUT_SOURCE_RUNNERS_UP_POSITION ? (
+                    <select
+                      className={styles.select}
+                      id="knockout-away-team"
+                      onChange={(event) => updateKnockoutRunnersUpPosition("away", event.target.value)}
+                      value={knockoutMatchForm.awayRunnersUpPosition}
+                    >
+                      <option value="">Select best group runner-up position</option>
+                      {getKnockoutRunnersUpPositionOptions().map((option) => (
+                        <option key={`knockout-away-runners-up-${option.value}`} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   ) : knockoutMatchForm.awaySourceType === KNOCKOUT_SOURCE_WINNER ? (
                     <select
                       className={styles.select}
@@ -2035,6 +2652,20 @@ export default function ManageTournamentDetail({ tournament }) {
                       {getSavedKnockoutMatchOptions().map((option) => (
                         <option key={`knockout-away-winner-${option.value}`} value={option.value}>
                           Winner of {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : knockoutMatchForm.awaySourceType === KNOCKOUT_SOURCE_LOSER ? (
+                    <select
+                      className={styles.select}
+                      id="knockout-away-team"
+                      onChange={(event) => updateKnockoutLoserSource("away", event.target.value)}
+                      value={knockoutMatchForm.awayLoserMatchIndex}
+                    >
+                      <option value="">Select knockout loser</option>
+                      {getSavedKnockoutMatchOptions().map((option) => (
+                        <option key={`knockout-away-loser-${option.value}`} value={option.value}>
+                          Loser of {option.label}
                         </option>
                       ))}
                     </select>
@@ -2082,32 +2713,15 @@ export default function ManageTournamentDetail({ tournament }) {
               </label>
 
               <div className={styles.knockoutTeamList}>
-                {tournamentTables.map((groupTable, groupIndex) => (
-                  <div className={styles.knockoutTeamGroup} key={`knockout-group-preview-${groupIndex + 1}`}>
-                    <p className={styles.knockoutTeamGroupTitle}>{groupTable.title}</p>
-                    {groupTable.rows.length ? (
-                      <div className={styles.knockoutTeamTable}>
-                        <div className={styles.knockoutTeamTableHead}>
-                          <span>Team</span>
-                          <span>Pts</span>
-                        </div>
-                        {groupTable.rows.map((row, rowIndex) => (
-                          <div
-                            className={styles.knockoutTeamTableRow}
-                            key={`knockout-preview-${groupIndex + 1}-${row.team}`}
-                          >
-                            <span className={styles.knockoutTeamName}>
-                              {row.team} ({getTablePositionCode(groupTable.title, rowIndex)})
-                            </span>
-                            <span className={styles.knockoutTeamPoints}>{row.points}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className={styles.knockoutTeamName}>No table data yet.</p>
-                    )}
-                  </div>
-                ))}
+                {tournamentTables.map((groupTable, groupIndex) =>
+                  renderKnockoutPositionPreview(groupTable, { keySuffix: `group-${groupIndex + 1}` })
+                )}
+                {renderKnockoutPositionPreview(overallTournamentTable, {
+                  displayTitle: overallTournamentTable ? `${overallTournamentTable.title} (All Groups)` : "",
+                  keySuffix: "overall",
+                })}
+                {renderKnockoutPositionPreview(winnersTournamentTable, { keySuffix: "winners" })}
+                {renderKnockoutPositionPreview(runnersUpTournamentTable, { keySuffix: "runners-up" })}
               </div>
 
               {knockoutMessage ? <p className={styles.status}>{knockoutMessage}</p> : null}

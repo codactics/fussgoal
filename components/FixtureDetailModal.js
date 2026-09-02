@@ -5,7 +5,7 @@ import codacticsGif from "../logo/codactics.gif";
 import TeamSquadModal from "./TeamSquadModal";
 import TeamOfficialPageLink from "./TeamOfficialPageLink";
 import TeamPageLink from "./TeamPageLink";
-import { formatMatchClock, getMatchClockSeconds } from "./manageTournamentUtils";
+import { formatMatchClock, getGoalCreditTeamName, getMatchClockSeconds } from "./manageTournamentUtils";
 import styles from "./FixtureDetailModal.module.css";
 
 function formatRole(role) {
@@ -49,19 +49,26 @@ function getOverlayPlayers(lineup, overlay) {
 }
 
 function getGoalScorers(fixture, side) {
-  const teamName = side === "home" ? fixture?.homeTeam : fixture?.awayTeam;
+  const teamName = String((side === "home" ? fixture?.homeTeam : fixture?.awayTeam) || "").trim();
+  const homeTeam = String(fixture?.homeTeam || "").trim();
+  const awayTeam = String(fixture?.awayTeam || "").trim();
   const entries = Array.isArray(fixture?.timelineEntries) ? fixture.timelineEntries : [];
 
   return entries
-    .filter(
-      (entry) =>
-        entry?.type === "event" &&
-        (entry?.action === "goal" || entry?.action === "penalty-goal") &&
-        String(entry?.teamName || "").trim() === String(teamName || "").trim()
-    )
+    .filter((entry) => {
+      const action = entry?.action;
+      if (entry?.type !== "event" || (action !== "goal" && action !== "penalty-goal" && action !== "own-goal")) {
+        return false;
+      }
+
+      const creditedTeam = getGoalCreditTeamName(String(entry?.teamName || "").trim(), action, homeTeam, awayTeam);
+      return creditedTeam === teamName;
+    })
     .map((entry) => ({
       id: entry.id,
-      player: String(entry.subjectLabel || "").trim() || String(teamName || ""),
+      player:
+        (String(entry.subjectLabel || "").trim() || teamName) +
+        (entry.action === "own-goal" ? " (OG)" : ""),
       time: String(entry.displayTime || "").trim(),
     }));
 }

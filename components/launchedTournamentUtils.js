@@ -1,10 +1,13 @@
 import {
+  buildOverallTournamentTable,
   buildTeamLogoMap,
   buildTournamentTables,
   formatMatchClock,
+  formatTeamWithPositionCode,
   getFixtureKey,
   getFixturePhaseLabel,
   getFixtureStatusLabel,
+  getGoalCreditTeamName,
   getMatchClockSeconds,
   getMatchScore,
   getPenaltyShootoutScore,
@@ -14,6 +17,7 @@ import {
 
 const ACTION_LABELS = {
   goal: "Goal",
+  "own-goal": "Own Goal",
   assist: "Assist",
   red: "Red Card",
   "direct-red": "Direct Red Card",
@@ -144,7 +148,7 @@ function buildFixtureLineup(lineupRecord) {
   };
 }
 
-function formatTimelineEvent(entry) {
+function formatTimelineEvent(entry, homeTeam, awayTeam) {
   if (entry.type === "kickoff") {
     return "Kick Off";
   }
@@ -160,6 +164,13 @@ function formatTimelineEvent(entry) {
   const actionLabel = ACTION_LABELS[entry.action] || "Match Event";
   const subjectLabel = String(entry.subjectLabel || "").trim();
   const teamName = String(entry.teamName || "").trim();
+
+  if (entry.action === "own-goal" && subjectLabel && teamName) {
+    const creditedTeam = getGoalCreditTeamName(teamName, "own-goal", homeTeam, awayTeam);
+    return `${actionLabel} - ${subjectLabel} (${teamName})${
+      creditedTeam ? ` → ${creditedTeam}` : ""
+    }`;
+  }
 
   if (subjectLabel && teamName && subjectLabel !== teamName) {
     return `${actionLabel} - ${subjectLabel} (${teamName})`;
@@ -229,7 +240,7 @@ function buildTimelineEntries(statusRecord) {
         seconds: nextSeconds,
         order: nextOrder,
         displayTime: formatMatchClock(nextSeconds),
-        text: formatTimelineEvent(entry),
+        text: formatTimelineEvent(entry, statusRecord?.homeTeam, statusRecord?.awayTeam),
         note: String(entry.note || "").trim(),
       };
     })
@@ -267,6 +278,8 @@ function normalizeFixtureSections(record, teamLogoMap, startDate) {
         }),
         homeTeam: match.home,
         awayTeam: match.away,
+        homeTeamDisplay: formatTeamWithPositionCode(match.home, match.homeSource),
+        awayTeamDisplay: formatTeamWithPositionCode(match.away, match.awaySource),
         homeLogo: teamLogoMap[match.home] || "",
         awayLogo: teamLogoMap[match.away] || "",
         teamSquads: {
@@ -336,9 +349,8 @@ export function normalizeSavedTournament(record) {
     record.tournamentType === "group"
       ? normalizeGroups(payload.groups, teamLogoMap, payload.teamSquads || {})
       : [];
-  const normalizedPointsTables = buildTournamentTables(record).map((groupTable) => ({
-    name: groupTable.title,
-    rows: groupTable.rows.map((row, index) => ({
+  const normalizePointsTableRows = (rows) =>
+    rows.map((row, index) => ({
       position: row.positionLabel || index + 1,
       team: row.team,
       logo: row.logo || "",
@@ -357,8 +369,18 @@ export function normalizeSavedTournament(record) {
       conductScore: row.conductScore,
       fairPlayScore: row.conductScore,
       unresolvedTie: row.unresolvedTie,
-    })),
+    }));
+  const normalizedPointsTables = buildTournamentTables(record).map((groupTable) => ({
+    name: groupTable.title,
+    rows: normalizePointsTableRows(groupTable.rows),
   }));
+  const overallGroupTable = buildOverallTournamentTable(record);
+  const normalizedOverallPointsTable = overallGroupTable
+    ? {
+        name: overallGroupTable.title,
+        rows: normalizePointsTableRows(overallGroupTable.rows),
+      }
+    : null;
   const normalizedFixtures = fixtureSections.flatMap((section) => section.matches);
   const description = String(
     record.description || payload.settings?.description || payload.description || ""
@@ -375,6 +397,7 @@ export function normalizeSavedTournament(record) {
     fixtureSections,
     groups: normalizedGroups,
     pointsTables: normalizedPointsTables,
+    overallPointsTable: normalizedOverallPointsTable,
     overallSummary: payload.overallSummary || null,
     startDate,
     endDate,

@@ -135,6 +135,16 @@
   grid-template-columns: 1fr;
 }
 
+.combinedTableSection {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.combinedTableSection .toggleButton {
+  width: 100%;
+}
+
 @media (max-width: 900px) {
   .buttonGrid,
   .twoColumns,

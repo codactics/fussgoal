@@ -12,12 +12,14 @@ import {
   formatMatchClock,
   getFixtureByIndexes,
   getFixtureKey,
+  getGoalCreditTeamName,
   getPenaltyShootoutScore,
   getPenaltyShootoutWinnerSide,
 } from "../../../../../../../../components/manageTournamentUtils";
 
 const MATCH_ACTIONS = [
   { value: "goal", label: "Goal", emoji: "⚽" },
+  { value: "own-goal", label: "Own Goal", emoji: "🔴⚽" },
   { value: "assist", label: "Assist", emoji: "🅰️" },
   { value: "direct-red", label: "Direct Red Card", emoji: "🟥" },
   { value: "second-yellow-red", label: "Second-Yellow Red Card", emoji: "🟨🟥" },
@@ -512,11 +514,13 @@ export default function AdminFixturePage({ params }) {
     const score = { home: 0, away: 0 };
 
     events.forEach((event) => {
-      if (event.action !== "goal" && event.action !== "penalty-goal") {
+      const action = event.action;
+      if (action !== "goal" && action !== "penalty-goal" && action !== "own-goal") {
         return;
       }
 
-      const teamName = String(event.teamName || getSubjectMeta(event.subjectKey)?.teamName || "");
+      const rawTeamName = String(event.teamName || getSubjectMeta(event.subjectKey)?.teamName || "");
+      const teamName = getGoalCreditTeamName(rawTeamName, action, fixture?.home, fixture?.away);
       if (teamName === fixture?.home) {
         score.home += 1;
       }
@@ -1471,6 +1475,13 @@ export default function AdminFixturePage({ params }) {
       if (yellowCount === 2) {
         return `${actionMeta.emoji}🟥 YELLOW + YELLOW RED CARD ${playerName} ${teamName}`;
       }
+    }
+
+    if (entry.action === "own-goal") {
+      const creditedTeam = getGoalCreditTeamName(teamName, "own-goal", fixture?.home, fixture?.away);
+      return `${actionMeta.emoji} OWN GOAL ${playerName} ${teamName}${
+        creditedTeam ? ` (goal credited to ${creditedTeam})` : ""
+      }`;
     }
 
     if (subjectType === "team") {
