@@ -14,12 +14,42 @@ import {
   syncTournamentAdminAccounts,
   validateTournamentAdmins,
 } from "../../../../lib/tournamentAdminAccounts";
+import { deleteImagesByPublicId } from "../../../../lib/cloudinary";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const runtime = "nodejs";
 
 function normalizeTournamentName(name) {
   return String(name || "").trim().toLowerCase();
+}
+
+function collectImagePublicId(imageValue, target) {
+  if (imageValue && typeof imageValue === "object" && imageValue.publicId) {
+    target.add(String(imageValue.publicId));
+  }
+}
+
+// Walks a saved tournament document for every Cloudinary public id it stores:
+// the tournament logo, each team logo, and every squad player photo.
+function collectTournamentImagePublicIds(tournament) {
+  const data = tournament?.data || {};
+  const publicIds = new Set();
+
+  collectImagePublicId(data.tournamentLogo, publicIds);
+
+  if (Array.isArray(data.teamData)) {
+    data.teamData.forEach((team) => collectImagePublicId(team?.logo, publicIds));
+  }
+
+  const teamSquads = data.teamSquads && typeof data.teamSquads === "object" ? data.teamSquads : {};
+  Object.values(teamSquads).forEach((squad) => {
+    if (Array.isArray(squad?.players)) {
+      squad.players.forEach((player) => collectImagePublicId(player?.photo, publicIds));
+    }
+  });
+
+  return Array.from(publicIds);
 }
 
 function withNoStore(response) {
@@ -228,8 +258,10 @@ export async function PATCH(request, { params }) {
   }
 }
 
-export async function DELETE(_request, { params }) {
+export async function DELETE(request, { params }) {
   try {
+    const purgeImages =
+      new URL(request.url).searchParams.get("purgeImages") === "true";
     const cookieStore = await cookies();
     const session = verifyAdminSessionToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
 
@@ -260,7 +292,16 @@ export async function DELETE(_request, { params }) {
 
     await deleteTournamentAdminAccounts(db, id, tournament.tournamentAdmins || []);
 
-    return withNoStore(NextResponse.json({ success: true }));
+    // Only when the master admin explicitly chose "Delete + Images": permanently
+    // remove the uploaded images (tournament logo, team logos, player photos)
+    // from storage. Best-effort — never blocks or fails the delete, since the
+    // document is already gone. A plain delete leaves the images in place so a
+    // JSON backup can still be restored with working image links.
+    const imageCleanup = purgeImages
+      ? await deleteImagesByPublicId(collectTournamentImagePublicIds(tournament))
+      : null;
+
+    return withNoStore(NextResponse.json({ success: true, imageCleanup }));
   } catch (error) {
     return withNoStore(NextResponse.json(
       { message: error?.message || "Unable to delete the tournament right now." },

@@ -134,6 +134,7 @@ export default function CreateTournamentWizard({ adminSession = null }) {
   const [savedTournaments, setSavedTournaments] = useState([]);
   const [editingTournamentId, setEditingTournamentId] = useState(null);
   const [pendingProtectedAction, setPendingProtectedAction] = useState(null);
+  const [pendingDeleteReminder, setPendingDeleteReminder] = useState(null);
   const [adminPassword, setAdminPassword] = useState("");
   const [endTournamentDate, setEndTournamentDate] = useState(getTodayDateInputValue);
   const [passwordError, setPasswordError] = useState("");
@@ -521,10 +522,13 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     return hydrateTournamentRecord(result.tournament);
   }
 
-  async function deleteTournamentRecord(tournamentId) {
-    const response = await fetch(`/api/tournaments/${tournamentId}`, {
-      method: "DELETE",
-    });
+  async function deleteTournamentRecord(tournamentId, purgeImages = false) {
+    const response = await fetch(
+      `/api/tournaments/${tournamentId}${purgeImages ? "?purgeImages=true" : ""}`,
+      {
+        method: "DELETE",
+      }
+    );
 
     const result = await response.json();
 
@@ -533,11 +537,12 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     }
   }
 
-  function requestProtectedAction(type, tournament) {
+  function requestProtectedAction(type, tournament, options = {}) {
     setPendingProtectedAction({
       type,
       tournamentId: tournament.id,
       tournamentName: tournament.name,
+      purgeImages: options.purgeImages === true,
     });
     setAdminPassword("");
     setEndTournamentDate(type === "end" ? getTodayDateInputValue() : "");
@@ -550,6 +555,27 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     setEndTournamentDate(getTodayDateInputValue());
     setPasswordError("");
     setIsVerifyingPassword(false);
+  }
+
+  function requestDeleteReminder(tournament, purgeImages = false) {
+    setPendingDeleteReminder({
+      tournament,
+      purgeImages,
+    });
+  }
+
+  function closeDeleteReminder() {
+    setPendingDeleteReminder(null);
+  }
+
+  function confirmDeleteReminder() {
+    if (!pendingDeleteReminder) {
+      return;
+    }
+
+    const { tournament, purgeImages } = pendingDeleteReminder;
+    setPendingDeleteReminder(null);
+    requestProtectedAction("delete", tournament, { purgeImages });
   }
 
   async function verifyAdminPassword(action) {
@@ -604,7 +630,10 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       }
 
       if (pendingProtectedAction.type === "delete") {
-        await deleteTournament(pendingProtectedAction.tournamentId);
+        await deleteTournament(
+          pendingProtectedAction.tournamentId,
+          pendingProtectedAction.purgeImages
+        );
       }
 
       closeProtectedActionPrompt();
@@ -1484,21 +1513,27 @@ export default function CreateTournamentWizard({ adminSession = null }) {
     reader.readAsText(file);
   }
 
-  async function deleteTournament(tournamentId) {
+  async function deleteTournament(tournamentId, purgeImages = false) {
     try {
-      await deleteTournamentRecord(tournamentId);
+      await deleteTournamentRecord(tournamentId, purgeImages);
       const nextSavedTournaments = savedTournaments.filter(
         (tournament) => tournament.id !== tournamentId
       );
       persistSavedTournaments(nextSavedTournaments);
 
+      const deletedMessageSuffix = purgeImages
+        ? " Uploaded images were also permanently removed from storage."
+        : " Uploaded images were kept in storage.";
+
       if (editingTournamentId === tournamentId) {
         restartFlow();
-        setStatusMessage("Tournament deleted and removed from the editor.");
+        setStatusMessage(`Tournament deleted and removed from the editor.${deletedMessageSuffix}`);
         return;
       }
 
-      setStatusMessage("Tournament deleted from the Saved Tournament section.");
+      setStatusMessage(
+        `Tournament deleted from the Saved Tournament section.${deletedMessageSuffix}`
+      );
     } catch (error) {
       setStatusMessage(error.message);
     }
@@ -1586,14 +1621,24 @@ export default function CreateTournamentWizard({ adminSession = null }) {
               Edit
             </button>
             {canDelete ? (
-              <button
-                className={styles.deleteButton}
-                disabled={deleteDisabled}
-                onClick={() => requestProtectedAction("delete", tournament)}
-                type="button"
-              >
-                Delete
-              </button>
+              <>
+                <button
+                  className={styles.deleteButton}
+                  disabled={deleteDisabled}
+                  onClick={() => requestDeleteReminder(tournament, false)}
+                  type="button"
+                >
+                  Delete
+                </button>
+                <button
+                  className={styles.deleteButton}
+                  disabled={deleteDisabled}
+                  onClick={() => requestDeleteReminder(tournament, true)}
+                  type="button"
+                >
+                  Delete + Images
+                </button>
+              </>
             ) : null}
           </div>
         </div>
@@ -2547,6 +2592,46 @@ export default function CreateTournamentWizard({ adminSession = null }) {
         </div>
       ) : null}
 
+      {pendingDeleteReminder ? (
+        <div className={styles.passwordOverlay}>
+          <div className={styles.passwordCard}>
+            <h3 className={styles.passwordTitle}>
+              {pendingDeleteReminder.purgeImages
+                ? "Take a full backup first"
+                : "Take a backup first"}
+            </h3>
+            <p className={styles.passwordText}>
+              You are about to{" "}
+              <strong>
+                {pendingDeleteReminder.purgeImages ? "Delete + Images" : "Delete"}
+              </strong>{" "}
+              for {pendingDeleteReminder.tournament?.name}.
+            </p>
+            <p className={styles.passwordText}>
+              {pendingDeleteReminder.purgeImages
+                ? "Download the full backup JSON now (Manage Tournament → Section 6). This step also permanently deletes every uploaded logo and player photo, so restoring from the backup later will have broken image links and cannot be fully recovered."
+                : "Download the backup JSON now (Manage Tournament → Section 6). You can restore this tournament later from that backup, with images intact."}
+            </p>
+            <div className={styles.passwordActions}>
+              <button
+                className={styles.secondaryButton}
+                onClick={closeDeleteReminder}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.primaryButton}
+                onClick={confirmDeleteReminder}
+                type="button"
+              >
+                OK, continue
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {pendingProtectedAction ? (
         <div className={styles.passwordOverlay}>
           <div className={styles.passwordCard}>
@@ -2560,10 +2645,19 @@ export default function CreateTournamentWizard({ adminSession = null }) {
                     ? "End Tournament"
                   : pendingProtectedAction.type === "edit"
                     ? "Edit"
+                  : pendingProtectedAction.purgeImages
+                    ? "Delete + Images"
                     : "Delete"}
               </strong>{" "}
               for {pendingProtectedAction.tournamentName}.
             </p>
+            {pendingProtectedAction.type === "delete" ? (
+              <p className={styles.passwordText}>
+                {pendingProtectedAction.purgeImages
+                  ? "This also permanently removes every uploaded logo and player photo from image storage. A JSON backup restored later will have broken image links. This cannot be undone."
+                  : "Uploaded logos and player photos are kept in image storage, so a JSON backup can be restored later with working images."}
+              </p>
+            ) : null}
             <input
               className={styles.input}
               onChange={(event) => setAdminPassword(event.target.value)}
