@@ -151,6 +151,23 @@ export default function CreateTournamentWizard({ adminSession = null }) {
   const isUploadingLogo = isUploadingTournamentLogo || uploadingTeamIndex !== null;
 
   const namedTeams = teamEntries.map((entry) => entry.name.trim()).filter(Boolean);
+  const duplicateTeamNames = (() => {
+    const counts = new Map();
+
+    teamEntries.forEach((entry) => {
+      const key = entry.name.trim().toLowerCase();
+
+      if (key) {
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+    });
+
+    return new Set(
+      Array.from(counts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([key]) => key)
+    );
+  })();
   const selectedManagedTournament =
     savedTournaments.find(
       (tournament) => String(tournament.id) === String(selectedManagedTournamentId)
@@ -295,6 +312,18 @@ export default function CreateTournamentWizard({ adminSession = null }) {
       const previousEntry = current[index];
       const knownTeam = field === "name" ? getKnownTeam(value) : null;
       const normalizedValue = knownTeam ? knownTeam.name : value;
+      // When a team name was picked from the known-team list its logo is filled
+      // in automatically. If the admin then edits or clears that name, drop the
+      // auto-filled logo so a stale badge doesn't linger. A manually uploaded
+      // logo (has a publicId) is left untouched.
+      const previousKnownTeam =
+        field === "name" && previousEntry ? getKnownTeam(previousEntry.name) : null;
+      const shouldClearAutoLogo =
+        field === "name" &&
+        !knownTeam &&
+        previousKnownTeam &&
+        !previousEntry.logoPublicId &&
+        previousEntry.logoDataUrl === previousKnownTeam.logo;
       const nextEntries = current.map((entry, entryIndex) =>
         entryIndex === index
           ? {
@@ -306,6 +335,9 @@ export default function CreateTournamentWizard({ adminSession = null }) {
                     logoName: "FC_CODACTICS_FALCONS.png",
                     logoPublicId: "",
                   }
+                : {}),
+              ...(shouldClearAutoLogo
+                ? { logoDataUrl: "", logoName: "", logoPublicId: "" }
                 : {}),
             }
           : entry
@@ -2059,16 +2091,28 @@ export default function CreateTournamentWizard({ adminSession = null }) {
               </div>
 
               <div className={styles.teamGrid}>
-                {teamEntries.map((entry, index) => (
+                {teamEntries.map((entry, index) => {
+                  const isDuplicateName = duplicateTeamNames.has(
+                    entry.name.trim().toLowerCase()
+                  );
+
+                  return (
                   <div className={styles.teamRow} key={entry.id}>
                     <div className={styles.teamNameField}>
                       <input
-                        className={styles.input}
+                        className={`${styles.input} ${
+                          isDuplicateName ? styles.inputDuplicate : ""
+                        }`}
                         onChange={(event) => updateTeamEntry(index, "name", event.target.value)}
                         placeholder={`Team ${entry.id}`}
                         type="text"
                         value={entry.name}
                       />
+                      {isDuplicateName ? (
+                        <p className={styles.duplicateHint}>
+                          Duplicate team name. Every team name must be unique.
+                        </p>
+                      ) : null}
                       {entry.name.trim() && !getKnownTeam(entry.name)
                         ? KNOWN_TEAMS.filter((team) =>
                             team.name.toLowerCase().includes(entry.name.trim().toLowerCase())
@@ -2121,7 +2165,8 @@ export default function CreateTournamentWizard({ adminSession = null }) {
                       ))}
                     </select>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className={styles.generatorActions}>

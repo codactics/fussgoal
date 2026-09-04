@@ -166,8 +166,16 @@ export async function PATCH(request, { params }) {
     const payload = await request.json();
     const fixtureKey = String(payload?.fixtureKey || "").trim();
     const snapshot = payload?.snapshot;
+    const clearLiveScoreboard = payload?.clearLiveScoreboard === true;
 
-    if (!fixtureKey || !snapshot || typeof snapshot !== "object") {
+    if (!fixtureKey) {
+      return withNoStore(NextResponse.json(
+        { message: "Fixture key is required." },
+        { status: 400 }
+      ));
+    }
+
+    if (!clearLiveScoreboard && (!snapshot || typeof snapshot !== "object")) {
       return withNoStore(NextResponse.json(
         { message: "Fixture key and snapshot are required." },
         { status: 400 }
@@ -187,15 +195,19 @@ export async function PATCH(request, { params }) {
     }
 
     const updatedAt = new Date().toISOString();
-    await collection.updateOne(
-      { id },
-      {
-        $set: {
-          [`data.matchStatuses.${fixtureKey}`]: snapshot,
-          updatedAt,
-        },
-      }
-    );
+    const updateOperation = clearLiveScoreboard
+      ? {
+          $unset: { [`data.matchStatuses.${fixtureKey}`]: "" },
+          $set: { updatedAt },
+        }
+      : {
+          $set: {
+            [`data.matchStatuses.${fixtureKey}`]: snapshot,
+            updatedAt,
+          },
+        };
+
+    await collection.updateOne({ id }, updateOperation);
 
     const updatedTournament = await collection.findOne({ id });
 

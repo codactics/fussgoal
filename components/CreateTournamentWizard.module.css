@@ -178,6 +178,20 @@
   box-shadow: 0 0 0 4px rgba(15, 106, 76, 0.1);
 }
 
+.inputDuplicate,
+.inputDuplicate:focus {
+  border-color: #d64550;
+  background: #fdf2f3;
+  box-shadow: 0 0 0 4px rgba(214, 69, 80, 0.14);
+}
+
+.duplicateHint {
+  margin: 0;
+  color: #a22735;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .textarea {
   min-height: 120px;
   resize: vertical;
@@ -539,13 +553,26 @@
 .endButton,
 .pauseButton,
 .savedActionButton,
-.deleteButton {
+.deleteButton,
+.forcedEndButton {
   min-height: 40px;
   padding: 0.7rem 1rem;
   border-radius: 999px;
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+.forcedEndButton {
+  margin-left: auto;
+  border: 1px solid rgba(176, 42, 55, 0.4);
+  background: #b02a37;
+  color: #ffffff;
+}
+
+.forcedEndButton:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .launchButton {

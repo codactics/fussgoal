@@ -377,6 +377,8 @@ export default function ManageTournamentDetail({ isMasterAdmin = false, tourname
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
   const [restoreMessage, setRestoreMessage] = useState("");
   const restoreFileInputRef = useRef(null);
+  const [pendingConfirmAction, setPendingConfirmAction] = useState(null);
+  const confirmPromptResolveRef = useRef(null);
 
   useEffect(() => {
     setCurrentTournament(tournament);
@@ -548,7 +550,26 @@ export default function ManageTournamentDetail({ isMasterAdmin = false, tourname
         .sort((left, right) => left.localeCompare(right)),
     [groupList]
   );
+  const duplicateSquadNames = useMemo(() => {
+    const counts = new Map();
+
+    squadRows.forEach((row) => {
+      const key = String(row?.name || "").trim().toLowerCase();
+
+      if (key) {
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+    });
+
+    return new Set(
+      Array.from(counts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([key]) => key)
+    );
+  }, [squadRows]);
   const allPlayerOptions = useMemo(() => {
+    const seenKeys = new Map();
+
     return allTeamOptions.flatMap((teamName) => {
       const players = Array.isArray(squadData?.[teamName]?.players)
         ? squadData[teamName].players
@@ -558,10 +579,16 @@ export default function ManageTournamentDetail({ isMasterAdmin = false, tourname
         .filter((player) => String(player?.name || "").trim())
         .map((player) => {
           const playerName = String(player.name || "").trim();
+          const baseKey = `${teamName}::${playerName}`;
+          const seenCount = seenKeys.get(baseKey) || 0;
+          seenKeys.set(baseKey, seenCount + 1);
 
           return {
-            key: `${teamName}::${playerName}`,
-            label: `${playerName} (${teamName})`,
+            key: seenCount === 0 ? baseKey : `${baseKey}#${seenCount + 1}`,
+            label:
+              seenCount === 0
+                ? `${playerName} (${teamName})`
+                : `${playerName} (${teamName}) #${seenCount + 1}`,
             playerName,
             teamName,
           };
@@ -1068,7 +1095,9 @@ export default function ManageTournamentDetail({ isMasterAdmin = false, tourname
     );
 
     return allPlayerNames.filter(
-      (playerName) => playerName === currentValue || !selectedElsewhere.has(playerName)
+      (playerName, index) =>
+        allPlayerNames.indexOf(playerName) === index &&
+        (playerName === currentValue || !selectedElsewhere.has(playerName))
     );
   }
 
@@ -1320,16 +1349,47 @@ export default function ManageTournamentDetail({ isMasterAdmin = false, tourname
     return null;
   }
 
+  function requestAdminConfirm({ title, message, okLabel = "OK" }) {
+    setPendingConfirmAction({ title, message, okLabel });
+
+    return new Promise((resolve) => {
+      confirmPromptResolveRef.current = resolve;
+    });
+  }
+
+  function closeAdminConfirmPrompt(result) {
+    setPendingConfirmAction(null);
+
+    if (confirmPromptResolveRef.current) {
+      confirmPromptResolveRef.current(result);
+      confirmPromptResolveRef.current = null;
+    }
+  }
+
   async function handleSaveLeadership() {
     const preparedPlayers = getPreparedPlayers();
     const playerNames = preparedPlayers.map((player) => player.name);
 
-    if (!captainSelection.captain) {
-      setSquadMessage("Captain is required.");
+    if (duplicateSquadNames.size > 0) {
+      setSquadStage("players");
+      setSquadMessage(
+        "Two or more players share the same name. Make every player name unique before saving."
+      );
       return;
     }
 
-    if (!playerNames.includes(captainSelection.captain)) {
+    if (!captainSelection.captain) {
+      const proceedWithoutCaptain = await requestAdminConfirm({
+        title: "Captain not selected",
+        message:
+          "No captain has been selected for this squad. Do you want to save the leadership without a captain?",
+        okLabel: "Save without captain",
+      });
+
+      if (!proceedWithoutCaptain) {
+        return;
+      }
+    } else if (!playerNames.includes(captainSelection.captain)) {
       setSquadMessage("Captain must be selected from the saved squad.");
       return;
     }
@@ -2152,16 +2212,28 @@ export default function ManageTournamentDetail({ isMasterAdmin = false, tourname
                   </tr>
                 </thead>
                 <tbody>
-                  {squadRows.map((row, rowIndex) => (
+                  {squadRows.map((row, rowIndex) => {
+                    const isDuplicateName = duplicateSquadNames.has(
+                      String(row.name || "").trim().toLowerCase()
+                    );
+
+                    return (
                     <tr key={`${activeTeam}-row-${rowIndex + 1}`}>
                       <td>
                         <input
-                          className={styles.input}
+                          className={`${styles.input} ${
+                            isDuplicateName ? styles.inputDuplicate : ""
+                          }`}
                           onChange={(event) => updateSquadRow(rowIndex, "name", event.target.value)}
                           placeholder="Player name"
                           type="text"
                           value={row.name}
                         />
+                        {isDuplicateName ? (
+                          <p className={styles.duplicateHint}>
+                            Duplicate player name. Names must be unique within the squad.
+                          </p>
+                        ) : null}
                       </td>
                       <td>
                         <input
@@ -2220,7 +2292,8 @@ export default function ManageTournamentDetail({ isMasterAdmin = false, tourname
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -2353,12 +2426,21 @@ export default function ManageTournamentDetail({ isMasterAdmin = false, tourname
             ) : null}
 
             {squadMessage ? <p className={styles.status}>{squadMessage}</p> : null}
+            {duplicateSquadNames.size > 0 ? (
+              <p className={styles.duplicateHint}>
+                Duplicate player names must be fixed before this squad can be saved.
+              </p>
+            ) : null}
 
             <div className={styles.passwordActions}>
               {squadStage === "players" ? (
                 <button
                   className={styles.primaryButton}
-                  disabled={isSavingSquad || isUploadingPlayerPhoto}
+                  disabled={
+                    isSavingSquad ||
+                    isUploadingPlayerPhoto ||
+                    duplicateSquadNames.size > 0
+                  }
                   onClick={handleSaveSquadPlayers}
                   type="button"
                 >
@@ -2376,7 +2458,7 @@ export default function ManageTournamentDetail({ isMasterAdmin = false, tourname
                   </button>
                   <button
                     className={styles.primaryButton}
-                    disabled={isSavingSquad}
+                    disabled={isSavingSquad || duplicateSquadNames.size > 0}
                     onClick={handleSaveLeadership}
                     type="button"
                   >
@@ -2384,6 +2466,31 @@ export default function ManageTournamentDetail({ isMasterAdmin = false, tourname
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingConfirmAction ? (
+        <div className={styles.passwordOverlay}>
+          <div className={styles.passwordCard} role="dialog" aria-modal="true">
+            <h3 className={styles.passwordTitle}>{pendingConfirmAction.title}</h3>
+            <p className={styles.passwordText}>{pendingConfirmAction.message}</p>
+            <div className={styles.passwordActions}>
+              <button
+                className={styles.confirmCancelButton}
+                onClick={() => closeAdminConfirmPrompt(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.confirmOkButton}
+                onClick={() => closeAdminConfirmPrompt(true)}
+                type="button"
+              >
+                {pendingConfirmAction.okLabel}
+              </button>
             </div>
           </div>
         </div>

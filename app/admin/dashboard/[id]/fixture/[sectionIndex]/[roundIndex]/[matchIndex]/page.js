@@ -252,6 +252,12 @@ export default function AdminFixturePage({ params }) {
   const fixtureKey = getFixtureKey(sectionIndex, roundIndex, matchIndex);
   const halfDurationSeconds = halfDurationMinutes * 60;
   const totalDurationSeconds = halfDurationSeconds * 2;
+  // The clock time the match actually ended at. Normally this is the full
+  // duration, but a "Forced End" stops the match early and records that moment
+  // as systemMoments.fulltime, so the ended clock must follow it.
+  const endedClockSeconds = Number.isFinite(systemMoments?.fulltime)
+    ? Math.min(Math.max(systemMoments.fulltime, 0), totalDurationSeconds)
+    : totalDurationSeconds;
   const homeSquadPlayers = useMemo(() => {
     const players = tournament?.data?.teamSquads?.[fixture?.home]?.players;
     return Array.isArray(players) ? players : [];
@@ -799,6 +805,54 @@ export default function AdminFixturePage({ params }) {
     });
   }
 
+  async function handleForcedEndMatch() {
+    if (!isTournamentLaunched || matchStatus === "ended") {
+      return;
+    }
+
+    const forcedAcknowledged = await requestAdminConfirm({
+      title: "Forced End",
+      message:
+        "This is a forced end. The match will end at this point, using the current clock time instead of the full duration.",
+      okLabel: "OK",
+    });
+
+    if (!forcedAcknowledged) {
+      return;
+    }
+
+    const confirmed = await requestAdminConfirm({
+      title: "End Match",
+      message: "Do you really want to End the match?",
+      okLabel: "OK",
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    const forcedEndSeconds = Math.max(
+      0,
+      Math.min(getCurrentElapsedSeconds(), totalDurationSeconds)
+    );
+
+    setElapsedBeforePause(forcedEndSeconds);
+    setRunningStartedAt(null);
+    setMatchStatus("ended");
+    setSelectedHalf("second");
+    const nextSystemMoments = { ...systemMoments, fulltime: forcedEndSeconds };
+    setSystemMoments(nextSystemMoments);
+    void persistMatchStatusSnapshot({
+      selectedHalf: "second",
+      matchStatus: "ended",
+      elapsedBeforePause: forcedEndSeconds,
+      runningStartedAt: null,
+      systemMoments: nextSystemMoments,
+      clockSeconds: forcedEndSeconds,
+      goalScore: getGoalScore(),
+    });
+  }
+
   function updatePenaltyRow(rowId, field, value) {
     setPenaltyRows((currentRows) =>
       currentRows.map((row) => (row.id === rowId ? { ...row, [field]: value } : row))
@@ -896,7 +950,7 @@ export default function AdminFixturePage({ params }) {
   }
 
   function getManualEventSeconds(index) {
-    const baseSeconds = matchStatus === "ended" ? totalDurationSeconds : getCurrentElapsedSeconds();
+    const baseSeconds = matchStatus === "ended" ? endedClockSeconds : getCurrentElapsedSeconds();
     return Math.max(0, baseSeconds + index);
   }
 
@@ -1062,11 +1116,11 @@ export default function AdminFixturePage({ params }) {
 
   const displayedClock = useMemo(() => {
     if (matchStatus === "ended") {
-      return formatMatchClock(totalDurationSeconds);
+      return formatMatchClock(endedClockSeconds);
     }
 
     return formatMatchClock(getCurrentElapsedSeconds());
-  }, [elapsedBeforePause, matchStatus, runningStartedAt, timerNow, totalDurationSeconds]);
+  }, [elapsedBeforePause, endedClockSeconds, matchStatus, runningStartedAt, timerNow]);
   const displayScheduledDate =
     scheduledDate || fixture?.date || tournament?.data?.settings?.startDate || tournament?.startDate || "TBD";
   const displayScheduledTime = scheduledTime || fixture?.time || "TBD";
@@ -1314,7 +1368,7 @@ export default function AdminFixturePage({ params }) {
 
   function getClampedTime(seconds) {
     if (matchStatus === "ended") {
-      return Math.min(seconds, totalDurationSeconds);
+      return Math.min(seconds, endedClockSeconds);
     }
 
     return seconds;
@@ -1522,7 +1576,7 @@ export default function AdminFixturePage({ params }) {
         }
 
         if (entry.type === "event" && entry.half === "second" && systemMoments.fulltime !== null) {
-          nextSeconds = Math.min(rawSeconds, totalDurationSeconds);
+          nextSeconds = Math.min(rawSeconds, endedClockSeconds);
           nextOrder -= 0.5;
         }
 
@@ -1533,7 +1587,14 @@ export default function AdminFixturePage({ params }) {
         };
       })
       .sort((left, right) => left.seconds - right.seconds || left.order - right.order);
-  }, [halfDurationSeconds, matchStatus, savedMatchEvents, systemMoments, totalDurationSeconds]);
+  }, [
+    endedClockSeconds,
+    halfDurationSeconds,
+    matchStatus,
+    savedMatchEvents,
+    systemMoments,
+    totalDurationSeconds,
+  ]);
 
   function saveDraftMatchEvent() {
     if (!isTournamentLaunched) {
@@ -1714,26 +1775,6 @@ export default function AdminFixturePage({ params }) {
         halftime: null,
         fulltime: null,
       };
-      const resetSnapshot = {
-        homeTeam: fixture.home,
-        awayTeam: fixture.away,
-        selectedHalf: "first",
-        halfDurationMinutes,
-        matchStatus: "idle",
-        elapsedBeforePause: 0,
-        runningStartedAt: null,
-        clockSeconds: 0,
-        goalScore: { home: 0, away: 0 },
-        events: [],
-        resultNote: "",
-        overwriteStatus: "",
-        penaltyShootout: {
-          entries: [],
-          finished: false,
-        },
-        systemMoments: resetSystemMoments,
-        updatedAt: new Date().toISOString(),
-      };
 
       setSelectedHalf("first");
       setMatchStatus("idle");
@@ -1769,7 +1810,26 @@ export default function AdminFixturePage({ params }) {
       lastSavedStatusRef.current = "";
       pendingSnapshotRef.current = null;
 
-      await persistMatchStatusSnapshot(resetSnapshot);
+      // Remove the live scoreboard record for this fixture from the database
+      // entirely, rather than leaving a blank snapshot behind. Lineup, telecast
+      // and fixture schedule records are keyed separately and stay untouched.
+      const response = await fetch(`/api/tournaments/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ fixtureKey, clearLiveScoreboard: true }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to reset the match.");
+      }
+
+      if (result.tournament) {
+        setTournament(result.tournament);
+      }
+
       setMatchStatusMessage("Full match reset completed.");
     } catch (error) {
       setMatchStatusMessage(error.message || "Unable to reset the match.");
@@ -2146,6 +2206,14 @@ export default function AdminFixturePage({ params }) {
                   type="button"
                 >
                   End
+                </button>
+                <button
+                  className={wizardStyles.forcedEndButton}
+                  disabled={!isTournamentLaunched || matchStatus === "ended"}
+                  onClick={handleForcedEndMatch}
+                  type="button"
+                >
+                  Forced End
                 </button>
               </div>
               <div className={wizardStyles.liveScoreboardCard}>

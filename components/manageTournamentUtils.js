@@ -730,6 +730,14 @@ export function getMatchClockSeconds(statusRecord, now = Date.now()) {
   const totalDurationSeconds = halfDurationSeconds * 2;
 
   if (statusRecord?.matchStatus === "ended") {
+    // A "Forced End" stops the match before full time and records that moment as
+    // systemMoments.fulltime, so the ended clock must reflect it. Normal endings
+    // record the full duration here, so this stays correct for them too.
+    const fulltimeMoment = Number(statusRecord?.systemMoments?.fulltime);
+    if (Number.isFinite(fulltimeMoment) && fulltimeMoment >= 0) {
+      return Math.min(fulltimeMoment, totalDurationSeconds);
+    }
+
     return totalDurationSeconds;
   }
 
